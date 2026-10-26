@@ -21,10 +21,6 @@ pub(super) async fn update_node_gap(
     target: &str,
 ) -> Option<NodeRequirementGap> {
     let package = npm_package_for(tool)?;
-    // MiniMax Code 的官方 installer 在系统 Node 不达标时会自带一份 Node。
-    if tool == "mcode" {
-        return None;
-    }
     #[cfg(target_os = "windows")]
     if wsl_distro_for_tool(tool).is_some() {
         return None;
@@ -266,7 +262,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn openclaw_range_rejects_node_22_and_admits_24_and_26() {
+    fn disjoint_node_engine_ranges_reject_the_gap() {
         let range = ">=24.16.0 <25 || >=26.1.0";
         assert_eq!(node_range_satisfied(range, "22.23.2"), Some(false));
         assert_eq!(node_range_satisfied(range, "v24.15.9"), Some(false));

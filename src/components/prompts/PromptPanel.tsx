@@ -5,7 +5,6 @@ import { APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
 import { promptsApi, type AppId, type Prompt } from "@/lib/api";
 import { usePromptActions } from "@/hooks/usePromptActions";
 import { useDelayedFlag } from "@/hooks/useDelayedFlag";
-import { useTauriEvent } from "@/hooks/useTauriEvent";
 import PiPromptPanel from "./PiPromptPanel";
 import PromptFormPanel from "./PromptFormPanel";
 import {
@@ -179,8 +178,6 @@ const StandardPromptPanel: React.FC<PromptPanelProps> = ({
     };
   }, [appId, runExternalReload]);
 
-  useTauriEvent("profile-applied", runExternalReload);
-
   const handleAdd = () => {
     if (reloadLockRef.current || writeLockRef.current || interactionBlocked) {
       return;
@@ -255,7 +252,7 @@ const StandardPromptPanel: React.FC<PromptPanelProps> = ({
       if (refreshed === false) {
         externalReloadQueuedRef.current = true;
       }
-      const effect = toggleEffectText(t, app, enabled);
+      const effect = toggleEffectText(t, app);
       if (!enabled) {
         showPromptToast(t, {
           title: t("prompts.toast.disabled", {
@@ -330,7 +327,7 @@ const StandardPromptPanel: React.FC<PromptPanelProps> = ({
             name: prompt.name,
             path: displayPath,
           }),
-          description: toggleEffectText(t, appId, true) || undefined,
+          description: toggleEffectText(t, appId) || undefined,
         });
       } else {
         showPromptToast(t, {
@@ -475,7 +472,6 @@ const StandardPromptPanel: React.FC<PromptPanelProps> = ({
         ? t("prompts.fileEmpty")
         : formatSize(utf8Bytes(fileText));
   const resultCount = filterPromptEntries(promptEntries, searchQuery).length;
-  const isHermes = appId === "hermes";
 
   return (
     <PromptPageFrame
@@ -484,14 +480,7 @@ const StandardPromptPanel: React.FC<PromptPanelProps> = ({
       onAppChange={onAppChange}
       appSwitchDisabled={navigationBlocked}
       count={promptEntries.length}
-      help={
-        isHermes
-          ? {
-              title: t("prompts.helpHermesTitle"),
-              text: t("prompts.helpHermesText"),
-            }
-          : { title: t("prompts.helpTitle"), text: t("prompts.helpText") }
-      }
+      help={{ title: t("prompts.helpTitle"), text: t("prompts.helpText") }}
       primary={{
         label: t("prompts.add"),
         onClick: handleAdd,

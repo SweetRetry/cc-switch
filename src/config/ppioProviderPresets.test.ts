@@ -1,21 +1,14 @@
 import { describe, expect, it } from "vitest";
-
-import { claudeDesktopProviderPresets } from "./claudeDesktopProviderPresets";
 import { providerPresets } from "./claudeProviderPresets";
 import { codexProviderPresets } from "./codexProviderPresets";
-import { hermesProviderPresets } from "./hermesProviderPresets";
-import { openclawProviderPresets } from "./openclawProviderPresets";
 import { opencodeProviderPresets } from "./opencodeProviderPresets";
 import { piProviderPresets } from "./piProviderPresets";
 import { getIcon, getIconMetadata } from "../icons/extracted";
 
 const ppioPresetCollections = [
   ["Claude Code", providerPresets],
-  ["Claude Desktop", claudeDesktopProviderPresets],
   ["Codex", codexProviderPresets],
   ["OpenCode", opencodeProviderPresets],
-  ["OpenClaw", openclawProviderPresets],
-  ["Hermes", hermesProviderPresets],
   ["Pi", piProviderPresets],
 ] as const;
 
@@ -27,10 +20,8 @@ const ppioChatCompletionsEndpoint = `${ppioOpenAiEndpoint}/chat/completions`;
 const ppioModelsEndpoint = `${ppioOpenAiEndpoint}/models`;
 const ppioBrandFields = {
   websiteUrl: "https://ppio.com",
-  apiKeyUrl: "https://ppio.com/activity/ccswitch",
+  apiKeyUrl: "https://ppio.com",
   category: "aggregator",
-  isPartner: true,
-  partnerPromotionKey: "ppio",
   icon: "ppio",
   iconColor: "#2874FF",
 };
@@ -65,24 +56,6 @@ describe("PPIO provider presets", () => {
       },
       endpointCandidates: [ppioAnthropicEndpoint],
       modelsUrl: ppioModelsEndpoint,
-    });
-  });
-
-  it("configures Claude Desktop with the native Anthropic endpoint", () => {
-    expect(getPpioPreset(claudeDesktopProviderPresets)).toMatchObject({
-      ...ppioBrandFields,
-      baseUrl: ppioAnthropicEndpoint,
-      mode: "proxy",
-      apiFormat: "anthropic",
-      modelRoutes: [
-        {
-          routeId: "claude-sonnet-5",
-          upstreamModel: ppioModelId,
-          labelOverride: ppioModelId,
-          supports1m: true,
-        },
-      ],
-      endpointCandidates: [ppioAnthropicEndpoint],
     });
   });
 
@@ -138,80 +111,6 @@ describe("PPIO provider presets", () => {
       "zai-org/glm-5.3",
     ]);
     expect(`${opencode.settingsConfig.options.baseURL}/chat/completions`).toBe(
-      ppioChatCompletionsEndpoint,
-    );
-  });
-
-  it("configures OpenClaw with a versioned OpenAI Chat base", () => {
-    const openclaw = getPpioPreset(openclawProviderPresets)!;
-    expect(openclaw).toMatchObject({
-      ...ppioBrandFields,
-      settingsConfig: {
-        baseUrl: ppioOpenAiEndpoint,
-        apiKey: "",
-        api: "openai-completions",
-      },
-      templateValues: {
-        apiKey: { label: "API Key", placeholder: "sk-...", editorValue: "" },
-      },
-      suggestedDefaults: {
-        model: { primary: `ppio/${ppioModelId}` },
-        modelCatalog: { [`ppio/${ppioModelId}`]: { alias: ppioModelName } },
-      },
-    });
-    expect(
-      (openclaw.settingsConfig.models ?? []).map((model) => model.id),
-    ).toEqual([
-      ppioModelId,
-      "moonshotai/kimi-k3.1-pro",
-      "zai-org/glm-5.3",
-      "xiaomimimo/mimo-v2.6-pro",
-      "qwen/qwen3.8-max",
-      "minimax/minimax-m3.1-flash",
-      "stepfun/step-5-preview",
-    ]);
-    expect(openclaw.settingsConfig.models?.[0]).toMatchObject({
-      id: ppioModelId,
-      name: ppioModelName,
-      reasoning: true,
-      input: ["text"],
-      contextWindow: 1048576,
-      maxTokens: 393216,
-      cost: { input: 0.14, output: 0.29, cacheRead: 0.03 },
-    });
-    expect(`${openclaw.settingsConfig.baseUrl}/chat/completions`).toBe(
-      ppioChatCompletionsEndpoint,
-    );
-  });
-
-  it("configures Hermes with a versioned OpenAI Chat base", () => {
-    const hermes = getPpioPreset(hermesProviderPresets)!;
-    expect(hermes).toMatchObject({
-      ...ppioBrandFields,
-      settingsConfig: {
-        name: "ppio",
-        base_url: ppioOpenAiEndpoint,
-        api_key: "",
-        api_mode: "chat_completions",
-        models: [
-          {
-            id: ppioModelId,
-            name: ppioModelName,
-            context_length: 1048576,
-          },
-          {
-            id: "moonshotai/kimi-k3.1-pro",
-            name: "Kimi K3.1 Pro",
-            context_length: 1048576,
-          },
-          { id: "zai-org/glm-5.3", name: "GLM-5.3", context_length: 1000000 },
-        ],
-      },
-      suggestedDefaults: {
-        model: { default: ppioModelId, provider: "ppio" },
-      },
-    });
-    expect(`${hermes.settingsConfig.base_url}/chat/completions`).toBe(
       ppioChatCompletionsEndpoint,
     );
   });

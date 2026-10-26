@@ -472,7 +472,7 @@ pub(crate) fn has_one_m_marker(model: &str) -> bool {
     model
         .trim_end()
         .to_ascii_lowercase()
-        .ends_with(crate::claude_desktop_config::ONE_M_CONTEXT_MARKER)
+        .ends_with(crate::model_capabilities::ONE_M_CONTEXT_MARKER)
 }
 
 fn is_truthy(value: &Value) -> bool {

@@ -188,16 +188,6 @@ export function ManualUninstallDialog({
                       {t("common.copy")}
                     </Button>
                   </div>
-                  {tool === "openclaw" && (
-                    <p className="text-caption text-fg-2">
-                      {t("settings.manualUninstallOpenClawHint")}
-                    </p>
-                  )}
-                  {tool === "openclaw" && selectedMethod === "bun" && (
-                    <p className="text-caption text-fg-2">
-                      {t("settings.manualUninstallBunLauncherHint")}
-                    </p>
-                  )}
                   <pre className="overflow-x-auto rounded-control border border-border bg-subtle px-3 py-2.5 font-mono text-caption">
                     <code>{command}</code>
                   </pre>

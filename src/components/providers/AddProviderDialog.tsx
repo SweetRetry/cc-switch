@@ -1,42 +1,37 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
-import { toast } from "@/lib/toast";
-import { Button } from "@/components/ui/button";
 import { FullScreenPanel } from "@/components/common/FullScreenPanel";
-import { APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
+import { AuthSettingsPanel } from "@/components/providers/AuthSettingsPanel";
+import { useLiveEditConflict } from "@/components/providers/LiveEditConflictDialog";
+import {
+  ProviderForm,
+  type ProviderFormValues,
+} from "@/components/providers/forms/ProviderForm";
+import { toastEditorViewFailed } from "@/components/providers/forms/hooks/useDraftEditorProjection";
 import {
   PresetStepContext,
   type PresetStepState,
 } from "@/components/providers/forms/presetStep";
-import type { Provider, CustomEndpoint, UniversalProvider } from "@/types";
-import type { AppId } from "@/lib/api";
+import { APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
+import { Button } from "@/components/ui/button";
+import { UniversalProviderPanel } from "@/components/universal";
+import { UniversalProviderFormModal } from "@/components/universal/UniversalProviderFormModal";
+import { agyProviderPresets } from "@/config/agyProviderPresets";
+import { isPiFamilyApp, usesEditorView } from "@/config/appConfig";
+import { providerPresets } from "@/config/claudeProviderPresets";
+import { codexProviderPresets } from "@/config/codexProviderPresets";
+import type { UniversalProviderPreset } from "@/config/universalProviderPresets";
+import type { AppId, AuthCenterTarget } from "@/lib/api";
 import { providersApi, universalProvidersApi } from "@/lib/api";
 import type {
   EditorConflictPolicy,
   ProviderEditorSave,
 } from "@/lib/api/providers";
-import { useLiveEditConflict } from "@/components/providers/LiveEditConflictDialog";
-import { toastEditorViewFailed } from "@/components/providers/forms/hooks/useDraftEditorProjection";
-import { isPiFamilyApp, usesEditorView } from "@/config/appConfig";
-import {
-  ProviderForm,
-  type ProviderFormValues,
-} from "@/components/providers/forms/ProviderForm";
-import { AuthSettingsPanel } from "@/components/providers/AuthSettingsPanel";
-import { UniversalProviderFormModal } from "@/components/universal/UniversalProviderFormModal";
-import { UniversalProviderPanel } from "@/components/universal";
-import { providerPresets } from "@/config/claudeProviderPresets";
-import { codexProviderPresets } from "@/config/codexProviderPresets";
-import { geminiProviderPresets } from "@/config/geminiProviderPresets";
-import { claudeDesktopProviderPresets } from "@/config/claudeDesktopProviderPresets";
-import { extractCodexBaseUrl } from "@/utils/providerConfigUtils";
-import { extractGrokBuildBaseUrl } from "@/utils/grokBuildConfig";
-import { GROKBUILD_OFFICIAL_PROVIDER_ID } from "@/utils/providerCapabilities";
-import type { OpenClawSuggestedDefaults } from "@/config/openclawProviderPresets";
-import type { UniversalProviderPreset } from "@/config/universalProviderPresets";
-import type { AuthCenterTarget } from "@/lib/api";
+import { toast } from "@/lib/toast";
+import type { CustomEndpoint, Provider, UniversalProvider } from "@/types";
 import type { AppMode } from "@/types/proxy";
+import { extractCodexBaseUrl } from "@/utils/providerConfigUtils";
+import { Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface AddProviderDialogProps {
   open: boolean;
@@ -45,9 +40,6 @@ interface AddProviderDialogProps {
   onSubmit: (
     provider: Omit<Provider, "id"> & {
       providerKey?: string;
-      suggestedDefaults?: OpenClawSuggestedDefaults;
-      ensureClaudeDesktopOfficialSeed?: boolean;
-      ensureGrokBuildOfficialSeed?: boolean;
       editorSave?: ProviderEditorSave;
     },
   ) => Promise<void> | void;
@@ -64,16 +56,7 @@ export function AddProviderDialog({
 }: AddProviderDialogProps) {
   const { t } = useTranslation();
   // OpenCode and OpenClaw don't support universal providers
-  const showUniversalTab =
-    appId !== "opencode" &&
-    appId !== "openclaw" &&
-    appId !== "hermes" &&
-    appId !== "pi" &&
-    appId !== "omp" &&
-    appId !== "mcode" &&
-    appId !== "kimi" &&
-    appId !== "grokbuild" &&
-    appId !== "claude-desktop";
+  const showUniversalTab = appId !== "opencode" && appId !== "pi";
   // 两步：先选预设，再填写（每次打开都从第 1 步开始）
   const [step, setStep] = useState<"pick" | "form">("pick");
   const [pickerHost, setPickerHost] = useState<HTMLDivElement | null>(null);
@@ -257,9 +240,6 @@ export function AddProviderDialog({
       // 构造基础提交数据
       const providerData: Omit<Provider, "id"> & {
         providerKey?: string;
-        suggestedDefaults?: OpenClawSuggestedDefaults;
-        ensureClaudeDesktopOfficialSeed?: boolean;
-        ensureGrokBuildOfficialSeed?: boolean;
       } = {
         name: values.name.trim(),
         notes: values.notes?.trim() || undefined,
@@ -270,34 +250,10 @@ export function AddProviderDialog({
         ...(values.presetCategory ? { category: values.presetCategory } : {}),
         ...(values.meta ? { meta: values.meta } : {}),
       };
-      if (appId === "claude-desktop" && values.presetId) {
-        const presetIndex = parseInt(
-          values.presetId.replace("claude-desktop-", ""),
-        );
-        const preset = claudeDesktopProviderPresets[presetIndex];
-        providerData.ensureClaudeDesktopOfficialSeed =
-          values.presetCategory === "official" &&
-          preset?.category === "official";
-      }
-
-      if (appId === "grokbuild" && values.presetId) {
-        providerData.ensureGrokBuildOfficialSeed =
-          values.presetCategory === "official" &&
-          values.presetId === GROKBUILD_OFFICIAL_PROVIDER_ID;
-      }
 
       // Apps whose native catalog has a stable provider key use it as the
       // managed provider identity.
-      if (
-        (appId === "opencode" ||
-          appId === "openclaw" ||
-          appId === "hermes" ||
-          appId === "pi" ||
-          appId === "mcode" ||
-          appId === "kimi" ||
-          appId === "omp") &&
-        values.providerKey
-      ) {
+      if ((appId === "opencode" || appId === "pi") && values.providerKey) {
         providerData.providerKey = values.providerKey;
       }
       const hasCustomEndpoints =
@@ -343,8 +299,8 @@ export function AddProviderDialog({
                 preset.endpointCandidates.forEach(addUrl);
               }
             }
-          } else if (appId === "gemini" || appId === "agy") {
-            const presets = geminiProviderPresets;
+          } else if (appId === "agy") {
+            const presets = agyProviderPresets;
             const presetIndex = parseInt(
               values.presetId.replace("gemini-", ""),
             );
@@ -358,31 +314,10 @@ export function AddProviderDialog({
                 preset.endpointCandidates.forEach(addUrl);
               }
             }
-          } else if (appId === "claude-desktop") {
-            const presets = claudeDesktopProviderPresets;
-            const presetIndex = parseInt(
-              values.presetId.replace("claude-desktop-", ""),
-            );
-            if (
-              !isNaN(presetIndex) &&
-              presetIndex >= 0 &&
-              presetIndex < presets.length
-            ) {
-              const preset = presets[presetIndex];
-              if (Array.isArray(preset.endpointCandidates)) {
-                preset.endpointCandidates.forEach(addUrl);
-              }
-              addUrl(preset.baseUrl);
-            }
           }
         }
 
         if (appId === "claude") {
-          const env = parsedConfig.env as Record<string, any> | undefined;
-          if (env?.ANTHROPIC_BASE_URL) {
-            addUrl(env.ANTHROPIC_BASE_URL);
-          }
-        } else if (appId === "claude-desktop") {
           const env = parsedConfig.env as Record<string, any> | undefined;
           if (env?.ANTHROPIC_BASE_URL) {
             addUrl(env.ANTHROPIC_BASE_URL);
@@ -395,15 +330,10 @@ export function AddProviderDialog({
               addUrl(extractedBaseUrl);
             }
           }
-        } else if (appId === "gemini" || appId === "agy") {
+        } else if (appId === "agy") {
           const env = parsedConfig.env as Record<string, any> | undefined;
           if (env?.GOOGLE_GEMINI_BASE_URL) {
             addUrl(env.GOOGLE_GEMINI_BASE_URL);
-          }
-        } else if (appId === "grokbuild") {
-          const config = parsedConfig.config as string | undefined;
-          if (config) {
-            addUrl(extractGrokBuildBaseUrl(config));
           }
         } else if (appId === "opencode") {
           const options = parsedConfig.options as
@@ -411,15 +341,6 @@ export function AddProviderDialog({
             | undefined;
           if (options?.baseURL) {
             addUrl(options.baseURL);
-          }
-        } else if (appId === "openclaw") {
-          // OpenClaw uses baseUrl directly
-          if (parsedConfig.baseUrl) {
-            addUrl(parsedConfig.baseUrl as string);
-          }
-        } else if (appId === "hermes") {
-          if (parsedConfig.base_url) {
-            addUrl(parsedConfig.base_url as string);
           }
         }
 
@@ -443,9 +364,6 @@ export function AddProviderDialog({
       }
 
       // OpenClaw: pass suggestedDefaults for model registration
-      if (appId === "openclaw" && values.suggestedDefaults) {
-        providerData.suggestedDefaults = values.suggestedDefaults;
-      }
 
       const editorBase =
         appId === "claude"

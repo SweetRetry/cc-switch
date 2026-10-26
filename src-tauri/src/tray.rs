@@ -34,30 +34,20 @@ const COPILOT_UNIT_PREMIUM: &str = "requests";
 pub const TRAY_ID: &str = "cc-switch";
 
 /// 进托盘的应用，顺序和侧栏一致。累加式应用没有「当前供应商」，不进托盘。
-pub const TRAY_APPS: [AppType; 5] = [
-    AppType::Claude,
-    AppType::ClaudeDesktop,
-    AppType::Codex,
-    AppType::Gemini,
-    AppType::GrokBuild,
-];
+pub const TRAY_APPS: [AppType; 2] = [AppType::Claude, AppType::Codex];
 
 /// 应用全称（产品名，不翻译）。用全称是为了把 Claude Code 和 Claude Desktop 分开。
 fn app_display_name(app: &AppType) -> &'static str {
     match app {
         AppType::Claude => "Claude Code",
-        AppType::ClaudeDesktop => "Claude Desktop",
+
         AppType::Codex => "Codex",
-        AppType::Gemini => "Gemini CLI",
-        AppType::GrokBuild => "Grok Build",
+
         AppType::OpenCode => "OpenCode",
-        AppType::OpenClaw => "OpenClaw",
-        AppType::Hermes => "Hermes",
+
         AppType::Pi => "Pi",
-        AppType::Mcode => "MiniMax Code",
-        AppType::Kimi => "Kimi Code",
+
         AppType::Agy => "Antigravity",
-        AppType::Omp => "Oh My Pi",
     }
 }
 
@@ -89,8 +79,6 @@ pub struct TrayTexts {
     pub quit: &'static str,
     /// 有应用在用路由服务时的「退出」：写明后果（客户端指回直连、路由服务停止，下次打开自动接回）。
     pub quit_stops_routing: &'static str,
-    pub projects_label: &'static str,
-    pub no_project_label: &'static str,
     pub header_direct: &'static str,
     pub header_route: &'static str,
     pub header_failover: &'static str,
@@ -116,8 +104,6 @@ pub struct TrayTexts {
     pub feedback_switched: &'static str,
     /// 反馈行：聚合换默认
     pub feedback_stack_default: &'static str,
-    /// 反馈行：应用项目
-    pub feedback_profile: &'static str,
     pub tier_five_hour: &'static str,
     pub tier_weekly: &'static str,
     pub tier_fable: &'static str,
@@ -192,8 +178,6 @@ impl TrayTexts {
                 lightweight_mode: "Lightweight mode",
                 quit: "Quit CC Switch",
                 quit_stops_routing: "Quit CC Switch (stops the routing service)",
-                projects_label: "Projects",
-                no_project_label: "No project",
                 header_direct: "Direct",
                 header_route: "Routing",
                 header_failover: "Routing · Failover on",
@@ -217,7 +201,6 @@ impl TrayTexts {
                 feedback_switched: "{app} switched to {name}. Restart {app} to apply",
                 feedback_stack_default:
                     "{app}'s default provider is now {name}. Restart {app} to apply",
-                feedback_profile: "Applied project \u{201c}{name}\u{201d} to {app}",
                 tier_five_hour: "5-hour",
                 tier_weekly: "Weekly",
                 tier_fable: "Fable",
@@ -251,8 +234,6 @@ impl TrayTexts {
                 texts.lightweight_mode = "Hafif mod";
                 texts.quit = "CC Switch'ten çık";
                 texts.quit_stops_routing = "CC Switch'ten çık (yönlendirme hizmeti durur)";
-                texts.projects_label = "Projeler";
-                texts.no_project_label = "Proje yok";
                 texts.header_direct = "Doğrudan";
                 texts.header_route = "Yönlendirme";
                 texts.header_failover = "Yönlendirme · Yedek sağlayıcıya geçiş açık";
@@ -274,7 +255,6 @@ impl TrayTexts {
                 texts.tooltip_problem = "CC Switch · İlgilenilmesi gerekiyor: {problem}";
                 texts.feedback_switched = "{app}, {name} sağlayıcısına geçti. Uygulamak için {app} uygulamasını yeniden başlatın";
                 texts.feedback_stack_default = "{app} için varsayılan sağlayıcı artık {name}. Uygulamak için {app} uygulamasını yeniden başlatın";
-                texts.feedback_profile = "{name} projesi {app} uygulamasına uygulandı";
                 texts.tier_five_hour = "5 saatlik";
                 texts.tier_weekly = "Haftalık";
                 texts.tier_fable = "Fable";
@@ -305,8 +285,6 @@ impl TrayTexts {
                 lightweight_mode: "軽量モード",
                 quit: "CC Switch を終了",
                 quit_stops_routing: "CC Switch を終了（ルーティングサービスが停止します）",
-                projects_label: "プロジェクト",
-                no_project_label: "プロジェクトを使用しない",
                 header_direct: "直接接続",
                 header_route: "ルーティング",
                 header_failover: "ルーティング · フェイルオーバー有効",
@@ -330,7 +308,6 @@ impl TrayTexts {
                 feedback_switched:
                     "{app} を {name} に切り替えました。反映するには {app} を再起動してください",
                 feedback_stack_default: "{app} のデフォルトのプロバイダーを {name} に変更しました。反映するには {app} を再起動してください",
-                feedback_profile: "プロジェクト「{name}」を {app} に適用しました",
                 tier_five_hour: "5時間",
                 tier_weekly: "週間",
                 tier_fable: "Fable",
@@ -361,8 +338,6 @@ impl TrayTexts {
                 lightweight_mode: "輕量模式",
                 quit: "退出 CC Switch",
                 quit_stops_routing: "退出 CC Switch（路由服務會停止）",
-                projects_label: "專案",
-                no_project_label: "不使用專案",
                 header_direct: "直連",
                 header_route: "路由",
                 header_failover: "路由 · 故障轉移開啟中",
@@ -384,7 +359,6 @@ impl TrayTexts {
                 tooltip_problem: "CC Switch · 需要處理：{problem}",
                 feedback_switched: "{app} 已切換到 {name}，重新啟動 {app} 後生效",
                 feedback_stack_default: "{app} 的預設供應商改為 {name}，重新啟動 {app} 後生效",
-                feedback_profile: "已把專案「{name}」套用到 {app}",
                 tier_five_hour: "5 小時",
                 tier_weekly: "每週",
                 tier_fable: "Fable",
@@ -415,8 +389,6 @@ impl TrayTexts {
                 lightweight_mode: "轻量模式",
                 quit: "退出 CC Switch",
                 quit_stops_routing: "退出 CC Switch（路由服务会停止）",
-                projects_label: "项目",
-                no_project_label: "不使用项目",
                 header_direct: "直连",
                 header_route: "路由",
                 header_failover: "路由 · 故障转移开启中",
@@ -438,7 +410,6 @@ impl TrayTexts {
                 tooltip_problem: "CC Switch · 需要处理：{problem}",
                 feedback_switched: "{app} 已切换到 {name}，重启 {app} 后生效",
                 feedback_stack_default: "{app} 的默认供应商改为 {name}，重启 {app} 后生效",
-                feedback_profile: "已把项目「{name}」用到 {app}",
                 tier_five_hour: "5 小时",
                 tier_weekly: "每周",
                 tier_fable: "Fable",
@@ -1065,16 +1036,10 @@ pub(crate) fn provider_needs_routing(app: &AppType, provider: &Provider) -> bool
         .and_then(|meta| meta.api_format.as_deref())
         .filter(|fmt| !fmt.is_empty());
     match app {
-        AppType::ClaudeDesktop => {
-            managed_oauth
-                || meta
-                    .and_then(|meta| meta.claude_desktop_mode.as_ref())
-                    .is_some_and(|mode| *mode == crate::provider::ClaudeDesktopMode::Proxy)
-        }
         AppType::Claude => {
             managed_oauth || full_url || api_format.is_some_and(|f| f != "anthropic")
         }
-        AppType::Codex | AppType::GrokBuild => {
+        AppType::Codex => {
             managed_oauth
                 || full_url
                 || matches!(api_format, Some("openai_chat" | "anthropic"))
@@ -1113,14 +1078,6 @@ struct ProviderEntry {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct ProfileSection {
-    scope: &'static str,
-    /// (id, 名字)
-    items: Vec<(String, String)>,
-    current: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 struct AppSnapshot {
     app: AppType,
     mode: TrayMode,
@@ -1136,7 +1093,6 @@ struct AppSnapshot {
     /// 路由服务该在跑却没在跑。
     service_down: bool,
     needs_attention: bool,
-    profiles: Option<ProfileSection>,
 }
 
 impl AppSnapshot {
@@ -1236,10 +1192,8 @@ fn tray_mode(app_state: &AppState, app: &AppType) -> TrayMode {
 fn collect_app_snapshot(
     app_state: &AppState,
     texts: &TrayTexts,
-    settings: &crate::settings::AppSettings,
     app: &AppType,
     service_running: Option<bool>,
-    profiles: &[crate::database::Profile],
 ) -> Result<AppSnapshot, AppError> {
     let rows = app_state.db.get_all_providers(app.as_str())?;
     let providers: Vec<ProviderEntry> = sort_providers(&rows)
@@ -1281,23 +1235,6 @@ fn collect_app_snapshot(
         usage_view(&app_state.usage_cache, texts, app, provider, id)
     });
 
-    let profiles = crate::services::profile::ProfileScope::for_app(app)
-        .filter(|_| settings.show_profile_switcher && !profiles.is_empty())
-        .map(|scope| -> Result<ProfileSection, AppError> {
-            Ok(ProfileSection {
-                scope: scope.as_str(),
-                items: profiles
-                    .iter()
-                    .map(|profile| (profile.id.clone(), profile.name.clone()))
-                    .collect(),
-                current: app_state
-                    .db
-                    .get_current_profile_id(scope.as_str())?
-                    .filter(|id| !id.is_empty()),
-            })
-        })
-        .transpose()?;
-
     let mut snapshot = AppSnapshot {
         app: app.clone(),
         mode,
@@ -1308,7 +1245,6 @@ fn collect_app_snapshot(
         quota,
         service_down: false,
         needs_attention: false,
-        profiles,
     };
     snapshot.service_down = service_running == Some(false) && snapshot.uses_service();
     Ok(snapshot)
@@ -1455,8 +1391,6 @@ enum TrayFeedback {
     Switched { app: AppType, name: String },
     /// 聚合换默认：发布给客户端的模型列表跟着变。
     StackDefault { app: AppType, name: String },
-    /// 应用项目：同时改了供应商、MCP、Skills、提示词。
-    ProfileApplied { app: AppType, name: String },
 }
 
 struct FeedbackRecord {
@@ -1473,20 +1407,10 @@ static FEEDBACK: Lazy<Mutex<Option<FeedbackRecord>>> = Lazy::new(|| Mutex::new(N
 /// 里，聚合换默认也一样）。
 fn switch_feedback(app: &AppType, mode: TrayMode, name: String) -> Option<TrayFeedback> {
     match mode {
-        TrayMode::Direct | TrayMode::Route | TrayMode::Stack if *app == AppType::ClaudeDesktop => {
-            Some(TrayFeedback::Switched {
-                app: app.clone(),
-                name,
-            })
-        }
-        TrayMode::Direct
-            if matches!(app, AppType::Codex | AppType::Gemini | AppType::GrokBuild) =>
-        {
-            Some(TrayFeedback::Switched {
-                app: app.clone(),
-                name,
-            })
-        }
+        TrayMode::Direct if *app == AppType::Codex => Some(TrayFeedback::Switched {
+            app: app.clone(),
+            name,
+        }),
         TrayMode::Stack => Some(TrayFeedback::StackDefault {
             app: app.clone(),
             name,
@@ -1539,7 +1463,6 @@ fn feedback_text(texts: &TrayTexts, feedback: &TrayFeedback) -> String {
     let (template, app, name) = match feedback {
         TrayFeedback::Switched { app, name } => (texts.feedback_switched, app, name),
         TrayFeedback::StackDefault { app, name } => (texts.feedback_stack_default, app, name),
-        TrayFeedback::ProfileApplied { app, name } => (texts.feedback_profile, app, name),
     };
     fill(
         template,
@@ -1834,28 +1757,6 @@ fn app_children(
         children.push(TrayEntry::item(format!("nav:app:{app}:quota"), note));
     }
 
-    if let Some(profiles) = &snapshot.profiles {
-        children.push(TrayEntry::Separator);
-        children.push(TrayEntry::label(
-            format!("info:{app}:projects"),
-            texts.projects_label,
-        ));
-        children.push(TrayEntry::check(
-            format!("profile_none_{}", profiles.scope),
-            texts.no_project_label,
-            true,
-            profiles.current.is_none(),
-        ));
-        for (id, name) in &profiles.items {
-            children.push(TrayEntry::check(
-                format!("profile_{}_{id}", profiles.scope),
-                truncate_chars(name, MAX_NAME_CHARS),
-                true,
-                profiles.current.as_deref() == Some(id.as_str()),
-            ));
-        }
-    }
-
     children.push(TrayEntry::Separator);
     children.push(TrayEntry::item(
         format!("nav:app:{app}"),
@@ -1972,17 +1873,9 @@ fn collect_snapshots(
     let settings = crate::settings::get_settings();
     let visible_apps = settings.visible_apps.clone().unwrap_or_default();
     let running = service_running(app_state);
-    let profiles = if settings.show_profile_switcher {
-        app_state.db.get_all_profiles()?
-    } else {
-        Vec::new()
-    };
-
     let mut snapshots = Vec::new();
     for app in TRAY_APPS.iter().filter(|app| visible_apps.is_visible(app)) {
-        snapshots.push(collect_app_snapshot(
-            app_state, texts, &settings, app, running, &profiles,
-        )?);
+        snapshots.push(collect_app_snapshot(app_state, texts, app, running)?);
     }
 
     let port = snapshots
@@ -2239,8 +2132,6 @@ fn panel_rows(
             });
             let kind = if provider.is_some() {
                 "provider"
-            } else if id.starts_with("profile_") {
-                "check"
             } else if enabled {
                 "item"
             } else {
@@ -2796,98 +2687,6 @@ pub fn show_main_window(app: &tauri::AppHandle) {
     }
 }
 
-/// 处理项目 Profile 托盘事件，返回是否已处理
-///
-/// 事件 id 形如 `profile_<scope>_<uuid>`（同一项目在各应用子菜单里各有一项，
-/// 应用时只作用于该分组）；`profile_none_<scope>` 表示某分组"不使用项目"
-/// （只清该分组标记，不动配置）。
-pub fn handle_profile_tray_event(app: &tauri::AppHandle, event_id: &str) -> bool {
-    let Some(suffix) = event_id.strip_prefix("profile_") else {
-        return false;
-    };
-
-    if let Some(scope_str) = suffix.strip_prefix("none_") {
-        let Ok(scope) = crate::services::profile::ProfileScope::parse(scope_str) else {
-            log::error!("未知的项目分组托盘事件: {event_id}");
-            return true;
-        };
-        if let Some(app_state) = app.try_state::<AppState>() {
-            if let Err(e) = app_state.db.set_current_profile_id(scope.as_str(), None) {
-                log::error!("清除当前项目失败: {e}");
-            }
-        }
-        // 通知主窗口刷新（profileId=null 表示该分组已清除当前项目）
-        if let Err(e) = app.emit(
-            "profile-applied",
-            serde_json::json!({ "profileId": null, "scope": scope.as_str() }),
-        ) {
-            log::error!("发射 profile-applied 事件失败: {e}");
-        }
-        refresh_tray_menu(app);
-        return true;
-    }
-
-    // scope 是固定枚举字符串（不含下划线），uuid 只含连字符，首个下划线即分界
-    let Some((scope_str, profile_id)) = suffix.split_once('_') else {
-        log::error!("无法解析项目托盘事件: {event_id}");
-        return true;
-    };
-    let Ok(scope) = crate::services::profile::ProfileScope::parse(scope_str) else {
-        log::error!("未知的项目分组托盘事件: {event_id}");
-        return true;
-    };
-
-    log::info!("应用项目: {profile_id}（{scope_str} 组）");
-    let app_handle = app.clone();
-    let profile_id = profile_id.to_string();
-    tauri::async_runtime::spawn_blocking(move || {
-        let Some(app_state) = app_handle.try_state::<AppState>() else {
-            return;
-        };
-        match crate::services::profile::ProfileService::apply(app_state.inner(), &profile_id, scope)
-        {
-            Ok(warnings) => {
-                for warning in &warnings {
-                    log::warn!("[Profile] 应用项目 {profile_id} 警告: {warning}");
-                }
-                for app_type in scope.apps() {
-                    clear_app_problems(app_type);
-                }
-                // 应用项目会同时改供应商、MCP、Skills、提示词，值得说一声。
-                let profile_name = app_state
-                    .db
-                    .get_profile(&profile_id)
-                    .ok()
-                    .flatten()
-                    .map(|profile| profile.name);
-                if let (Some(name), Some(app_type)) = (profile_name, scope.apps().first()) {
-                    record_feedback(
-                        &app_handle,
-                        TrayFeedback::ProfileApplied {
-                            app: app_type.clone(),
-                            name,
-                        },
-                    );
-                }
-                crate::commands::emit_profile_apply_events(
-                    &app_handle,
-                    app_state.inner(),
-                    &profile_id,
-                    scope,
-                );
-            }
-            Err(e) => {
-                log::error!("应用项目 {profile_id} 失败: {e}");
-                if let Some(app_type) = scope.apps().first() {
-                    record_switch_failure(app_type, e.to_string());
-                }
-                refresh_tray_menu(&app_handle);
-            }
-        }
-    });
-    true
-}
-
 /// 处理供应商托盘事件（`prov:<应用>:<供应商 id>`）
 pub fn handle_provider_tray_event(app: &tauri::AppHandle, event_id: &str) -> bool {
     let Some(rest) = event_id.strip_prefix("prov:") else {
@@ -3054,9 +2853,6 @@ pub fn handle_tray_menu_event(app: &tauri::AppHandle, event_id: &str) {
         _ => {
             if let Some(navigation) = parse_nav_id(event_id) {
                 navigate(app, navigation);
-                return;
-            }
-            if handle_profile_tray_event(app, event_id) {
                 return;
             }
             if handle_provider_tray_event(app, event_id) {
@@ -3322,16 +3118,7 @@ mod tests {
     #[test]
     fn tray_lists_switch_apps_in_sidebar_order_without_additive_apps() {
         let names: Vec<&str> = TRAY_APPS.iter().map(app_display_name).collect();
-        assert_eq!(
-            names,
-            [
-                "Claude Code",
-                "Claude Desktop",
-                "Codex",
-                "Gemini CLI",
-                "Grok Build"
-            ]
-        );
+        assert_eq!(names, ["Claude Code", "Codex"]);
         for app in TRAY_APPS {
             assert!(!app.is_additive_mode(), "{app:?} 是累加式应用，不进托盘");
         }
@@ -4000,73 +3787,6 @@ mod tests {
     }
 
     #[test]
-    fn needs_routing_mirrors_the_frontend_rule() {
-        let plain = provider(serde_json::json!({}), serde_json::json!({}));
-        for app in TRAY_APPS {
-            assert!(!provider_needs_routing(&app, &plain), "{app:?}");
-        }
-
-        let copilot = provider(
-            serde_json::json!({"providerType": "github_copilot"}),
-            serde_json::json!({}),
-        );
-        for app in [
-            AppType::Claude,
-            AppType::ClaudeDesktop,
-            AppType::Codex,
-            AppType::GrokBuild,
-        ] {
-            assert!(provider_needs_routing(&app, &copilot), "{app:?}");
-        }
-        assert!(!provider_needs_routing(&AppType::Gemini, &copilot));
-
-        let openai_chat = provider(
-            serde_json::json!({"apiFormat": "openai_chat"}),
-            serde_json::json!({}),
-        );
-        assert!(provider_needs_routing(&AppType::Claude, &openai_chat));
-        assert!(provider_needs_routing(&AppType::Codex, &openai_chat));
-        let anthropic = provider(
-            serde_json::json!({"apiFormat": "anthropic"}),
-            serde_json::json!({}),
-        );
-        assert!(!provider_needs_routing(&AppType::Claude, &anthropic));
-        assert!(provider_needs_routing(&AppType::Codex, &anthropic));
-        let full_url = provider(
-            serde_json::json!({"isFullUrl": true}),
-            serde_json::json!({}),
-        );
-        assert!(provider_needs_routing(&AppType::Claude, &full_url));
-
-        let codex_config = |wire_api: &str| {
-            serde_json::json!({
-                "auth": {"OPENAI_API_KEY": "sk"},
-                "config": format!(
-                    "model_provider = \"x\"\n[model_providers.x]\nbase_url = \"https://x.example/v1\"\nwire_api = \"{wire_api}\"\n"
-                )
-            })
-        };
-        let chat_wire = provider(serde_json::json!({}), codex_config("chat"));
-        assert!(provider_needs_routing(&AppType::Codex, &chat_wire));
-        let responses_wire = provider(serde_json::json!({}), codex_config("responses"));
-        assert!(!provider_needs_routing(&AppType::Codex, &responses_wire));
-
-        let desktop_mapping = provider(
-            serde_json::json!({"claudeDesktopMode": "proxy"}),
-            serde_json::json!({}),
-        );
-        assert!(provider_needs_routing(
-            &AppType::ClaudeDesktop,
-            &desktop_mapping
-        ));
-
-        // 官方卡永远不算。
-        let mut official = copilot.clone();
-        official.category = Some("official".to_string());
-        assert!(!provider_needs_routing(&AppType::Claude, &official));
-    }
-
-    #[test]
     fn codex_wire_api_falls_back_to_a_single_assignment_when_toml_is_broken() {
         assert_eq!(
             codex_wire_api("wire_api = \"chat\"\nbroken = [").as_deref(),
@@ -4102,7 +3822,6 @@ mod tests {
             quota: None,
             service_down: false,
             needs_attention: false,
-            profiles: None,
         }
     }
 
@@ -4141,35 +3860,6 @@ mod tests {
     }
 
     #[test]
-    fn top_level_order_is_open_apps_lightweight_website_quit() {
-        let apps = [
-            snapshot(
-                AppType::Claude,
-                TrayMode::Direct,
-                vec![entry("kimi", "Kimi For Coding")],
-            ),
-            snapshot(AppType::GrokBuild, TrayMode::Direct, vec![]),
-        ];
-        let menu = model(&[], &apps);
-        assert_eq!(
-            texts_of(&menu),
-            [
-                "打开 CC Switch",
-                "---",
-                "Claude Code · Kimi For Coding",
-                "Grok Build · 添加供应商…",
-                "---",
-                "轻量模式",
-                "---",
-                "打开官方网站",
-                "退出 CC Switch",
-            ]
-        );
-        assert!(matches!(&menu[3], TrayEntry::Item { id, .. } if id == "nav:add:grokbuild"));
-        assert!(matches!(&menu[8], TrayEntry::Item { id, .. } if id == "quit"));
-    }
-
-    #[test]
     fn direct_submenu_sends_needs_routing_providers_to_the_app_page() {
         let mut copilot = entry("copilot", "GitHub Copilot");
         copilot.needs_routing = true;
@@ -4202,26 +3892,6 @@ mod tests {
             TrayEntry::Item { id, enabled: true, .. } if id == "nav:needs:claude:copilot"
         ));
         assert!(matches!(&children[4], TrayEntry::Item { id, .. } if id == "nav:app:claude"));
-    }
-
-    #[test]
-    fn route_submenu_disables_official_plans_with_the_reason() {
-        let mut official = entry("xai", "xAI Official");
-        official.official = true;
-        official.blocked_from_routing = true;
-        let app = snapshot(
-            AppType::GrokBuild,
-            TrayMode::Route,
-            vec![entry("or", "OpenRouter"), official],
-        );
-        let menu = model(&[], &[app]);
-        assert_eq!(text_of(&menu[2]), "Grok Build · 路由 · OpenRouter");
-        let children = children_of(&menu, &AppType::GrokBuild);
-        assert_eq!(text_of(&children[0]), "路由");
-        assert!(
-            matches!(&children[2], TrayEntry::Item { enabled: false, text, .. }
-            if text == "xAI Official（官方订阅不经过路由）")
-        );
     }
 
     #[test]
@@ -4293,69 +3963,6 @@ mod tests {
                 "打开 Codex 页面"
             ]
         );
-    }
-
-    #[test]
-    fn desktop_uses_the_same_mode_rows_as_the_routing_apps() {
-        let mut mapping = entry("kimi", "Kimi For Coding");
-        mapping.needs_routing = true;
-        let mut official = entry("official", "Claude Desktop Official");
-        official.official = true;
-        official.blocked_from_routing = true;
-        let direct = snapshot(
-            AppType::ClaudeDesktop,
-            TrayMode::Direct,
-            vec![mapping.clone(), official.clone()],
-        );
-        let children = children_of(&model(&[], &[direct]), &AppType::ClaudeDesktop);
-        // 直连下要经路由的卡点了去应用页弹「需要路由」，不直接切。
-        assert!(
-            matches!(&children[1], TrayEntry::Item { id, .. } if id == "nav:needs:claude-desktop:kimi")
-        );
-
-        let mut routed = snapshot(
-            AppType::ClaudeDesktop,
-            TrayMode::Route,
-            vec![mapping, official],
-        );
-        routed.current_id = Some("kimi".to_string());
-        let menu = model(&[], &[routed]);
-        assert_eq!(text_of(&menu[2]), "Claude Desktop · 路由 · Kimi For Coding");
-        let children = children_of(&menu, &AppType::ClaudeDesktop);
-        assert!(
-            matches!(&children[1], TrayEntry::Check { id, checked: true, .. } if id == "prov:claude-desktop:kimi")
-        );
-    }
-
-    #[test]
-    fn service_down_shows_the_problem_row_and_needs_attention_instead_of_quota() {
-        let mut mapping = entry("kimi", "Kimi For Coding");
-        mapping.needs_routing = true;
-        let mut desktop = snapshot(AppType::ClaudeDesktop, TrayMode::Route, vec![mapping]);
-        desktop.service_down = true;
-        desktop.quota = Some(QuotaView::Lines(vec![tier_line(
-            &zh(),
-            zh().tier_weekly,
-            20.0,
-            None,
-        )]));
-        let mut apps = [desktop];
-        let problems = [TrayProblem::ServiceDown { port: 15721 }];
-        mark_attention(&mut apps, &problems);
-        let menu = model(&problems, &apps);
-        assert_eq!(text_of(&menu[0]), "路由服务没在运行（端口 15721）");
-        assert!(
-            matches!(&menu[0], TrayEntry::Item { id, enabled: true, .. } if id == "nav:settings:routing")
-        );
-        assert_eq!(text_of(&menu[1]), "---");
-        assert_eq!(text_of(&menu[2]), "打开 CC Switch");
-        assert_eq!(
-            text_of(&menu[4]),
-            "Claude Desktop · 路由 · Kimi For Coding · 需要处理"
-        );
-        // 子菜单和其他路由应用一样以模式标题开头，服务没在跑由顶部问题区说。
-        let children = children_of(&menu, &AppType::ClaudeDesktop);
-        assert_eq!(text_of(&children[0]), "路由");
     }
 
     #[test]
@@ -4432,44 +4039,6 @@ mod tests {
     }
 
     #[test]
-    fn projects_live_inside_the_app_submenu() {
-        let mut app = snapshot(
-            AppType::Codex,
-            TrayMode::Direct,
-            vec![entry("deepseek", "DeepSeek")],
-        );
-        app.profiles = Some(ProfileSection {
-            scope: "codex",
-            items: vec![
-                ("p1".to_string(), "个人项目".to_string()),
-                ("p2".to_string(), "公司项目".to_string()),
-            ],
-            current: Some("p2".to_string()),
-        });
-        let children = children_of(&model(&[], &[app]), &AppType::Codex);
-        assert_eq!(
-            texts_of(&children),
-            [
-                "直连",
-                "DeepSeek",
-                "---",
-                "项目",
-                "不使用项目",
-                "个人项目",
-                "公司项目",
-                "---",
-                "打开 Codex 页面"
-            ]
-        );
-        assert!(
-            matches!(&children[4], TrayEntry::Check { id, checked: false, .. } if id == "profile_none_codex")
-        );
-        assert!(
-            matches!(&children[6], TrayEntry::Check { id, checked: true, .. } if id == "profile_codex_p2")
-        );
-    }
-
-    #[test]
     fn long_and_duplicate_names_stay_readable() {
         let long = "An Extremely Long Provider Name That Keeps Going On";
         let mut first = entry("a", "OpenAI Official");
@@ -4536,11 +4105,7 @@ mod tests {
             );
             assert!(texts.header_stack_default.contains("{name}"), "{language}");
             assert!(texts.tooltip_problem.contains("{problem}"), "{language}");
-            for template in [
-                texts.feedback_switched,
-                texts.feedback_stack_default,
-                texts.feedback_profile,
-            ] {
+            for template in [texts.feedback_switched, texts.feedback_stack_default] {
                 assert!(
                     template.contains("{app}") && template.contains("{name}"),
                     "{language}: {template}"
@@ -4602,100 +4167,6 @@ mod tests {
     }
 
     #[test]
-    fn feedback_only_for_switches_that_need_a_client_restart() {
-        let name = || "DeepSeek".to_string();
-        for app in [AppType::Codex, AppType::Gemini, AppType::GrokBuild] {
-            assert_eq!(
-                switch_feedback(&app, TrayMode::Direct, name()),
-                Some(TrayFeedback::Switched {
-                    app: app.clone(),
-                    name: name()
-                })
-            );
-            // 路由 / 故障转移换一家立即生效。
-            assert_eq!(switch_feedback(&app, TrayMode::Route, name()), None);
-            assert_eq!(switch_feedback(&app, TrayMode::Failover, name()), None);
-        }
-        assert_eq!(
-            switch_feedback(&AppType::Claude, TrayMode::Direct, name()),
-            None
-        );
-        // Desktop 只在启动时读配置：直连、路由换一家都要重启。
-        for mode in [TrayMode::Direct, TrayMode::Route] {
-            assert!(matches!(
-                switch_feedback(&AppType::ClaudeDesktop, mode, name()),
-                Some(TrayFeedback::Switched { .. })
-            ));
-        }
-        for app in [AppType::Claude, AppType::Codex] {
-            assert!(matches!(
-                switch_feedback(&app, TrayMode::Stack, name()),
-                Some(TrayFeedback::StackDefault { .. })
-            ));
-        }
-    }
-
-    #[test]
-    fn feedback_row_is_a_grey_line_after_the_problems() {
-        let status = MenuStatus {
-            problems: vec![TrayProblem::ServiceDown { port: 15721 }],
-            feedback: Some(TrayFeedback::Switched {
-                app: AppType::Codex,
-                name: "DeepSeek".to_string(),
-            }),
-            routing_in_use: false,
-        };
-        let menu = build_menu_model(&zh(), &status, &[], false, now());
-        assert_eq!(
-            texts_of(&menu[..4]),
-            [
-                "路由服务没在运行（端口 15721）",
-                "Codex 已切换到 DeepSeek，重启 Codex 后生效",
-                "---",
-                "打开 CC Switch",
-            ]
-        );
-        assert!(matches!(&menu[1], TrayEntry::Item { enabled: false, .. }));
-
-        let only_feedback = MenuStatus {
-            feedback: Some(TrayFeedback::StackDefault {
-                app: AppType::Codex,
-                name: "Kimi For Coding".to_string(),
-            }),
-            ..Default::default()
-        };
-        let menu = build_menu_model(&zh(), &only_feedback, &[], false, now());
-        assert_eq!(
-            texts_of(&menu[..3]),
-            [
-                "Codex 的默认供应商改为 Kimi For Coding，重启 Codex 后生效",
-                "---",
-                "打开 CC Switch",
-            ]
-        );
-        assert_eq!(
-            feedback_text(
-                &zh(),
-                &TrayFeedback::ProfileApplied {
-                    app: AppType::Claude,
-                    name: "公司项目".to_string()
-                }
-            ),
-            "已把项目「公司项目」用到 Claude Code"
-        );
-        assert_eq!(
-            feedback_text(
-                &en(),
-                &TrayFeedback::Switched {
-                    app: AppType::ClaudeDesktop,
-                    name: "DeepSeek".to_string()
-                }
-            ),
-            "Claude Desktop switched to DeepSeek. Restart Claude Desktop to apply"
-        );
-    }
-
-    #[test]
     fn feedback_goes_away_after_the_panel_showed_it_or_two_minutes() {
         let record = |at: std::time::Instant| {
             *lock(&FEEDBACK) = Some(FeedbackRecord {
@@ -4734,16 +4205,16 @@ mod tests {
             })
         );
         assert_eq!(
-            parse_nav_id("nav:app:claude-desktop:quota"),
+            parse_nav_id("nav:app:pi:quota"),
             Some(TrayNavigation {
-                app: Some("claude-desktop".to_string()),
+                app: Some("pi".to_string()),
                 ..Default::default()
             })
         );
         assert_eq!(
-            parse_nav_id("nav:add:grokbuild"),
+            parse_nav_id("nav:add:agy"),
             Some(TrayNavigation {
-                app: Some("grokbuild".to_string()),
+                app: Some("agy".to_string()),
                 intent: Some("add".to_string()),
                 ..Default::default()
             })
@@ -4758,6 +4229,21 @@ mod tests {
         assert_eq!(parse_nav_id("nav:main"), Some(TrayNavigation::default()));
         assert_eq!(parse_nav_id("nav:needs:claude"), None);
         assert_eq!(parse_nav_id("nav:app:nope"), None);
+        for retired in [
+            "claude-desktop",
+            "gemini",
+            "grokbuild",
+            "openclaw",
+            "hermes",
+            "mcode",
+            "kimi",
+            "omp",
+        ] {
+            assert_eq!(parse_nav_id(&format!("nav:app:{retired}")), None);
+            assert_eq!(parse_nav_id(&format!("nav:add:{retired}")), None);
+            assert_eq!(parse_nav_id(&format!("nav:needs:{retired}:p1")), None);
+        }
+
         assert_eq!(parse_nav_id("prov:claude:x"), None);
         let json = serde_json::to_value(parse_nav_id("nav:needs:codex:p1").unwrap()).unwrap();
         assert_eq!(

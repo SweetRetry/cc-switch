@@ -1,19 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Notice } from "@/components/ui/notice";
-import { APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
 import { FullScreenPanel } from "@/components/common/FullScreenPanel";
-import type { Provider } from "@/types";
-import type { AppMode } from "@/types/proxy";
+import { AuthSettingsPanel } from "@/components/providers/AuthSettingsPanel";
+import { useLiveEditConflict } from "@/components/providers/LiveEditConflictDialog";
 import {
   ProviderForm,
   type ProviderFormValues,
 } from "@/components/providers/forms/ProviderForm";
-import { AuthSettingsPanel } from "@/components/providers/AuthSettingsPanel";
+import { toastEditorViewFailed } from "@/components/providers/forms/hooks/useDraftEditorProjection";
+import { APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
+import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
+import { isPiFamilyApp, usesEditorView } from "@/config/appConfig";
 import {
-  openclawApi,
   providersApi,
   vscodeApi,
   type AppId,
@@ -24,9 +21,11 @@ import type {
   ProviderEditorSave,
   ProviderEditorView,
 } from "@/lib/api/providers";
-import { useLiveEditConflict } from "@/components/providers/LiveEditConflictDialog";
-import { toastEditorViewFailed } from "@/components/providers/forms/hooks/useDraftEditorProjection";
-import { isPiFamilyApp, usesEditorView } from "@/config/appConfig";
+import type { Provider } from "@/types";
+import type { AppMode } from "@/types/proxy";
+import { Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface EditProviderDialogProps {
   open: boolean;
@@ -49,15 +48,8 @@ interface EditProviderDialogProps {
 const LIVE_FILE: Partial<Record<AppId, string>> = {
   claude: "~/.claude/settings.json",
   codex: "~/.codex/config.toml",
-  gemini: "~/.gemini/.env",
 };
-const SWITCH_APPS: AppId[] = [
-  "claude",
-  "codex",
-  "gemini",
-  "grokbuild",
-  "claude-desktop",
-];
+const SWITCH_APPS: AppId[] = ["claude", "codex"];
 
 const asRecord = (value: unknown): Record<string, unknown> | null =>
   typeof value === "object" && value !== null && !Array.isArray(value)
@@ -192,36 +184,10 @@ export function EditProviderDialog({
       // OpenCode uses additive mode, while Pi's (and Oh My Pi's) native models
       // file is owned by its provider service. Neither has a per-provider generic
       // live snapshot that may replace the DB aggregate in this form.
-      if (
-        appId === "opencode" ||
-        appId === "pi" ||
-        appId === "mcode" ||
-        appId === "kimi" ||
-        appId === "omp"
-      ) {
+      if (appId === "opencode" || appId === "pi") {
         if (!cancelled) {
           setLiveSettings(null);
           setHasLoadedLive(true);
-        }
-        return;
-      }
-
-      if (appId === "openclaw") {
-        try {
-          const live = await openclawApi.getLiveProvider(provider.id);
-          if (!cancelled && live && typeof live === "object") {
-            setLiveSettings(live);
-          } else if (!cancelled) {
-            setLiveSettings(null);
-          }
-        } catch {
-          if (!cancelled) {
-            setLiveSettings(null);
-          }
-        } finally {
-          if (!cancelled) {
-            setHasLoadedLive(true);
-          }
         }
         return;
       }
@@ -296,8 +262,7 @@ export function EditProviderDialog({
         unknown
       >;
       const nextProviderId =
-        (appId === "opencode" || appId === "openclaw" || appId === "pi") &&
-        values.providerKey?.trim()
+        (appId === "opencode" || appId === "pi") && values.providerKey?.trim()
           ? values.providerKey.trim()
           : provider.id;
 

@@ -75,20 +75,15 @@ pub fn extract_session_id(
     body: &serde_json::Value,
     client_format: &str,
 ) -> SessionIdResult {
-    if matches!(client_format, "claude" | "claude-desktop") {
+    if client_format == "claude" {
         if let Some(result) = extract_claude_session(headers, body) {
             return result;
         }
     }
 
-    // Responses 请求特殊处理。Grok Build 使用与 Codex 相同的客户端协议，
-    // 但保留独立前缀，避免统计和缓存键跨应用碰撞。
-    if matches!(client_format, "codex" | "openai" | "grokbuild") {
-        let prefix = if client_format == "grokbuild" {
-            "grokbuild"
-        } else {
-            "codex"
-        };
+    // Responses 请求使用 Codex 的会话标识。
+    if matches!(client_format, "codex" | "openai") {
+        let prefix = "codex";
         if let Some(result) = extract_responses_session(headers, body, prefix) {
             return result;
         }
@@ -132,14 +127,7 @@ fn extract_responses_session(
     prefix: &str,
 ) -> Option<SessionIdResult> {
     // 1. 从 headers 提取
-    let header_names: &[&str] = if prefix == "grokbuild" {
-        // Conversation ID 跨多轮请求保持稳定；session ID 作为客户端缺少
-        // conversation ID 时的回退。x-grok-req-id 是逐请求 ID，不能用于聚合。
-        &["x-grok-conv-id", "x-grok-session-id"]
-    } else {
-        // 保留旧拼写的优先级；原生 session-id 优先于 thread-id 回退。
-        &["session_id", "x-session-id", "session-id", "thread-id"]
-    };
+    let header_names: &[&str] = &["session_id", "x-session-id", "session-id", "thread-id"];
     for header_name in header_names {
         if let Some(value) = headers.get(*header_name) {
             if let Ok(session_id) = value.to_str() {
@@ -253,7 +241,7 @@ mod tests {
     #[test]
     fn test_claude_json_user_id_keeps_session_across_requests() {
         let headers = HeaderMap::new();
-        for client_format in ["claude", "claude-desktop"] {
+        for client_format in ["claude"] {
             for turn in 0..3 {
                 let body = json!({
                     "metadata": { "user_id": json!({
@@ -270,47 +258,6 @@ mod tests {
                 assert_eq!(result.source, SessionIdSource::MetadataUserId);
                 assert!(result.client_provided);
             }
-        }
-    }
-
-    #[test]
-    fn test_invalid_claude_json_user_id_falls_back_to_metadata_session() {
-        for user_id in [
-            r#"{"session_id":""}"#,
-            r#"{"session_id":"  "}"#,
-            r#"{"session_id":null}"#,
-            r#"{"session_id":123}"#,
-            r#"{"device_id":"device_session_wrong","parent_session_id":"parent"}"#,
-            r#"{"session_id":"broken_session_wrong""#,
-        ] {
-            let body = json!({"metadata": {
-                "user_id": user_id,
-                "session_id": "fallback-session"
-            }});
-            let result = extract_session_id(&HeaderMap::new(), &body, "claude-desktop");
-            assert_eq!(result.session_id, "fallback-session", "{user_id}");
-            assert_eq!(result.source, SessionIdSource::MetadataSessionId);
-            assert!(result.client_provided);
-
-            let body = json!({"metadata": {"user_id": user_id}});
-            let result = extract_session_id(&HeaderMap::new(), &body, "claude");
-            assert_eq!(result.source, SessionIdSource::Generated, "{user_id}");
-            assert!(!result.client_provided);
-        }
-    }
-
-    #[test]
-    fn test_claude_desktop_headers_precede_json_metadata() {
-        for header_name in ["x-claude-code-session-id", "claude-code-session-id"] {
-            let mut headers = HeaderMap::new();
-            headers.insert(header_name, "header-session".parse().unwrap());
-            let body = json!({"metadata": {"user_id":
-                r#"{"session_id":"metadata-session"}"#
-            }});
-            let result = extract_session_id(&headers, &body, "claude-desktop");
-            assert_eq!(result.session_id, "header-session");
-            assert_eq!(result.source, SessionIdSource::Header);
-            assert!(result.client_provided);
         }
     }
 
@@ -434,79 +381,6 @@ mod tests {
             assert_eq!(result.source, SessionIdSource::Header);
             assert!(result.client_provided);
         }
-    }
-
-    #[test]
-    fn test_grokbuild_prefers_conversation_header() {
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            "x-grok-conv-id",
-            "conv-724f4275-584e-43af-ad46-b5e7509a3ca2".parse().unwrap(),
-        );
-        headers.insert(
-            "x-grok-session-id",
-            "session-d937243f-2702-4f20-97b6-c9682235ab81"
-                .parse()
-                .unwrap(),
-        );
-        let body = json!({ "input": "Write a function" });
-
-        let result = extract_session_id(&headers, &body, "grokbuild");
-
-        assert_eq!(
-            result.session_id,
-            "grokbuild_conv-724f4275-584e-43af-ad46-b5e7509a3ca2"
-        );
-        assert_eq!(result.source, SessionIdSource::Header);
-        assert!(result.client_provided);
-    }
-
-    #[test]
-    fn test_grokbuild_falls_back_to_session_header() {
-        let body = json!({ "input": "Write a function" });
-
-        for conversation_id in ["", "                         "] {
-            let mut headers = HeaderMap::new();
-            headers.insert("x-grok-conv-id", conversation_id.parse().unwrap());
-            headers.insert(
-                "x-grok-session-id",
-                "session-d937243f-2702-4f20-97b6-c9682235ab81"
-                    .parse()
-                    .unwrap(),
-            );
-
-            let result = extract_session_id(&headers, &body, "grokbuild");
-
-            assert_eq!(
-                result.session_id,
-                "grokbuild_session-d937243f-2702-4f20-97b6-c9682235ab81"
-            );
-            assert_eq!(result.source, SessionIdSource::Header);
-            assert!(result.client_provided);
-        }
-    }
-
-    #[test]
-    fn test_grokbuild_ignores_request_and_codex_session_headers() {
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            "x-grok-req-id",
-            "request-724f4275-584e-43af-ad46-b5e7509a3ca2"
-                .parse()
-                .unwrap(),
-        );
-        headers.insert(
-            "x-session-id",
-            "codex-d937243f-2702-4f20-97b6-c9682235ab81"
-                .parse()
-                .unwrap(),
-        );
-        let body = json!({ "input": "Write a function" });
-
-        let result = extract_session_id(&headers, &body, "grokbuild");
-
-        assert_eq!(result.source, SessionIdSource::Generated);
-        assert!(!result.client_provided);
     }
 
     #[test]

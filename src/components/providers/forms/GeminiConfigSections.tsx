@@ -155,7 +155,7 @@ export const GeminiConfigSection: React.FC<GeminiConfigSectionProps> = ({
             ? t("provider.form.agy.configJsonHint")
             : t("geminiConfig.configJsonHint", {
                 defaultValue:
-                  "Gemini CLI 的 settings.json（MCP 服务器在 MCP 面板里管理）",
+                  "Antigravity CLI 的 settings.json（MCP 服务器在 MCP 面板里管理）",
               })}
         </p>
       )}

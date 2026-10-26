@@ -18,9 +18,9 @@
 /// would happen with the opposite default.
 /// 单一语义集（SSOT）：写入侧（proxy logger/calculator）、回填侧
 /// （usage_stats 成本重算）与展示侧（本文件的 SQL 归一）都必须引用这里，
-/// 防止同一语义散落多处后新增 app 时漏改（grokbuild 曾在回填侧漏掉）。
+/// 防止同一语义散落多处后新增 app 时漏改。
 /// 前端 `src/types/usage.ts` 的同名常量是跨语言的对应物，改动须同步。
-pub(crate) const CACHE_INCLUSIVE_APP_TYPES: &[&str] = &["codex", "gemini", "grokbuild"];
+pub(crate) const CACHE_INCLUSIVE_APP_TYPES: &[&str] = &["codex"];
 
 /// `app_type` 的存储 `input_tokens` 是否已包含 cache read/write。
 pub(crate) fn is_cache_inclusive_app(app_type: &str) -> bool {
@@ -118,8 +118,6 @@ mod tests {
         let sql = fresh_input_sql("");
         assert!(!sql.contains("."));
         assert!(sql.contains("'codex'"));
-        assert!(sql.contains("'gemini'"));
-        assert!(sql.contains("'grokbuild'"));
     }
 
     #[test]
@@ -129,20 +127,6 @@ mod tests {
         conn.execute(
             "INSERT INTO proxy_request_logs (request_id, app_type, input_tokens, cache_read_tokens)
              VALUES ('codex-1', 'codex', 1000, 600)",
-            [],
-        )
-        .unwrap();
-        // Gemini row: Google semantics — promptTokenCount includes cachedContentTokenCount.
-        conn.execute(
-            "INSERT INTO proxy_request_logs (request_id, app_type, input_tokens, cache_read_tokens)
-             VALUES ('gemini-1', 'gemini', 800, 300)",
-            [],
-        )
-        .unwrap();
-        // Grok Build uses OpenAI Responses semantics too.
-        conn.execute(
-            "INSERT INTO proxy_request_logs (request_id, app_type, input_tokens, cache_read_tokens)
-             VALUES ('grok-1', 'grokbuild', 700, 250)",
             [],
         )
         .unwrap();
@@ -157,8 +141,8 @@ mod tests {
         let expr = fresh_input_sql("l");
         let sql = format!("SELECT COALESCE(SUM({expr}), 0) FROM proxy_request_logs l");
         let total: i64 = conn.query_row(&sql, [], |r| r.get(0)).unwrap();
-        // Codex: 400; Gemini: 500; Grok Build: 450; Claude: 200 unchanged.
-        assert_eq!(total, 400 + 500 + 450 + 200);
+        // Codex stores total input and contributes 400. Claude stores 200 fresh input.
+        assert_eq!(total, 600);
     }
 
     #[test]

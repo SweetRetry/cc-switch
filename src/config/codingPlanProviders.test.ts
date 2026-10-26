@@ -62,14 +62,11 @@ describe("detectCodingPlanProvider (MiniMax)", () => {
 });
 
 describe("extractBaseUrlForUsageDetection", () => {
-  it("reads env.ANTHROPIC_BASE_URL for claude and claude-desktop", () => {
+  it("reads env.ANTHROPIC_BASE_URL for Claude Code", () => {
     const config = {
       env: { ANTHROPIC_BASE_URL: "https://opencode.ai/zen/go" },
     };
     expect(extractBaseUrlForUsageDetection("claude", config)).toBe(
-      "https://opencode.ai/zen/go",
-    );
-    expect(extractBaseUrlForUsageDetection("claude-desktop", config)).toBe(
       "https://opencode.ai/zen/go",
     );
   });
@@ -94,36 +91,14 @@ describe("extractBaseUrlForUsageDetection", () => {
         baseUrl: "https://opencode.ai/zen/go/v1",
       }),
     ).toBe("https://opencode.ai/zen/go/v1");
-    // Oh My Pi reads the same camelCase field shape as Pi; without this case
-    // the dialog cannot auto-pick a template from an omp provider's base URL.
-    expect(
-      extractBaseUrlForUsageDetection("omp", {
-        baseUrl: "https://opencode.ai/zen/go/v1",
-      }),
-    ).toBe("https://opencode.ai/zen/go/v1");
   });
 
-  it("reads the remaining apps' native base URL fields", () => {
-    const kimi = "https://api.kimi.com/coding/v1";
+  it("reads the Antigravity endpoint from its environment", () => {
     expect(
-      extractBaseUrlForUsageDetection("gemini", {
-        env: { GOOGLE_GEMINI_BASE_URL: kimi },
+      extractBaseUrlForUsageDetection("agy", {
+        env: { GOOGLE_GEMINI_BASE_URL: "https://api.example.com" },
       }),
-    ).toBe(kimi);
-    expect(
-      extractBaseUrlForUsageDetection("grokbuild", {
-        config: `[models]\ndefault = "k"\n\n[model.k]\nmodel = "kimi-for-coding"\nbase_url = "${kimi}"\n`,
-      }),
-    ).toBe(kimi);
-    expect(extractBaseUrlForUsageDetection("hermes", { base_url: kimi })).toBe(
-      kimi,
-    );
-    expect(extractBaseUrlForUsageDetection("openclaw", { baseUrl: kimi })).toBe(
-      kimi,
-    );
-    expect(
-      extractBaseUrlForUsageDetection("mcode", { options: { baseURL: kimi } }),
-    ).toBe(kimi);
+    ).toBe("https://api.example.com");
   });
 
   it("returns null for unknown apps", () => {
@@ -152,13 +127,6 @@ describe("injectCodingPlanUsageScript", () => {
   it("injects OpenCode Go for every app that ships its preset", () => {
     expectInjected(
       inject("claude", {
-        settingsConfig: {
-          env: { ANTHROPIC_BASE_URL: "https://opencode.ai/zen/go" },
-        },
-      }),
-    );
-    expectInjected(
-      inject("claude-desktop", {
         settingsConfig: {
           env: { ANTHROPIC_BASE_URL: "https://opencode.ai/zen/go" },
         },
@@ -201,8 +169,10 @@ describe("injectCodingPlanUsageScript", () => {
       }).meta?.usage_script,
     ).toMatchObject({ enabled: true, codingPlanProvider: "zhipu" });
     expect(
-      inject("hermes", {
-        settingsConfig: { base_url: "https://api.kimi.com/coding/v1" },
+      inject("agy", {
+        settingsConfig: {
+          env: { GOOGLE_GEMINI_BASE_URL: "https://api.kimi.com/coding/v1" },
+        },
       }).meta?.usage_script,
     ).toMatchObject({ enabled: true, codingPlanProvider: "kimi" });
   });

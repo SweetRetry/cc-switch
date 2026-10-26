@@ -88,29 +88,8 @@ fn parse_provider_deeplink(
         .ok_or_else(|| AppError::InvalidInput("Missing 'app' parameter".to_string()))?
         .clone();
 
-    // Validate app type.
-    //
-    // Oh My Pi is refused with the same guidance as the import path
-    // (`deeplink/provider.rs`): a models.yml entry needs its models listed, which
-    // the Oh My Pi provider form composes. Accepting the link here would only
-    // fail later with a generic "invalid app" error.
-    if matches!(app.as_str(), "omp" | "ohmypi" | "oh-my-pi" | "oh_my_pi") {
-        return Err(AppError::InvalidInput(
-            "Oh My Pi providers must be added from the Oh My Pi provider page".to_string(),
-        ));
-    }
-    if !matches!(
-        app.as_str(),
-        "agy"
-            | "claude"
-            | "codex"
-            | "gemini"
-            | "grokbuild"
-            | "opencode"
-            | "openclaw"
-            | "hermes"
-            | "pi"
-    ) {
+    // Validate the managed client at the URL boundary.
+    if !matches!(app.as_str(), "agy" | "claude" | "codex" | "opencode" | "pi") {
         return Err(AppError::InvalidInput(format!(
             "Invalid provider app type: '{app}'"
         )));
@@ -254,21 +233,9 @@ fn parse_prompt_deeplink(
         .clone();
 
     // Validate app type
-    if !matches!(
-        app.as_str(),
-        "claude"
-            | "codex"
-            | "gemini"
-            | "agy"
-            | "grokbuild"
-            | "opencode"
-            | "openclaw"
-            | "hermes"
-            | "pi"
-            | "mcode"
-    ) {
+    if !matches!(app.as_str(), "claude" | "codex" | "agy" | "opencode" | "pi") {
         return Err(AppError::InvalidInput(format!(
-            "Invalid app type: must be 'claude', 'codex', 'gemini', 'agy', 'grokbuild', 'opencode', 'openclaw', 'hermes', 'pi', or 'mcode', got '{app}'"
+            "Invalid app type: must be 'claude', 'codex', 'opencode', 'pi', or 'agy', got '{app}'"
         )));
     }
 
@@ -339,24 +306,9 @@ fn parse_mcp_deeplink(
     // rejecting a name here makes the importer's arm for it unreachable.
     for app in apps.split(',') {
         let trimmed = app.trim();
-        if !matches!(
-            trimmed,
-            "claude"
-                | "codex"
-                | "gemini"
-                | "agy"
-                | "grokbuild"
-                | "grok"
-                | "opencode"
-                | "openclaw"
-                | "hermes"
-                | "pi"
-                | "mcode"
-                | "kimi"
-                | "omp"
-        ) {
+        if !matches!(trimmed, "claude" | "codex" | "agy" | "opencode" | "pi") {
             return Err(AppError::InvalidInput(format!(
-                "Invalid app in 'apps': must be 'claude', 'codex', 'gemini', 'agy', 'grokbuild', 'opencode', 'hermes', 'pi', 'kimi', 'mcode', or 'omp', got '{trimmed}'"
+                "Invalid app in 'apps': must be 'claude', 'codex', 'opencode', 'pi', or 'agy', got '{trimmed}'"
             )));
         }
     }

@@ -93,12 +93,6 @@ export function isOfficialAccount(
   appId: AppId,
   provider: Pick<Provider, "id" | "category" | "meta" | "settingsConfig">,
 ): boolean {
-  if (appId === "kimi") {
-    const config = provider.settingsConfig.provider as
-      | { type?: string; oauth?: { key?: unknown } }
-      | undefined;
-    return config?.type === "kimi" && nonEmptyString(config?.oauth?.key);
-  }
   return (
     provider.category === "official" ||
     resolveCodexOfficialIdentity(appId, provider) !== null
@@ -126,10 +120,9 @@ export function supportsFailover(
  *   OpenCode 供应商卡片上测。
  */
 export function supportsConnectivityCheck(
-  appId: AppId,
+  _appId: AppId,
   provider: Pick<Provider, "category">,
 ): boolean {
-  if (appId === "mcode" || appId === "kimi") return false;
   return (
     provider.category !== "official" &&
     provider.category !== "omo" &&
@@ -175,11 +168,8 @@ export function providerNeedsRouting(
   const isManagedOAuth = isOAuthProviderType(provider.meta?.providerType);
 
   // Desktop 普通供应商由表单模式决定；托管 OAuth 的 token 只能由代理注入。
-  if (appId === "claude-desktop") {
-    return isManagedOAuth || provider.meta?.claudeDesktopMode === "proxy";
-  }
 
-  if (appId !== "claude" && appId !== "codex" && appId !== "grokbuild") {
+  if (appId !== "claude" && appId !== "codex") {
     return false;
   }
 
@@ -192,7 +182,7 @@ export function providerNeedsRouting(
     return provider.meta?.isFullUrl === true || (!!fmt && fmt !== "anthropic");
   }
 
-  if (appId === "codex" || appId === "grokbuild") {
+  if (appId === "codex") {
     const fmt = provider.meta?.apiFormat;
     // Codex 原生是 Responses，仅 Chat / Anthropic 需要转换（Responses 直连）。
     if (

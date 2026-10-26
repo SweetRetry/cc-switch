@@ -106,7 +106,7 @@ const GeminiConfigEditor: React.FC<GeminiConfigEditorProps> = ({
           ? t("provider.form.agy.keyFieldsHint")
           : t("geminiConfig.keyFieldsHint", {
               defaultValue:
-                "地址、Key、模型名和认证方式随供应商切换；其余环境变量和 settings.json 是 Gemini CLI 全局设置，保存后对所有供应商生效。",
+                "地址、Key、模型名和认证方式随供应商切换；其余环境变量和 settings.json 是 Antigravity CLI 全局设置，保存后对所有供应商生效。",
             })}
       </p>
 

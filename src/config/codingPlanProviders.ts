@@ -10,7 +10,6 @@
 import { createUsageScript } from "@/types";
 import { TEMPLATE_TYPES } from "@/config/constants";
 import { extractCodexBaseUrl } from "@/utils/providerConfigUtils";
-import { extractGrokBuildBaseUrl } from "@/utils/grokBuildConfig";
 
 export interface CodingPlanProviderEntry {
   /** 与后端 QuotaTier 的 `codingPlanProvider` 取值对齐 */
@@ -125,8 +124,10 @@ export function extractBaseUrlForUsageDetection(
   let raw: unknown;
   switch (appId) {
     case "claude":
-    case "claude-desktop":
       raw = settingsConfig.env?.ANTHROPIC_BASE_URL;
+      break;
+    case "agy":
+      raw = settingsConfig.env?.GOOGLE_GEMINI_BASE_URL;
       break;
     case "codex":
       raw = extractCodexBaseUrl(
@@ -135,29 +136,12 @@ export function extractBaseUrlForUsageDetection(
           : null,
       );
       break;
-    case "gemini":
-      raw = settingsConfig.env?.GOOGLE_GEMINI_BASE_URL;
-      break;
-    case "grokbuild":
-      raw =
-        typeof settingsConfig.config === "string"
-          ? extractGrokBuildBaseUrl(settingsConfig.config)
-          : null;
-      break;
+
     case "opencode":
-    case "mcode":
       raw = settingsConfig.options?.baseURL;
       break;
     case "pi":
-    case "omp":
-    case "openclaw":
       raw = settingsConfig.baseUrl;
-      break;
-    case "kimi":
-      raw = settingsConfig.provider?.base_url;
-      break;
-    case "hermes":
-      raw = settingsConfig.base_url;
       break;
     default:
       return null;

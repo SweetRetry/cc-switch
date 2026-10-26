@@ -169,8 +169,6 @@ interface CodexFormFieldsProps {
   category?: ProviderCategory;
   shouldShowApiKeyLink: boolean;
   websiteUrl: string;
-  isPartner?: boolean;
-  partnerPromotionKey?: string;
   isCodexOauthPreset?: boolean;
   selectedCodexAccountId?: string | null;
   onCodexAccountSelect?: (accountId: string | null) => void;
@@ -201,7 +199,6 @@ interface CodexFormFieldsProps {
   codexModel?: string;
   onModelChange?: (model: string) => void;
 
-  // Subagent defaults (config.toml `[agents]`). Codex only: Grok Build has no
   // such keys, and the Stack layout omits them (subagents follow the main model).
   subagentModel?: string;
   onSubagentModelChange?: (model: string) => void;
@@ -640,8 +637,6 @@ export function CodexFormFields({
   category,
   shouldShowApiKeyLink,
   websiteUrl,
-  isPartner,
-  partnerPromotionKey,
   isCodexOauthPreset = false,
   selectedCodexAccountId,
   onCodexAccountSelect,
@@ -734,13 +729,10 @@ export function CodexFormFields({
     : apiFormat;
   const isChatFormat = effectiveApiFormat === "openai_chat";
   const isAnthropicFormat = effectiveApiFormat === "anthropic";
-  // Grok Build 复用本表单，但语义与 Codex 有差异（无模型映射、协议由 TOML 的
   // api_backend 声明、请求体也不是 Codex 发出的）——提示文案按 appId 分流，
   // 对应词条在 grokBuild.* 下。
-  const isGrokBuild = appId === "grokbuild";
   const canEditCatalog = Boolean(onCatalogModelsChange);
   // 有模型列表的卡（两种布局）：列表第一行就是默认模型，没有单独的默认模型框；列表为空时
-  // 直连布局才显示默认模型框。Grok Build 没有列表，官方卡不显示列表。
   const firstRowIsDefault = canEditCatalog && category !== "official";
   const canEditReasoning = Boolean(onCodexChatReasoningChange);
   const supportsThinking =
@@ -1526,15 +1518,10 @@ export function CodexFormFields({
         t("codexConfig.maxOutputTokensLabel", {
           defaultValue: "最大输出 tokens",
         }),
-        isGrokBuild
-          ? t("grokBuild.maxOutputTokensHint", {
-              defaultValue:
-                "默认上限 8192，长回答或深度思考容易被截断。这里的值会作为 Anthropic 的 max_tokens 发出。",
-            })
-          : t("codexConfig.maxOutputTokensHint", {
-              defaultValue:
-                "Codex 不带输出上限，默认 8192，长回答或深度思考容易被截断。这里的值会作为 Anthropic 的 max_tokens 发出。",
-            }),
+        t("codexConfig.maxOutputTokensHint", {
+          defaultValue:
+            "Codex 不带输出上限，默认 8192，长回答或深度思考容易被截断。这里的值会作为 Anthropic 的 max_tokens 发出。",
+        }),
         "codex-anthropic-max-output-tokens",
       )}
       <Input
@@ -1629,15 +1616,10 @@ export function CodexFormFields({
           t("codexConfig.reasoningEffortToggle", {
             defaultValue: "支持思考等级",
           }),
-          isGrokBuild
-            ? t("grokBuild.reasoningEffortHint", {
-                defaultValue:
-                  "上游支持 low/high/max 等思考深度时打开。会同时打开思考模式，并把请求中的 reasoning effort 转成上游 Chat 参数。",
-              })
-            : t("codexConfig.reasoningEffortHint", {
-                defaultValue:
-                  "上游支持 low/high/max 等思考深度时打开。会同时打开思考模式，并把 Codex 的 reasoning.effort 转成上游 Chat 参数。",
-              }),
+          t("codexConfig.reasoningEffortHint", {
+            defaultValue:
+              "上游支持 low/high/max 等思考深度时打开。会同时打开思考模式，并把 Codex 的 reasoning.effort 转成上游 Chat 参数。",
+          }),
         )}
         <Switch
           checked={supportsEffort}
@@ -1655,13 +1637,9 @@ export function CodexFormFields({
   const userAgentAndOverrides = isCopilotPreset ? null : (
     <>
       <p className="text-xs leading-relaxed text-fg-2">
-        {isGrokBuild
-          ? t("grokBuild.routeOnlySettingsHint", {
-              defaultValue: "以下两项只在路由模式下生效。",
-            })
-          : t("codexConfig.routeOnlySettingsHint", {
-              defaultValue: "以下两项只在路由、聚合模式下生效。",
-            })}
+        {t("codexConfig.routeOnlySettingsHint", {
+          defaultValue: "以下两项只在路由、聚合模式下生效。",
+        })}
       </p>
       <CustomUserAgentField
         id="codex-custom-user-agent"
@@ -1895,8 +1873,6 @@ export function CodexFormFields({
           required
           shouldShowLink={shouldShowApiKeyLink}
           websiteUrl={websiteUrl}
-          isPartner={isPartner}
-          partnerPromotionKey={partnerPromotionKey}
           placeholder={{
             official: t("providerForm.codexOfficialNoApiKey", {
               defaultValue: "官方供应商无需 API Key",
@@ -2012,7 +1988,6 @@ export function CodexFormFields({
   );
 
   // 默认模型 —— config.toml 顶层 model，Codex 启动时默认请求的模型。实时写回 TOML；留空则删行。
-  // 有模型列表时第一行就是它，不显示这个框（Grok Build 没有列表，一直显示）；列表为空时
   // 两种布局都显示，聚合模式下发布的就是它。
   const defaultModelField = category !== "official" &&
     onModelChange &&
@@ -2020,14 +1995,10 @@ export function CodexFormFields({
       <div className="space-y-1.5">
         {labelWithHelp(
           t("codexConfig.defaultModelLabel", { defaultValue: "默认模型" }),
-          isGrokBuild
-            ? t("grokBuild.defaultModelHint", {
-                defaultValue: "Grok Build 默认请求的模型，随时可改。",
-              })
-            : t("codexConfig.defaultModelHint", {
-                defaultValue:
-                  "Codex 默认请求的模型。添加模型列表后，列表第一行就是默认模型。",
-              }),
+          t("codexConfig.defaultModelHint", {
+            defaultValue:
+              "Codex 默认请求的模型。添加模型列表后，列表第一行就是默认模型。",
+          }),
           "codexDefaultModel",
         )}
         <div className="flex gap-1">
@@ -2035,15 +2006,9 @@ export function CodexFormFields({
             id="codexDefaultModel"
             value={codexModel}
             onChange={(event) => onModelChange(event.target.value)}
-            placeholder={
-              isGrokBuild
-                ? t("grokBuild.defaultModelPlaceholder", {
-                    defaultValue: "例如: grok-4.5",
-                  })
-                : t("codexConfig.defaultModelPlaceholder", {
-                    defaultValue: "例如: gpt-5.6",
-                  })
-            }
+            placeholder={t("codexConfig.defaultModelPlaceholder", {
+              defaultValue: "例如: gpt-5.6",
+            })}
             className="flex-1"
           />
           {/* 有模型列表时用列表上的「获取模型列表」，这里不再放一个。 */}

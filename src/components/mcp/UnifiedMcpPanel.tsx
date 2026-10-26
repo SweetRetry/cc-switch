@@ -42,7 +42,6 @@ import {
   MatrixColumnHighlight,
   MatrixSearch,
   NeutralBadge,
-  ompDiscoveryColumnNote,
   resolveBulkScope,
   showUndoToast,
 } from "./AppMatrix";
@@ -83,25 +82,13 @@ const IMPORT_SOURCE_FILES: Record<
 > = {
   claude: { file: "~/.claude.json", noteKey: "mcpPage.import.claudeNote" },
   codex: { file: "~/.codex/config.toml" },
-  gemini: { file: "~/.gemini/settings.json" },
-  grokbuild: { file: "~/.grok/config.toml" },
   opencode: { file: "~/.config/opencode/opencode.json" },
-  hermes: { file: "~/.hermes/config.yaml" },
   pi: { file: "~/.pi/agent/mcp.json" },
   agy: { file: "~/.gemini/config/mcp_config.json" },
-  kimi: { file: "~/.kimi-code/mcp.json" },
-  mcode: { file: "~/.minimax/mcp.json" },
-  omp: { file: "~/.omp/agent/mcp.json" },
 };
 
 /** 先写配置文件、成功后才入库的应用：写失败时开关没变，重试要逐行重写 */
-const WRITE_THEN_SAVE_APPS: ReadonlySet<McpAppId> = new Set([
-  "mcode",
-  "kimi",
-  "pi",
-  "agy",
-  "omp",
-]);
+const WRITE_THEN_SAVE_APPS: ReadonlySet<McpAppId> = new Set(["pi", "agy"]);
 
 /** 写入失败：记下想要的状态，「重试」按这个值再写一次 */
 interface WriteFailure {
@@ -800,7 +787,6 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
                             scopeKind={scope.kind}
                             noun={noun}
                             disabled={controlsDisabled}
-                            {...ompDiscoveryColumnNote(app, t)}
                             onEnableRest={() => void handleBulk(app, true)}
                             onDisableAll={() => void handleBulk(app, false)}
                           />

@@ -251,14 +251,14 @@ pub fn import_from_codex(config: &mut MultiAppConfig) -> Result<usize, AppError>
                             agy: false,
                             claude: false,
                             codex: true,
-                            gemini: false,
-                            grokbuild: false,
+
+
                             opencode: false,
-                            hermes: false,
-                            mcode: false,
-                            kimi: false,
+
+
+
                             pi: false,
-                            omp: false,
+
                         },
                         description: None,
                         homepage: None,

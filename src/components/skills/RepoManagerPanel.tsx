@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/sheet";
 import { HoverTip } from "@/components/ui/hover-tip";
 import { settingsApi } from "@/lib/api";
-import type { DiscoverableSkill, SkillRepo } from "@/lib/api/skills";
+import type { SkillRepo } from "@/lib/api/skills";
 import { cn } from "@/lib/utils";
 import {
   CHECKBOX_CLASS,
@@ -22,10 +22,9 @@ import {
 
 interface RepoManagerPanelProps {
   repos: SkillRepo[];
-  skills: DiscoverableSkill[];
   onAdd: (repo: SkillRepo) => Promise<void>;
   onRemove: (owner: string, name: string) => Promise<void>;
-  /** 勾掉 = 停用（不参与发现），不删除 */
+  /** 勾掉 = 停用（不参与更新检查），不删除 */
   onToggle?: (repo: SkillRepo, enabled: boolean) => Promise<void>;
   onClose: () => void;
 }
@@ -43,19 +42,9 @@ export function parseRepoUrl(
   return null;
 }
 
-export function countRepoSkills(skills: DiscoverableSkill[], repo: SkillRepo) {
-  return skills.filter(
-    (skill) =>
-      skill.repoOwner === repo.owner &&
-      skill.repoName === repo.name &&
-      (skill.repoBranch || "main") === (repo.branch || "main"),
-  ).length;
-}
-
 /** 仓库管理（右侧抽屉，宽 420）：添加、停用、删除 Skill 仓库。 */
 export function RepoManagerPanel({
   repos,
-  skills,
   onAdd,
   onRemove,
   onToggle,
@@ -214,12 +203,8 @@ export function RepoManagerPanel({
                         </span>
                         <span className="text-caption text-fg-2">
                           {repo.branch || "main"}
-                          {" · "}
-                          {repo.enabled
-                            ? t("skills.repo.skillCount", {
-                                count: countRepoSkills(skills, repo),
-                              })
-                            : t("skillsPage.repos.disabled")}
+                          {!repo.enabled &&
+                            ` · ${t("skillsPage.repos.disabled")}`}
                         </span>
                       </div>
                       <HoverTip content={t("common.view")}>

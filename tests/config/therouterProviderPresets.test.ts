@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { providerPresets } from "@/config/claudeProviderPresets";
 import { codexProviderPresets } from "@/config/codexProviderPresets";
-import { geminiProviderPresets } from "@/config/geminiProviderPresets";
+import { agyProviderPresets } from "@/config/agyProviderPresets";
 
 describe("TheRouter provider presets", () => {
   it("uses the Anthropic-compatible root endpoint for Claude", () => {
@@ -50,9 +50,7 @@ describe("TheRouter provider presets", () => {
   });
 
   it("uses the Gemini-native root endpoint for Gemini", () => {
-    const preset = geminiProviderPresets.find(
-      (item) => item.name === "TheRouter",
-    );
+    const preset = agyProviderPresets.find((item) => item.name === "TheRouter");
 
     expect(preset).toBeDefined();
     expect(preset?.websiteUrl).toBe("https://therouter.ai");

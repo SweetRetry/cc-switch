@@ -1,37 +1,24 @@
-import { useCallback } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "@/lib/toast";
-import { useTranslation } from "react-i18next";
-import {
-  piApi,
-  providersApi,
-  settingsApi,
-  openclawApi,
-  type AppId,
-} from "@/lib/api";
-import type {
-  Provider,
-  UsageScript,
-  OpenClawProviderConfig,
-  OpenClawDefaultModel,
-} from "@/types";
 import { getOpencodeDeclaredModels } from "@/components/providers/forms/helpers/opencodeFormUtils";
-import type { OpenClawSuggestedDefaults } from "@/config/openclawProviderPresets";
-import type { ProviderEditorSave } from "@/lib/api/providers";
 import { injectCodingPlanUsageScript } from "@/config/codingPlanProviders";
+import { piApi, providersApi, settingsApi, type AppId } from "@/lib/api";
+import type { ProviderEditorSave } from "@/lib/api/providers";
+import { logFrontendInfo } from "@/lib/frontendLogger";
 import {
   useAddProviderMutation,
-  useUpdateProviderMutation,
   useDeleteProviderMutation,
   useSwitchProviderMutation,
+  useUpdateProviderMutation,
 } from "@/lib/query";
 import { usageKeys } from "@/lib/query/usage";
-import { routeSwitchNotification } from "@/utils/routeSwitchNotification";
+import { toast } from "@/lib/toast";
+import type { Provider, UsageScript } from "@/types";
 import { extractErrorMessage } from "@/utils/errorUtils";
-import { openclawKeys } from "@/hooks/useOpenClaw";
 import { supportsOfficialProxyTakeover } from "@/utils/providerCapabilities";
+import { routeSwitchNotification } from "@/utils/routeSwitchNotification";
 import { getRoutingReason } from "@/utils/routingReason";
-import { logFrontendInfo } from "@/lib/frontendLogger";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 
 /**
  * Hook for managing provider actions (add, update, delete, switch)
@@ -81,10 +68,7 @@ export function useProviderActions(
     async (
       provider: Omit<Provider, "id"> & {
         providerKey?: string;
-        suggestedDefaults?: OpenClawSuggestedDefaults;
         addToLive?: boolean;
-        ensureClaudeDesktopOfficialSeed?: boolean;
-        ensureGrokBuildOfficialSeed?: boolean;
         editorSave?: ProviderEditorSave;
       },
     ) => {
@@ -92,50 +76,6 @@ export function useProviderActions(
       await addProviderMutation.mutateAsync(enhanced);
 
       // OpenClaw: register models to allowlist after adding provider
-      if (activeApp === "openclaw" && provider.suggestedDefaults) {
-        const { model, modelCatalog } = provider.suggestedDefaults;
-        let modelsRegistered = false;
-
-        try {
-          // 1. Merge model catalog (allowlist)
-          if (modelCatalog && Object.keys(modelCatalog).length > 0) {
-            const existingCatalog = (await openclawApi.getModelCatalog()) || {};
-            const mergedCatalog = { ...existingCatalog, ...modelCatalog };
-            await openclawApi.setModelCatalog(mergedCatalog);
-            await queryClient.invalidateQueries({
-              queryKey: openclawKeys.health,
-            });
-            modelsRegistered = true;
-          }
-
-          // 2. Set default model (only if not already set)
-          if (model) {
-            const existingDefault = await openclawApi.getDefaultModel();
-            if (!existingDefault?.primary) {
-              await openclawApi.setDefaultModel(model);
-              await queryClient.invalidateQueries({
-                queryKey: openclawKeys.health,
-              });
-            }
-          }
-
-          // Show success toast if models were registered
-          if (modelsRegistered) {
-            toast.success(
-              t("notifications.openclawModelsRegistered", {
-                defaultValue: "模型已注册到 /model 列表",
-              }),
-              { closeButton: true },
-            );
-          }
-        } catch (error) {
-          // Log warning but don't block main flow - provider config is already saved
-          console.warn(
-            "[OpenClaw] Failed to register models to allowlist:",
-            error,
-          );
-        }
-      }
     },
     [addProviderMutation, activeApp, queryClient, t],
   );
@@ -255,21 +195,7 @@ export function useProviderActions(
           if (activeApp === "codex") {
             messageKey = "notifications.codexRestartRequired";
             defaultMessage = "切换成功，请重启客户端以生效";
-          } else if (activeApp === "gemini") {
-            messageKey = "notifications.geminiRestartRequired";
-            defaultMessage = "切换成功，请重启 Gemini CLI 以生效";
-          } else if (activeApp === "grokbuild") {
-            messageKey = "notifications.grokBuildRestartRequired";
-            defaultMessage = "切换成功，请重启 Grok Build 以生效";
-          } else if (activeApp === "claude-desktop") {
-            // 直连、路由换一家都改了 Desktop 的配置文件，它只在启动时读
-            messageKey = "notifications.claudeDesktopRestartRequired";
-            defaultMessage = "切换成功，重启 Claude Desktop 后生效";
-          } else if (
-            activeApp === "opencode" ||
-            activeApp === "openclaw" ||
-            activeApp === "mcode"
-          ) {
+          } else if (activeApp === "opencode") {
             messageKey = "notifications.addToConfigSuccess";
             defaultMessage = "已添加到配置";
           }
@@ -307,7 +233,7 @@ export function useProviderActions(
           },
         };
 
-        if (activeApp === "pi" || activeApp === "omp") {
+        if (activeApp === "pi") {
           await piApi.updateProviderUsageScript(provider.id, script, activeApp);
         } else {
           await providersApi.update(updatedProvider, activeApp);
@@ -391,72 +317,7 @@ export function useProviderActions(
     [queryClient, t],
   );
 
-  // Set provider as default model (OpenClaw / OpenCode)
-  const setAsDefaultModel = useCallback(
-    async (provider: Provider, modelId?: string) => {
-      if (activeApp === "opencode") {
-        await setOpenCodeDefaultModel(provider, modelId);
-        return;
-      }
-      const config = provider.settingsConfig as OpenClawProviderConfig;
-      if (!config.models || config.models.length === 0) {
-        toast.error(
-          t("notifications.openclawNoModels", {
-            defaultValue: "该供应商没有配置模型",
-          }),
-        );
-        return;
-      }
-
-      const selectedModel = modelId
-        ? config.models.find((model) => model.id === modelId)
-        : config.models[0];
-      if (!selectedModel) {
-        toast.error(
-          t("notifications.openclawModelNotFound", {
-            defaultValue: "所选模型已不存在，请刷新后重试",
-          }),
-        );
-        return;
-      }
-
-      try {
-        const primary = `${provider.id}/${selectedModel.id}`;
-        const existingDefault = await openclawApi.getDefaultModel();
-        const model: OpenClawDefaultModel = {
-          ...(existingDefault ?? {}),
-          primary,
-        };
-        if (existingDefault?.fallbacks) {
-          model.fallbacks = existingDefault.fallbacks.filter(
-            (fallback) => fallback !== primary,
-          );
-        }
-
-        await openclawApi.setDefaultModel(model);
-        await queryClient.invalidateQueries({
-          queryKey: openclawKeys.defaultModel,
-        });
-        await queryClient.invalidateQueries({
-          queryKey: openclawKeys.health,
-        });
-        toast.success(
-          t("notifications.openclawDefaultModelSet", {
-            defaultValue: "已设为默认模型",
-          }),
-          { closeButton: true },
-        );
-      } catch (error) {
-        const detail =
-          extractErrorMessage(error) ||
-          t("notifications.openclawDefaultModelSetFailed", {
-            defaultValue: "设置默认模型失败",
-          });
-        toast.error(detail);
-      }
-    },
-    [activeApp, queryClient, setOpenCodeDefaultModel, t],
-  );
+  const setAsDefaultModel = setOpenCodeDefaultModel;
 
   return {
     addProvider,

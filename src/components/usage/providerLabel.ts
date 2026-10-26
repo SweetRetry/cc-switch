@@ -10,11 +10,7 @@ import type { AppId } from "@/lib/api";
 const SESSION_PROVIDER_APPS: Record<string, AppId> = {
   "Claude (Session)": "claude",
   "Codex (Session)": "codex",
-  "Gemini (Session)": "gemini",
   "OpenCode (Session)": "opencode",
-  "Grok Build (Session)": "grokbuild",
-  "MiniMax Code (Session)": "mcode",
-  "Kimi Code (Session)": "kimi",
   "Pi (Session)": "pi",
   "Antigravity (Session)": "agy",
 };

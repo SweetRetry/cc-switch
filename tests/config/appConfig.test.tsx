@@ -9,14 +9,11 @@ import {
 } from "@/config/appConfig";
 
 describe("appConfig provider lifecycle", () => {
-  it.each(["opencode", "openclaw", "hermes", "pi", "mcode", "kimi"])(
-    "classifies %s as additive",
-    (appId) => {
-      expect(isAdditiveAppId(appId)).toBe(true);
-    },
-  );
+  it.each(["opencode", "pi"])("classifies %s as additive", (appId) => {
+    expect(isAdditiveAppId(appId)).toBe(true);
+  });
 
-  it.each(["claude", "claude-desktop", "codex", "gemini", "grokbuild"])(
+  it.each(["claude", "codex", "agy"])(
     "does not classify %s as additive",
     (appId) => {
       expect(isAdditiveAppId(appId)).toBe(false);
@@ -46,11 +43,13 @@ describe("orderAppIds", () => {
   });
 
   it("puts an app missing from the saved order after its default predecessor", () => {
-    const saved = APP_IDS.filter((app) => app !== "kimi");
-    const [first, ...rest] = saved;
-    // 把 mcode（kimi 默认的前一个）挪到最后，kimi 应跟着它
-    const moved = [first, ...rest.filter((app) => app !== "mcode"), "mcode"];
-    expect(orderAppIds(moved)).toEqual([...moved, "kimi"]);
+    expect(orderAppIds(["pi", "claude", "codex", "opencode"])).toEqual([
+      "pi",
+      "agy",
+      "claude",
+      "codex",
+      "opencode",
+    ]);
     expect(orderAppIds(APP_IDS.filter((app) => app !== "claude"))[0]).toBe(
       "claude",
     );

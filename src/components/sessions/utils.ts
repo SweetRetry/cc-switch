@@ -5,19 +5,12 @@ import type { SessionMeta } from "@/types";
 
 export const UNKNOWN_PROJECT_DIR_KEY = "__unknown_project_dir__";
 
-/** 会话来源：10 个应用（Claude Desktop 没有自己的会话记录，用 Claude Code 的）。 */
+/** 支持的会话来源。 */
 export const SESSION_APP_IDS = [
   "claude",
   "codex",
   "opencode",
-  "hermes",
-  "gemini",
   "pi",
-  "omp",
-  "grokbuild",
-  "openclaw",
-  "mcode",
-  "kimi",
   "agy",
 ] as const satisfies readonly AppId[];
 
@@ -30,24 +23,16 @@ export const isSessionAppId = (value: string): value is SessionAppId =>
 export const SESSION_SOURCE_PATHS: Record<SessionAppId, string[]> = {
   claude: ["~/.claude/projects"],
   codex: ["~/.codex/sessions", "~/.codex/archived_sessions"],
-  gemini: ["~/.gemini/tmp/<project>/chats"],
-  grokbuild: ["~/.grok/sessions", "~/.grok/archived_sessions"],
   opencode: ["~/.local/share/opencode"],
-  openclaw: ["~/.openclaw/agents/<agent>/sessions"],
-  hermes: ["~/.hermes/state.db", "~/.hermes/sessions"],
   pi: ["~/.pi/agent/sessions"],
-  omp: ["~/.omp/agent/sessions"],
-  mcode: ["~/.minimax"],
-  kimi: ["~/.kimi-code/sessions"],
   agy: [
     "~/.gemini/antigravity-cli/brain/<conversation>/.system_generated/logs",
   ],
 };
 
-/** MiniMax Code 的会话只能在 MiniMax Code 里删（后端也会拒绝）。 */
+/** Antigravity 的会话由应用自行管理，后端也会拒绝删除。 */
 export const canDeleteSession = (session: SessionMeta) =>
-  Boolean(session.sourcePath) &&
-  !["mcode", "agy", "kimi"].includes(session.providerId);
+  Boolean(session.sourcePath) && session.providerId !== "agy";
 
 export interface SessionProjectGroup {
   key: string;
@@ -73,9 +58,9 @@ export const getSessionTime = (session: SessionMeta) =>
 export const sortSessionsByTime = (sessions: SessionMeta[]) =>
   [...sessions].sort((a, b) => getSessionTime(b) - getSessionTime(a));
 
-/** Codex / Grok Build 把归档的会话放在 archived_sessions 目录下。 */
+/** Codex 把归档的会话放在 archived_sessions 目录下。 */
 export const isArchivedSession = (session: SessionMeta) =>
-  (session.providerId === "codex" || session.providerId === "grokbuild") &&
+  session.providerId === "codex" &&
   /[\\/]archived_sessions[\\/]/.test(session.sourcePath ?? "");
 
 export const getBaseName = (value?: string | null) => {

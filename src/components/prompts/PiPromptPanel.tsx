@@ -7,7 +7,6 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { promptsApi, type AppId, type Prompt } from "@/lib/api";
 import { usePromptActions } from "@/hooks/usePromptActions";
 import { useDelayedFlag } from "@/hooks/useDelayedFlag";
-import { useTauriEvent } from "@/hooks/useTauriEvent";
 import PromptFormPanel from "./PromptFormPanel";
 import { PromptCopyDialog } from "./PromptCopyDialog";
 import {
@@ -130,10 +129,6 @@ const PiPromptPanel: React.FC<PiPromptPanelProps> = ({
     return () =>
       window.removeEventListener("prompt-imported", handlePromptImported);
   }, [reload]);
-
-  useTauriEvent("profile-applied", () => {
-    void reload();
-  });
 
   const afterUndo = () => {
     invalidate();

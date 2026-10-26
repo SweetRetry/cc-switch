@@ -4,8 +4,6 @@ import {
   opencodeNpmPackages,
   OPENCODE_PRESET_MODEL_VARIANTS,
 } from "@/config/opencodeProviderPresets";
-import { openclawProviderPresets } from "@/config/openclawProviderPresets";
-import { codexProviderPresets } from "@/config/codexProviderPresets";
 import {
   groupPresetRows,
   presetVersionLayout,
@@ -189,42 +187,6 @@ describe("OpenCode preset model limits", () => {
 });
 
 describe("SiliconFlow OpenCode provider presets", () => {
-  it.each(["SiliconFlow", "SiliconFlow en"])(
-    "%s includes the current Codex preset models at the matching endpoint",
-    (name) => {
-      const preset = opencodeProviderPresets.find(
-        (item) => item.name === name,
-      )!;
-      const openclaw = openclawProviderPresets.find(
-        (item) => item.name === name,
-      )!;
-      const codex = codexProviderPresets.find((item) => item.name === name)!;
-
-      expect(preset).toBeDefined();
-      expect(openclaw).toBeDefined();
-      expect(codex).toBeDefined();
-      expect(preset.settingsConfig.npm).toBe("@ai-sdk/openai-compatible");
-      expect(preset.settingsConfig.options.baseURL).toBe(
-        openclaw.settingsConfig.baseUrl,
-      );
-      expect(preset.settingsConfig.options.apiKey).toBe("");
-      const codexModels = codex.modelCatalog ?? [];
-      expect(codexModels.length).toBeGreaterThan(0);
-      expect(Object.keys(preset.settingsConfig.models)).toEqual(
-        expect.arrayContaining(codexModels.map((model) => model.model)),
-      );
-      for (const model of codexModels) {
-        expect(preset.settingsConfig.models[model.model].limit?.context).toBe(
-          model.contextWindow,
-        );
-        expect(preset.settingsConfig.models[model.model].reasoning).toBe(true);
-      }
-      expect(preset.category).toBe("aggregator");
-      expect(preset.partnerPromotionKey).toBe(openclaw.partnerPromotionKey);
-      expect(preset.icon).toBe(openclaw.icon);
-    },
-  );
-
   it("groups both regions into one provider with a region selector", () => {
     const entries = opencodeProviderPresets.map((preset, index) => ({
       id: `opencode-${index}`,

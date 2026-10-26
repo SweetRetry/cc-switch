@@ -26,13 +26,7 @@ async function translate(locale = "zh") {
 }
 
 describe("route switch notifications", () => {
-  it.each([
-    "codex",
-    "gemini",
-    "grokbuild",
-    "claude",
-    "claude-desktop",
-  ] as const)(
+  it.each(["codex", "claude"] as const)(
     "does not require restarting %s when only the upstream changes",
     async (app) => {
       const t = await translate();
@@ -47,7 +41,7 @@ describe("route switch notifications", () => {
     },
   );
 
-  it.each(["codex", "gemini", "grokbuild", "claude-desktop"] as const)(
+  it.each(["codex"] as const)(
     "retains the %s reload hint for a changed route or aggregation contract",
     async (app) => {
       const t = await translate();

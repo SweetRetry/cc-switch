@@ -1,42 +1,41 @@
-import React, { useState } from "react";
-import { Play, Wand2, Eye, EyeOff, Save, ExternalLink } from "lucide-react";
-import { toast } from "@/lib/toast";
-import { useTranslation } from "react-i18next";
-import { useQueryClient } from "@tanstack/react-query";
-import { Provider, UsageScript, UsageData, createUsageScript } from "@/types";
-import { usageApi, settingsApi, type AppId } from "@/lib/api";
-import { copilotGetUsage, copilotGetUsageForAccount } from "@/lib/api/copilot";
-import { useSettingsQuery } from "@/lib/query";
-import { resolveManagedAccountId } from "@/lib/authBinding";
-import { resolveCodexOfficialIdentity } from "@/utils/providerCapabilities";
-import { extractErrorMessage } from "@/utils/errorUtils";
-import { useDarkMode } from "@/hooks/useDarkMode";
-import {
-  extractCodexBaseUrl,
-  extractCodexExperimentalBearerToken,
-} from "@/utils/providerConfigUtils";
-import { parseGrokBuildConfig } from "@/utils/grokBuildConfig";
-import JsonEditor from "./JsonEditor";
-import * as prettier from "prettier/standalone";
-import * as parserBabel from "prettier/parser-babel";
-import * as pluginEstree from "prettier/plugins/estree";
+import { FullScreenPanel } from "@/components/common/FullScreenPanel";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { FullScreenPanel } from "@/components/common/FullScreenPanel";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { cn } from "@/lib/utils";
-import {
-  TEMPLATE_TYPES,
-  PROVIDER_TYPES,
-  type TemplateType,
-} from "@/config/constants";
 import {
   CODING_PLAN_PROVIDERS,
   detectCodingPlanProvider,
 } from "@/config/codingPlanProviders";
+import {
+  PROVIDER_TYPES,
+  TEMPLATE_TYPES,
+  type TemplateType,
+} from "@/config/constants";
+import { useDarkMode } from "@/hooks/useDarkMode";
+import { settingsApi, usageApi, type AppId } from "@/lib/api";
+import { copilotGetUsage, copilotGetUsageForAccount } from "@/lib/api/copilot";
+import { resolveManagedAccountId } from "@/lib/authBinding";
+import { useSettingsQuery } from "@/lib/query";
+import { toast } from "@/lib/toast";
+import { cn } from "@/lib/utils";
+import { Provider, UsageData, UsageScript, createUsageScript } from "@/types";
+import { extractErrorMessage } from "@/utils/errorUtils";
+import { resolveCodexOfficialIdentity } from "@/utils/providerCapabilities";
+import {
+  extractCodexBaseUrl,
+  extractCodexExperimentalBearerToken,
+} from "@/utils/providerConfigUtils";
 import { formatUsageDataSummary } from "@/utils/usageDisplay";
+import { useQueryClient } from "@tanstack/react-query";
+import { ExternalLink, Eye, EyeOff, Play, Save, Wand2 } from "lucide-react";
+import * as parserBabel from "prettier/parser-babel";
+import * as pluginEstree from "prettier/plugins/estree";
+import * as prettier from "prettier/standalone";
+import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
+import JsonEditor from "./JsonEditor";
 
 /**
  * 火山引擎账号级 AccessKey 的密钥管理页（IAM）。
@@ -200,8 +199,7 @@ function detectBalanceProvider(baseUrl: string | undefined): boolean {
 }
 
 function isOfficialSubscriptionProvider(provider: Provider, appId: AppId) {
-  if (!["claude", "codex", "gemini", "grokbuild", "agy"].includes(appId))
-    return false;
+  if (!["claude", "codex", "agy"].includes(appId)) return false;
   if (provider.category === "official") return true;
 
   const config = provider.settingsConfig as Record<string, any>;
@@ -220,7 +218,7 @@ function isOfficialSubscriptionProvider(provider: Provider, appId: AppId) {
       (!apiKey || (typeof apiKey === "string" && apiKey.trim() === ""))
     );
   }
-  if (appId === "gemini" || appId === "agy") {
+  if (appId === "agy") {
     const env = config?.env || {};
     const apiKey = env.GEMINI_API_KEY;
     const baseUrl = env.GOOGLE_GEMINI_BASE_URL;
@@ -277,7 +275,7 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
         if (!config) return { apiKey: undefined, baseUrl: undefined };
 
         // 处理不同应用的配置格式
-        if (appId === "claude" || appId === "claude-desktop") {
+        if (appId === "claude") {
           // Claude / Claude Desktop: { env: { ANTHROPIC_AUTH_TOKEN | ANTHROPIC_API_KEY, ANTHROPIC_BASE_URL } }
           // Key fallbacks mirror the backend resolver (Provider::resolve_usage_credentials).
           const env = (config as any).env || {};
@@ -302,7 +300,7 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
             apiKey,
             baseUrl: extractCodexBaseUrl(configToml),
           };
-        } else if (appId === "gemini" || appId === "agy") {
+        } else if (appId === "agy") {
           // Gemini: { env: { GEMINI_API_KEY, GOOGLE_GEMINI_BASE_URL } }
           // Key fallback mirrors the backend resolver (Provider::resolve_usage_credentials).
           const env = (config as any).env || {};
@@ -310,22 +308,7 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
             apiKey: env.GEMINI_API_KEY || env.GOOGLE_API_KEY,
             baseUrl: env.GOOGLE_GEMINI_BASE_URL,
           };
-        } else if (appId === "grokbuild") {
-          const grokConfig = parseGrokBuildConfig(
-            (config as any).config,
-            provider.name,
-          );
-          return {
-            apiKey: grokConfig.apiKey,
-            baseUrl: grokConfig.baseUrl,
-          };
-        } else if (appId === "hermes") {
-          // Hermes: settingsConfig 顶层扁平（snake_case，对应 config.yaml）
-          return {
-            apiKey: (config as any).api_key,
-            baseUrl: (config as any).base_url,
-          };
-        } else if (appId === "pi" || appId === "omp") {
+        } else if (appId === "pi") {
           // Pi / Oh My Pi: provider values are camelCase; a model may override baseUrl.
           const root = config as any;
           const firstModel = Array.isArray(root.models)
@@ -334,12 +317,6 @@ const UsageScriptModal: React.FC<UsageScriptModalProps> = ({
           return {
             apiKey: root.apiKey,
             baseUrl: firstModel?.baseUrl || root.baseUrl,
-          };
-        } else if (appId === "openclaw") {
-          // OpenClaw: settingsConfig 顶层扁平（camelCase，对应 openclaw.json）
-          return {
-            apiKey: (config as any).apiKey,
-            baseUrl: (config as any).baseUrl,
           };
         } else if (appId === "opencode") {
           // OpenCode (OMO): 凭据嵌在 options.{baseURL, apiKey}（SDK options 对象）

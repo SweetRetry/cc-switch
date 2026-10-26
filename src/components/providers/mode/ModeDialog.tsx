@@ -31,8 +31,6 @@ import {
 const CLIENT_FILE: Partial<Record<AppId, string>> = {
   claude: "~/.claude/settings.json",
   codex: "~/.codex/config.toml",
-  gemini: "~/.gemini/.env",
-  grokbuild: "~/.grok/config.toml",
 };
 
 export type ModeDialogState =
@@ -183,52 +181,29 @@ function EnterBody({
   const otherMembers = stackMembers.filter((m) => m.id !== pick);
   const memberModels = otherMembers.reduce((sum, m) => sum + m.models, 0);
   const notes =
-    target === "route" && app === "claude-desktop"
+    target === "route"
       ? [
-          t("mode.dialog.desktopRouteNoteModels"),
-          t("mode.dialog.desktopRouteNoteRestart", { app: appName }),
-          t("mode.dialog.desktopRouteNoteKeepRunning", { app: appName }),
+          t("mode.dialog.routeNoteFile", {
+            file: CLIENT_FILE[app] ?? "",
+          }),
+          t("mode.dialog.routeNoteSwitch"),
+          t("mode.dialog.routeNoteKeepRunning"),
         ]
-      : target === "route"
-        ? [
-            t("mode.dialog.routeNoteFile", {
-              file: CLIENT_FILE[app] ?? "",
-            }),
-            t("mode.dialog.routeNoteSwitch"),
-            t("mode.dialog.routeNoteKeepRunning"),
-          ]
-        : app === "claude-desktop"
-          ? [
-              otherMembers.length > 0
-                ? t("mode.dialog.desktopStackNoteMembers", {
-                    names: otherMembers.map((m) => m.name).join("、"),
-                    count: memberModels,
-                  })
-                : t("mode.dialog.stackNoteEmpty"),
-              t("mode.dialog.desktopRouteNoteRestart", { app: appName }),
-              t("mode.dialog.desktopRouteNoteKeepRunning", { app: appName }),
-            ]
-          : [
-              otherMembers.length > 0
-                ? t("mode.dialog.stackNoteMembers", {
-                    names: otherMembers.map((m) => m.name).join("、"),
-                    count: memberModels,
-                  })
-                : t("mode.dialog.stackNoteEmpty"),
-              t("mode.dialog.stackNoteNoFailover"),
-              // Claude Code 运行中就会读到改过的 settings.json，不用重启。
-              ...(app === "codex"
-                ? [t("mode.dialog.stackNoteRestartCodex", { app: appName })]
-                : []),
-            ];
+      : [
+          otherMembers.length > 0
+            ? t("mode.dialog.stackNoteMembers", {
+                names: otherMembers.map((m) => m.name).join("、"),
+                count: memberModels,
+              })
+            : t("mode.dialog.stackNoteEmpty"),
+          t("mode.dialog.stackNoteNoFailover"),
+          // Claude Code 运行中就会读到改过的 settings.json，不用重启。
+          ...(app === "codex"
+            ? [t("mode.dialog.stackNoteRestartCodex", { app: appName })]
+            : []),
+        ];
   if (active === "stack" && target === "route") {
-    notes.push(
-      t(
-        app === "claude-desktop"
-          ? "mode.dialog.desktopLeaveStackNote"
-          : "mode.dialog.leaveStackNote",
-      ),
-    );
+    notes.push(t("mode.dialog.leaveStackNote"));
   }
 
   const confirm = async () => {
@@ -385,23 +360,15 @@ function ExitBody({
     providers.find((p) => p.id === targetId)?.name ?? t("mode.noProvider");
 
   // Claude Desktop 没有单个配置文件可指，也没有故障转移队列和路由设置
-  const notes =
-    app === "claude-desktop"
-      ? [
-          t("mode.dialog.desktopRouteNoteRestart", { app: appName }),
-          active === "stack"
-            ? t("mode.dialog.desktopLeaveStackNote")
-            : t("mode.dialog.desktopExitNoteRouteKept"),
-        ]
-      : [
-          t("mode.dialog.exitNoteFile", {
-            file: CLIENT_FILE[app] ?? "",
-            provider,
-          }),
-          active === "stack"
-            ? t("mode.dialog.leaveStackNote")
-            : t("mode.dialog.exitNoteRouteKept"),
-        ];
+  const notes = [
+    t("mode.dialog.exitNoteFile", {
+      file: CLIENT_FILE[app] ?? "",
+      provider,
+    }),
+    active === "stack"
+      ? t("mode.dialog.leaveStackNote")
+      : t("mode.dialog.exitNoteRouteKept"),
+  ];
 
   const confirm = async () => {
     if (busy) return;
@@ -539,7 +506,7 @@ function NeedsRouteBody({
           {t("common.cancel")}
         </Button>
         {/* Claude Desktop 直连写不进要经路由的卡，后端会拒绝 */}
-        {app !== "claude-desktop" && (
+        {
           <Button
             variant="neutral"
             size="regular"
@@ -552,7 +519,7 @@ function NeedsRouteBody({
           >
             {t("mode.dialog.switchAnyway")}
           </Button>
-        )}
+        }
         <Button
           variant="route"
           size="regular"

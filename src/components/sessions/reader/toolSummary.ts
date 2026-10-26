@@ -162,14 +162,13 @@ export interface StepTitleOptions {
   t?: Translate;
 }
 
-/** 无配对的工具输出（Grok Build）用的通用动词 key */
+/** 无配对的工具输出用的通用动词 key */
 export const TOOL_OUTPUT_VERB_KEY = `${READER_VERB_I18N_PREFIX}output`;
 
 /** 风格自带动词之外、按原始工具名覆盖的叫法 */
 const RAW_NAME_VERBS: Partial<Record<ReaderStyleId, Record<string, string>>> = {
   // Claude Code CLI 把 Edit 显示为 Update
   claude: { Edit: "Update", MultiEdit: "Update" },
-  gemini: { google_web_search: "GoogleSearch" },
   opencode: { glob: "Glob", list: "List", websearch: "WebSearch" },
 };
 

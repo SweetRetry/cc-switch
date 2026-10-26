@@ -2,12 +2,7 @@ import React from "react";
 import type { AppId } from "@/lib/api/types";
 import type { PiFamilyAppId } from "@/lib/api/pi";
 import type { VisibleApps } from "@/types";
-import {
-  ClaudeIcon,
-  CodexIcon,
-  GeminiIcon,
-  OpenClawIcon,
-} from "@/components/BrandIcons";
+import { ClaudeIcon, CodexIcon } from "@/components/BrandIcons";
 import { ProviderIcon } from "@/components/ProviderIcon";
 
 export interface AppConfig {
@@ -17,37 +12,31 @@ export interface AppConfig {
   badgeClass: string;
 }
 
-export const APP_IDS: AppId[] = [
-  "claude",
-  "claude-desktop",
-  "codex",
-  "gemini",
-  "grokbuild",
-  "opencode",
-  "openclaw",
-  "hermes",
-  "pi",
-  "mcode",
-  "kimi",
-  "agy",
-  "omp",
-];
+export const APP_IDS: AppId[] = ["claude", "codex", "opencode", "pi", "agy"];
 
 export const DEFAULT_VISIBLE_APPS: VisibleApps = {
   claude: true,
-  "claude-desktop": true,
   codex: true,
-  gemini: true,
-  grokbuild: true,
   opencode: true,
-  openclaw: true,
-  hermes: true,
   pi: true,
-  mcode: true,
-  kimi: true,
   agy: true,
-  omp: true,
 };
+
+/** Ignore removed apps in old settings and keep at least one supported app visible. */
+export function normalizeVisibleApps(
+  saved?: Partial<VisibleApps>,
+): VisibleApps {
+  const visible = { ...DEFAULT_VISIBLE_APPS };
+  for (const app of APP_IDS) {
+    visible[app] = saved?.[app] ?? true;
+  }
+  if (!APP_IDS.some((app) => visible[app])) visible.claude = true;
+  return visible;
+}
+
+export function isSupportedAppId(value: string): value is AppId {
+  return (APP_IDS as readonly string[]).includes(value);
+}
 
 /**
  * 应用页和侧栏的应用顺序：先按用户拖出来的顺序（`settings.appOrder`，不认识的 ID 忽略），
@@ -76,83 +65,48 @@ export function orderAppIds(saved: readonly string[] | undefined): AppId[] {
 export const SKILLS_APP_IDS: AppId[] = [
   "claude",
   "codex",
-  "gemini",
-  "grokbuild",
   "opencode",
-  "hermes",
   "pi",
-  "mcode",
-  "kimi",
   "agy",
-  "omp",
 ];
 
-export type ProxyAppId = Extract<
-  AppId,
-  "claude" | "codex" | "gemini" | "grokbuild"
->;
+export type ProxyAppId = Extract<AppId, "claude" | "codex">;
 
 /** Apps with a complete local gateway + failover data plane. */
-export const PROXY_APP_IDS: ProxyAppId[] = [
-  "claude",
-  "codex",
-  "gemini",
-  "grokbuild",
-];
+export const PROXY_APP_IDS: ProxyAppId[] = ["claude", "codex"];
 
 export function isProxyAppId(appId: string): appId is ProxyAppId {
   return (PROXY_APP_IDS as string[]).includes(appId);
 }
 
-/**
- * 有直连 / 路由模式的应用（后端 `AppType::has_route_mode`）：上面四个，加上 Claude Desktop。
- * Desktop 经同一个路由服务转发，但没有故障转移和路由设置（不在 `PROXY_APP_IDS` 里）。
- */
-export type ModeAppId = ProxyAppId | "claude-desktop";
+/** 支持直连、路由和聚合模式的应用。 */
+export type ModeAppId = ProxyAppId;
 
-export const MODE_APP_IDS: ModeAppId[] = [...PROXY_APP_IDS, "claude-desktop"];
+export const MODE_APP_IDS: ModeAppId[] = [...PROXY_APP_IDS];
 
 export function isModeAppId(appId: string): appId is ModeAppId {
   return (MODE_APP_IDS as string[]).includes(appId);
 }
 
 /** 支持 Stack 模式的应用（后端 `mode::stack::supports_stack` 的镜像）。 */
-export type StackAppId = Extract<
-  ModeAppId,
-  "claude" | "codex" | "claude-desktop"
->;
+export type StackAppId = ModeAppId;
 
-export const STACK_APP_IDS: StackAppId[] = [
-  "claude",
-  "codex",
-  "claude-desktop",
-];
+export const STACK_APP_IDS: StackAppId[] = ["claude", "codex"];
 
 export function isStackAppId(appId: string): appId is StackAppId {
   return (STACK_APP_IDS as string[]).includes(appId);
 }
 
-export type AdditiveAppId = Extract<
-  AppId,
-  "opencode" | "openclaw" | "hermes" | "pi" | "mcode" | "kimi" | "omp"
->;
+export type AdditiveAppId = Extract<AppId, "opencode" | "pi">;
 
-export const ADDITIVE_APP_IDS: AdditiveAppId[] = [
-  "mcode",
-  "kimi",
-  "opencode",
-  "openclaw",
-  "hermes",
-  "pi",
-  "omp",
-];
+export const ADDITIVE_APP_IDS: AdditiveAppId[] = ["opencode", "pi"];
 
 export function isAdditiveAppId(appId: string): appId is AdditiveAppId {
   return (ADDITIVE_APP_IDS as string[]).includes(appId);
 }
 
-/** Oh My Pi 是 Pi 的分支：供应商表单、启用状态和用量脚本命令与 Pi 共用。 */
-export const PI_FAMILY_APP_IDS: PiFamilyAppId[] = ["pi", "omp"];
+/** Pi 供应商表单和用量脚本使用同一个应用标识。 */
+export const PI_FAMILY_APP_IDS: PiFamilyAppId[] = ["pi"];
 
 export function isPiFamilyApp(appId: string): appId is PiFamilyAppId {
   return (PI_FAMILY_APP_IDS as string[]).includes(appId);
@@ -162,31 +116,23 @@ export function isPiFamilyApp(appId: string): appId is PiFamilyAppId {
  * 切换只替换关键字段的应用：供应商编辑器显示「切到这个供应商之后配置文件的样子」，由后端
  * `ProviderService::editor_view` 投影。
  */
-export const EDITOR_VIEW_APP_IDS: AppId[] = [
-  "claude",
-  "codex",
-  "gemini",
-  "grokbuild",
-];
+export const EDITOR_VIEW_APP_IDS: AppId[] = ["claude", "codex"];
 
 export function usesEditorView(appId: AppId): boolean {
   return EDITOR_VIEW_APP_IDS.includes(appId);
 }
 
-/** Claude Desktop、OpenClaw 不由 CC Switch 管理 MCP；Pi 1.0 起内置 MCP（`~/.pi/agent/mcp.json`） */
-export type McpAppId = Exclude<AppId, "claude-desktop" | "openclaw">;
+/** 支持 MCP 同步的应用。 */
+export type McpAppId = Extract<
+  AppId,
+  "claude" | "codex" | "opencode" | "pi" | "agy"
+>;
 export const MCP_APP_IDS: McpAppId[] = [
   "claude",
   "codex",
-  "gemini",
-  "grokbuild",
   "opencode",
-  "hermes",
   "pi",
-  "mcode",
-  "kimi",
   "agy",
-  "omp",
 ];
 
 export function isMcpAppId(appId: string): appId is McpAppId {
@@ -194,7 +140,7 @@ export function isMcpAppId(appId: string): appId is McpAppId {
 }
 
 export function usesGeminiStyleForm(appId: string): boolean {
-  return appId === "gemini" || appId === "agy";
+  return appId === "agy";
 }
 
 export const APP_ICON_MAP: Record<AppId, AppConfig> = {
@@ -206,14 +152,6 @@ export const APP_ICON_MAP: Record<AppId, AppConfig> = {
     badgeClass:
       "bg-orange-500/10 text-orange-700 dark:text-orange-300 hover:bg-orange-500/20 border-0 gap-1.5",
   },
-  "claude-desktop": {
-    label: "Claude Desktop",
-    icon: <ClaudeIcon size={14} />,
-    activeClass:
-      "bg-amber-500/10 ring-1 ring-amber-500/20 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300",
-    badgeClass:
-      "bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 border-0 gap-1.5",
-  },
   codex: {
     label: "Codex",
     icon: <CodexIcon size={14} />,
@@ -221,29 +159,6 @@ export const APP_ICON_MAP: Record<AppId, AppConfig> = {
       "bg-green-500/10 ring-1 ring-green-500/20 hover:bg-green-500/20 text-green-600 dark:text-green-400",
     badgeClass:
       "bg-green-500/10 text-green-700 dark:text-green-300 hover:bg-green-500/20 border-0 gap-1.5",
-  },
-  gemini: {
-    label: "Gemini",
-    icon: <GeminiIcon size={14} />,
-    activeClass:
-      "bg-blue-500/10 ring-1 ring-blue-500/20 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400",
-    badgeClass:
-      "bg-blue-500/10 text-blue-700 dark:text-blue-300 hover:bg-blue-500/20 border-0 gap-1.5",
-  },
-  grokbuild: {
-    label: "Grok Build",
-    icon: (
-      <ProviderIcon
-        icon="grok"
-        name="Grok Build"
-        size={14}
-        showFallback={false}
-      />
-    ),
-    activeClass:
-      "bg-cyan-500/10 ring-1 ring-cyan-500/20 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300",
-    badgeClass:
-      "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20 border-0 gap-1.5",
   },
   opencode: {
     label: "OpenCode",
@@ -259,43 +174,6 @@ export const APP_ICON_MAP: Record<AppId, AppConfig> = {
       "bg-indigo-500/10 ring-1 ring-indigo-500/20 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400",
     badgeClass:
       "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/20 border-0 gap-1.5",
-  },
-  openclaw: {
-    label: "OpenClaw",
-    icon: <OpenClawIcon size={14} />,
-    activeClass:
-      "bg-rose-500/10 ring-1 ring-rose-500/20 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400",
-    badgeClass:
-      "bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/20 border-0 gap-1.5",
-  },
-  hermes: {
-    label: "Hermes",
-    icon: (
-      <ProviderIcon
-        icon="hermes"
-        name="Hermes"
-        size={14}
-        showFallback={false}
-      />
-    ),
-    activeClass:
-      "bg-violet-500/10 ring-1 ring-violet-500/20 hover:bg-violet-500/20 text-violet-600 dark:text-violet-400",
-    badgeClass:
-      "bg-violet-500/10 text-violet-700 dark:text-violet-300 hover:bg-violet-500/20 border-0 gap-1.5",
-  },
-  kimi: {
-    label: "Kimi Code",
-    icon: <ProviderIcon icon="kimi" name="Kimi Code" size={14} />,
-    activeClass: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-    badgeClass:
-      "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-0 gap-1.5",
-  },
-  mcode: {
-    label: "MiniMax Code",
-    icon: <ProviderIcon icon="minimax" name="MiniMax Code" size={14} />,
-    activeClass: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
-    badgeClass:
-      "bg-orange-500/10 text-orange-700 dark:text-orange-300 border-0 gap-1.5",
   },
   pi: {
     label: "Pi",
@@ -319,16 +197,6 @@ export const APP_ICON_MAP: Record<AppId, AppConfig> = {
       "bg-sky-500/10 ring-1 ring-sky-500/20 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300",
     badgeClass:
       "bg-sky-500/10 text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 border-0 gap-1.5",
-  },
-  omp: {
-    label: "Oh My Pi",
-    icon: (
-      <ProviderIcon icon="omp" name="Oh My Pi" size={14} showFallback={false} />
-    ),
-    activeClass:
-      "bg-cyan-500/10 ring-1 ring-cyan-500/20 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400",
-    badgeClass:
-      "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20 border-0 gap-1.5",
   },
 };
 

@@ -91,14 +91,14 @@ pub fn import_from_claude(config: &mut MultiAppConfig) -> Result<usize, AppError
                         agy: false,
                         claude: true,
                         codex: false,
-                        gemini: false,
-                        grokbuild: false,
+
+
                         opencode: false,
-                        hermes: false,
-                        mcode: false,
-                        kimi: false,
+
+
+
                         pi: false,
-                        omp: false,
+
                     },
                     description: None,
                     homepage: None,

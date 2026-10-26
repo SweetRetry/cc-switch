@@ -54,7 +54,6 @@ import {
 } from "./StackSubagentFields";
 import { RouteSettingsSheet } from "./RouteSettingsSheet";
 import { StackSettingsSheet } from "./StackSettingsSheet";
-import { useDesktopConfigMessages } from "./useDesktopConfigMessages";
 
 type ListCallbacks = Pick<
   React.ComponentProps<typeof ProviderList>,
@@ -65,8 +64,6 @@ type ListCallbacks = Pick<
   | "onOpenWebsite"
   | "onOpenTerminal"
   | "onCreate"
-  | "searchOpen"
-  | "onSearchOpenChange"
 >;
 
 interface SwitchModePanelProps extends ListCallbacks {
@@ -127,7 +124,6 @@ export function SwitchModePanel({
 
   // 离开页面再回来、或生效的模式变了，一律落在生效的那格（「查看中」不持久化）
   const [view, setView] = useState<AppMode>(active);
-  const [searchSlot, setSearchSlot] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
     setView(active);
   }, [app, active]);
@@ -149,7 +145,6 @@ export function SwitchModePanel({
   const setStackMember = useSetProxyStackMember();
   const adoptCatalog = useAdoptCodexStackCatalog();
   const modeActions = useModeActions(app);
-  const desktopMessages = useDesktopConfigMessages(app === "claude-desktop");
 
   const [dialog, setDialog] = useState<ModeDialogState | null>(null);
   const [routeSettingsOpen, setRouteSettingsOpen] = useState(false);
@@ -404,21 +399,6 @@ export function SwitchModePanel({
       />,
     );
   }
-  if (desktopMessages.length > 0) {
-    notices.push(
-      <Notice
-        key="desktopConfig"
-        tone="warning"
-        title={t("claudeDesktop.statusTitle")}
-      >
-        {desktopMessages.map((message) => (
-          <span key={message} className="block">
-            {message}
-          </span>
-        ))}
-      </Notice>,
-    );
-  }
   if (startupFailure) {
     notices.push(
       <Notice
@@ -502,42 +482,6 @@ export function SwitchModePanel({
       />,
     );
   }
-  if (view !== active) {
-    const cta =
-      view === "route"
-        ? t("mode.activate.route")
-        : view === "stack"
-          ? t("mode.activate.stack")
-          : t("mode.activate.direct");
-    notices.push(
-      <Notice
-        key="activate"
-        tone="neutral"
-        title={t("mode.activate.viewing", {
-          view: t(`mode.names.${view}`),
-          app: appName,
-          active: t(`mode.names.${active}`),
-        })}
-        actions={
-          <Button
-            variant={view}
-            size="regular"
-            disabled={modeActions.pending}
-            onClick={() =>
-              setDialog(
-                view === "direct"
-                  ? { kind: "exit" }
-                  : { kind: "enter", target: view },
-              )
-            }
-          >
-            {cta}
-          </Button>
-        }
-      />,
-    );
-  }
-
   return (
     <>
       {statusSlot &&
@@ -603,7 +547,6 @@ export function SwitchModePanel({
             ? () => setStackSettingsOpen(true)
             : undefined
         }
-        searchSlotRef={setSearchSlot}
       />
       <div
         ref={scrollRef}
@@ -623,7 +566,6 @@ export function SwitchModePanel({
           isLoading={isLoading}
           onSwitch={(provider) => void onSwitch(provider)}
           switchMode={switchMode}
-          searchSlot={searchSlot}
         />
       </div>
 

@@ -6,66 +6,11 @@ import {
   resolveCodexOfficialIdentity,
   supportsOfficialProxyTakeover,
   supportsConnectivityCheck,
-  isOfficialAccount,
 } from "@/utils/providerCapabilities";
 
 function mkProvider(overrides: Partial<Provider> = {}): Provider {
   return { id: "p1", name: "Test", settingsConfig: {}, ...overrides };
 }
-
-describe("Kimi official account identity", () => {
-  it.each([
-    "oauth/kimi-code",
-    "kimi-code",
-    "oauth/kimi-code-env-0e4f99c69cc27850",
-  ])(
-    "recognizes a native OAuth reference %s without relying on a legacy category",
-    (key) => {
-      const provider = mkProvider({
-        id: "managed:kimi-code",
-        settingsConfig: { provider: { type: "kimi", oauth: { key } } },
-      });
-      expect(isOfficialAccount("kimi", provider)).toBe(true);
-    },
-  );
-  it("recognizes an official account with its own provider ID and credential slot", () => {
-    expect(
-      isOfficialAccount(
-        "kimi",
-        mkProvider({
-          id: "kimi-code-ccs-second",
-          settingsConfig: {
-            provider: {
-              type: "kimi",
-              oauth: { key: "oauth/kimi-code-ccs-second" },
-            },
-          },
-        }),
-      ),
-    ).toBe(true);
-  });
-  it("does not mark an API-key or custom OAuth provider as the official login", () => {
-    expect(
-      isOfficialAccount(
-        "kimi",
-        mkProvider({
-          id: "managed:kimi-code",
-          category: "official",
-          settingsConfig: { provider: { api_key: "test-key" } },
-        }),
-      ),
-    ).toBe(false);
-    expect(
-      isOfficialAccount(
-        "kimi",
-        mkProvider({
-          id: "my-provider",
-          settingsConfig: { provider: { oauth: { key: "oauth/kimi-code" } } },
-        }),
-      ),
-    ).toBe(false);
-  });
-});
 
 // wire_api 取自 config.toml；chat_completions 需转换（需路由），responses 直连。
 const codexConfig = (wireApi: "chat_completions" | "responses") =>
@@ -245,7 +190,7 @@ describe("providerNeedsRouting", () => {
   });
 
   it("官方供应商一律不需要路由（即便 providerType 是 OAuth）", () => {
-    const apps: AppId[] = ["claude", "codex", "claude-desktop"];
+    const apps: AppId[] = ["claude", "codex"];
     for (const app of apps) {
       expect(
         providerNeedsRouting(
@@ -306,17 +251,6 @@ describe("providerNeedsRouting", () => {
       expect(
         providerNeedsRouting(
           "codex",
-          mkProvider({
-            meta: { providerType: "xai_oauth", apiFormat: "openai_responses" },
-          }),
-        ),
-      ).toBe(true);
-    });
-
-    it("grokbuild 下 xai_oauth 需要路由", () => {
-      expect(
-        providerNeedsRouting(
-          "grokbuild",
           mkProvider({
             meta: { providerType: "xai_oauth", apiFormat: "openai_responses" },
           }),
@@ -408,34 +342,6 @@ describe("providerNeedsRouting", () => {
       ).toBe(false);
     });
   });
-
-  describe("Claude Desktop 路由判定", () => {
-    it("proxy 模式需要路由", () => {
-      expect(
-        providerNeedsRouting(
-          "claude-desktop",
-          mkProvider({ meta: { claudeDesktopMode: "proxy" } }),
-        ),
-      ).toBe(true);
-    });
-
-    it.each(["github_copilot", "codex_oauth", "xai_oauth"])(
-      "direct 模式的托管 OAuth %s 仍需要路由",
-      (providerType) => {
-        expect(
-          providerNeedsRouting(
-            "claude-desktop",
-            mkProvider({
-              meta: {
-                providerType,
-                claudeDesktopMode: "direct",
-              },
-            }),
-          ),
-        ).toBe(true);
-      },
-    );
-  });
 });
 
 describe("supportsConnectivityCheck", () => {
@@ -464,8 +370,4 @@ describe("supportsConnectivityCheck", () => {
       ).toBe(false);
     },
   );
-
-  it.each(["mcode", "kimi"] as const)("%s 不支持连通检测", (appId) => {
-    expect(supportsConnectivityCheck(appId, mkProvider())).toBe(false);
-  });
 });

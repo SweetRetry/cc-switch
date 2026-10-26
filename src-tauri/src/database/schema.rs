@@ -344,35 +344,6 @@ impl Database {
         )
         .map_err(|e| AppError::Database(e.to_string()))?;
 
-        // 19. Profiles 表（全应用共享的项目实体，payload 按 app 分槽快照
-        //     供应商/MCP/Skills/Prompt；各应用分组的 current 标记在 settings 表）
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS profiles (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                payload TEXT NOT NULL,
-                sort_order INTEGER,
-                created_at INTEGER,
-                updated_at INTEGER
-            )",
-            [],
-        )
-        .map_err(|e| AppError::Database(e.to_string()))?;
-
-        // 修复跑过未发布开发版的库：current 标记曾是全局 key，现按应用分组
-        // （随 v12 定稿为 current_profile_id_<scope>，不单独 bump 版本）
-        if conn
-            .execute(
-                "INSERT OR REPLACE INTO settings (key, value)
-                 SELECT 'current_profile_id_claude', value FROM settings
-                 WHERE key = 'current_profile_id'",
-                [],
-            )
-            .is_ok()
-        {
-            let _ = conn.execute("DELETE FROM settings WHERE key = 'current_profile_id'", []);
-        }
-
         // 尝试添加 live_takeover_active 列到 proxy_config 表
         let _ = conn.execute(
             "ALTER TABLE proxy_config ADD COLUMN live_takeover_active INTEGER NOT NULL DEFAULT 0",
@@ -522,13 +493,8 @@ impl Database {
                         Self::migrate_v10_to_v11(conn)?;
                         Self::set_user_version(conn, 11)?;
                     }
-                    11 => {
-                        log::info!("迁移数据库从 v11 到 v12（添加项目 Profiles 表）");
-                        Self::migrate_v11_to_v12(conn)?;
-                        Self::set_user_version(conn, 12)?;
-                    }
-                    12 => {
-                        log::info!("迁移数据库从 v12 到 v13（记录输入 token 缓存语义）");
+                    11 | 12 => {
+                        log::info!("迁移数据库从 v11/v12 到 v13（记录输入 token 缓存语义）");
                         Self::migrate_v12_to_v13(conn)?;
                         Self::set_user_version(conn, 13)?;
                     }
@@ -1458,24 +1424,6 @@ impl Database {
         log::info!(
             "v10 -> v11 迁移完成：usage_daily_rollups 已保留 request_model/pricing_model 维度"
         );
-        Ok(())
-    }
-
-    /// v11 -> v12 迁移：添加项目 Profiles 表
-    /// 与 create_tables_on_conn 中的建表语句保持一致（IF NOT EXISTS 保证幂等）
-    fn migrate_v11_to_v12(conn: &Connection) -> Result<(), AppError> {
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS profiles (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                payload TEXT NOT NULL,
-                sort_order INTEGER,
-                created_at INTEGER,
-                updated_at INTEGER
-            )",
-            [],
-        )
-        .map_err(|e| AppError::Database(format!("v11 -> v12 创建 profiles 表失败: {e}")))?;
         Ok(())
     }
 
@@ -3985,23 +3933,6 @@ mod tests {
     }
 
     #[test]
-    fn kimi_clean_database_persists_mcp_and_skill_flags_independently() -> Result<(), AppError> {
-        let db = Database::memory()?;
-        let server = serde_json::from_value(serde_json::json!({"id":"m", "name":"m", "server":{"command":"echo"}, "apps":{"kimi":true,"codex":true}})).unwrap();
-        db.save_mcp_server(&server)?;
-        db.update_mcp_server_app_enabled("m", &crate::app_config::AppType::Kimi, false)?;
-        let saved = db.get_all_mcp_servers()?;
-        assert!(!saved["m"].apps.kimi);
-        assert!(saved["m"].apps.codex);
-        let skill = serde_json::from_value(serde_json::json!({"id":"s", "name":"s", "description":"", "directory":"s", "apps":{"kimi":true,"claude":true}, "installedAt":0})).unwrap();
-        db.save_skill(&skill)?;
-        let saved = db.get_installed_skill("s")?.unwrap();
-        assert!(saved.apps.kimi && saved.apps.claude);
-        assert!(db.get_all_installed_skills()?["s"].apps.kimi);
-        Ok(())
-    }
-
-    #[test]
     fn agy_migration_preserves_existing_flags_and_defaults_to_disabled() -> Result<(), AppError> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch("CREATE TABLE mcp_servers(id TEXT PRIMARY KEY, enabled_gemini BOOLEAN); CREATE TABLE skills(id TEXT PRIMARY KEY, enabled_codex BOOLEAN); INSERT INTO mcp_servers VALUES ('m',1); INSERT INTO skills VALUES ('s',1);")?;
@@ -4026,12 +3957,12 @@ mod tests {
     #[test]
     fn agy_clean_database_persists_independent_mcp_and_skill_flags() -> Result<(), AppError> {
         let db = Database::memory()?;
-        let mut server: crate::app_config::McpServer = serde_json::from_value(serde_json::json!({"id":"m", "name":"m", "server":{"command":"echo"}, "apps":{"gemini":true,"agy":true}})).unwrap();
+        let mut server: crate::app_config::McpServer = serde_json::from_value(serde_json::json!({"id":"m", "name":"m", "server":{"command":"echo"}, "apps":{"claude":true,"agy":true}})).unwrap();
         db.save_mcp_server(&server)?;
         server.apps.agy = false;
         db.update_mcp_server_app_enabled("m", &crate::app_config::AppType::Agy, false)?;
         assert_eq!(db.get_all_mcp_servers()?["m"].apps, server.apps);
-        let skill: crate::app_config::InstalledSkill = serde_json::from_value(serde_json::json!({"id":"s", "name":"s", "directory":"s", "installedAt":0, "apps":{"agy":true,"gemini":true}})).unwrap();
+        let skill: crate::app_config::InstalledSkill = serde_json::from_value(serde_json::json!({"id":"s", "name":"s", "directory":"s", "installedAt":0, "apps":{"agy":true,"claude":true}})).unwrap();
         db.save_skill(&skill)?;
         assert!(db.get_installed_skill("s")?.unwrap().apps.agy);
         let mut apps = skill.apps;
@@ -4039,7 +3970,7 @@ mod tests {
         db.update_skill_apps("s", &apps)?;
         let read = db.get_all_installed_skills()?;
         assert!(!read["s"].apps.agy);
-        assert!(read["s"].apps.gemini);
+        assert!(read["s"].apps.claude);
         Ok(())
     }
 

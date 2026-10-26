@@ -19,9 +19,9 @@ import {
   Feather,
   Plus,
   Power,
-  Search,
   Settings,
 } from "lucide-react";
+import { APP_IDS } from "@/config/appConfig";
 import { AppGlyph } from "@/components/shell/AppGlyph";
 import { ProviderIcon } from "@/components/ProviderIcon";
 import { cn } from "@/lib/utils";
@@ -325,14 +325,6 @@ function AppRow({
 
 // ─── 子面板 ───────────────────────────────────────────────────────────────────
 
-function matches(row: PanelRow, query: string) {
-  const haystack = [row.text, row.provider?.name, row.provider?.hint]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(query);
-}
-
 function SubRow({
   row,
   texts,
@@ -415,25 +407,14 @@ function SubRow({
 function SubPanel({
   app,
   texts,
-  query,
-  onQuery,
   onAction,
-  searchRef,
 }: {
   app: PanelApp;
   texts: PanelTexts;
-  query: string;
-  onQuery: (value: string) => void;
   onAction: (id: string) => void;
-  searchRef: React.RefObject<HTMLInputElement>;
 }) {
-  const needle = query.trim().toLowerCase();
   // 额度说明已经写在主面板的应用行下面
   const rows = app.rows.filter((row) => !row.id.endsWith(":quota"));
-  const shown = needle
-    ? rows.filter((row) => row.kind === "provider" && matches(row, needle))
-    : rows;
-  const providerCount = rows.filter((row) => row.kind === "provider").length;
 
   return (
     <>
@@ -443,35 +424,15 @@ function SubPanel({
           {app.header ?? texts.switchProvider}
         </div>
       </div>
-      {providerCount > 4 && (
-        <div className="shrink-0 px-3 pb-2">
-          <label className="flex items-center gap-2 rounded-lg bg-black/[0.05] px-2.5 py-1.5 dark:bg-white/[0.08]">
-            <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <input
-              ref={searchRef}
-              value={query}
-              onChange={(event) => onQuery(event.target.value)}
-              placeholder={texts.searchPlaceholder}
-              className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
-            />
-          </label>
-        </div>
-      )}
       <div className="tp-scroll min-h-0 flex-1 px-1.5 pb-1.5">
-        {shown.length === 0 ? (
-          <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-            {texts.noMatch}
-          </div>
-        ) : (
-          shown.map((row, index) => (
-            <SubRow
-              key={`${row.id}-${index}`}
-              row={row}
-              texts={texts}
-              onAction={onAction}
-            />
-          ))
-        )}
+        {rows.map((row, index) => (
+          <SubRow
+            key={`${row.id}-${index}`}
+            row={row}
+            texts={texts}
+            onAction={onAction}
+          />
+        ))}
       </div>
     </>
   );
@@ -538,14 +499,12 @@ export function TrayPanel() {
   const [openApp, setOpenApp] = useState<string | null>(null);
   /** 子面板是从另一个应用换过来的（不是刚展开）：内容做一次很短的淡入 */
   const [swapped, setSwapped] = useState(false);
-  const [query, setQuery] = useState("");
   const [shownCount, setShownCount] = useState(0);
   const theme = usePanelTheme(shownCount);
   const queryClient = useQueryClient();
 
   const mainRef = useRef<HTMLDivElement>(null);
   const subRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
   const hoverTimer = useRef<number | undefined>(undefined);
   /** 最近几次鼠标位置，判断是不是正朝子面板移动 */
   const trail = useRef<Point[]>([]);
@@ -576,7 +535,11 @@ export function TrayPanel() {
 
   const load = useCallback(async () => {
     try {
-      const next = await trayPanelApi.state();
+      const received = await trayPanelApi.state();
+      const next = {
+        ...received,
+        apps: received.apps.filter(({ app }) => APP_IDS.includes(app)),
+      };
       // 额度刷新会连着通知好几次，内容没变就不重新渲染
       const key = JSON.stringify(next);
       if (key === lastState.current) return;
@@ -593,7 +556,7 @@ export function TrayPanel() {
     async (next: PanelPlacement) => {
       syncLanguage();
       setOpenApp(null);
-      setQuery("");
+
       await Promise.all([
         load(),
         queryClient.invalidateQueries({ queryKey: ["settings"] }),
@@ -784,7 +747,6 @@ export function TrayPanel() {
     const previous = openAppRef.current;
     setSwapped(previous !== null && next !== null && previous !== next);
     setOpenApp(next);
-    setQuery("");
   }, []);
 
   useEffect(() => {
@@ -875,8 +837,7 @@ export function TrayPanel() {
       const inInput = target?.tagName === "INPUT";
       if (event.key === "Escape") {
         event.preventDefault();
-        if (query) setQuery("");
-        else if (openApp) openSub(null);
+        if (openApp) openSub(null);
         else void trayPanelApi.hide();
         return;
       }
@@ -909,11 +870,9 @@ export function TrayPanel() {
           event.preventDefault();
           openSub(app);
           window.setTimeout(() => {
-            const first =
-              searchRef.current ??
-              subRef.current?.querySelector<HTMLElement>(
-                "[data-nav]:not([disabled])",
-              );
+            const first = subRef.current?.querySelector<HTMLElement>(
+              "[data-nav]:not([disabled])",
+            );
             first?.focus();
           }, 0);
         }
@@ -932,7 +891,7 @@ export function TrayPanel() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [apps, openApp, openSub, query]);
+  }, [apps, openApp, openSub]);
 
   const radius = placement?.radius ?? 12;
   const joined = placement?.layout === "joined";
@@ -1147,10 +1106,7 @@ export function TrayPanel() {
             key={openEntry.app}
             app={openEntry}
             texts={texts}
-            query={query}
-            onQuery={setQuery}
             onAction={action}
-            searchRef={searchRef}
           />
         </div>
       )}

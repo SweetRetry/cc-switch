@@ -60,7 +60,7 @@ pub(crate) fn sync_and_commit<T>(
         .lock()
         .map_err(|e| AppError::Message(e.to_string()))?;
     let path = crate::agy_config::customizations_dir().join("mcp_config.json");
-    crate::mcode_config::write_and_commit(&path, || sync_file(&path, id, change), commit)
+    crate::config::write_and_commit(&path, || sync_file(&path, id, change), commit)
 }
 
 fn sync_file(path: &Path, id: &str, change: AgyChange<'_>) -> Result<(), AppError> {
@@ -249,7 +249,7 @@ mod tests {
         let path = dir.path().join("mcp_config.json");
         let original = r#"{"mcpServers":{"m":{"command":"old"}}}"#;
         fs::write(&path, original).unwrap();
-        let result: Result<(), AppError> = crate::mcode_config::write_and_commit(
+        let result: Result<(), AppError> = crate::config::write_and_commit(
             &path,
             || sync_file(&path, "m", AgyChange::Upsert(&json!({"command":"new"}))),
             || Err(AppError::Database("fixture failure".into())),

@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 const MODE_ICON = { direct: Plug, route: Route, stack: Layers } as const;
 
-/** 模式色用于页头状态、tab、侧栏标签、当前卡片和激活条的 CTA。 */
+/** 模式色用于页头状态、tab、侧栏标签和当前卡片。 */
 export const MODE_TONE: Record<
   AppMode,
   { soft: string; text: string; dot: string; border: string }
@@ -51,8 +51,6 @@ interface ModeTabsProps {
   onOpenRouteSettings?: () => void;
   /** Codex 聚合页签上的「聚合设置」（子代理模型、经典子代理） */
   onOpenStackSettings?: () => void;
-  /** 供应商搜索框挂在状态行右侧（由列表通过 portal 渲染进来） */
-  searchSlotRef?: (node: HTMLDivElement | null) => void;
 }
 
 /**
@@ -68,7 +66,6 @@ export function ModeTabs({
   failover,
   onOpenRouteSettings,
   onOpenStackSettings,
-  searchSlotRef,
 }: ModeTabsProps) {
   const { t } = useTranslation();
   const indicator = useSlidingIndicator<HTMLDivElement>(
@@ -138,13 +135,6 @@ export function ModeTabs({
       </HelpTip>
 
       <div className="flex-1" />
-      {searchSlotRef && (
-        <div
-          ref={searchSlotRef}
-          className="flex min-w-0 shrink items-center empty:hidden"
-        />
-      )}
-
       {failover && (
         <HoverTip content={t("mode.failover")}>
           <label className="flex shrink-0 cursor-pointer items-center gap-1.5">

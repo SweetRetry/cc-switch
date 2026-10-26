@@ -1,7 +1,7 @@
 {
   "name": "cc-switch",
   "version": "4.0.20",
-  "description": "All-in-One Assistant for Claude Code, Codex & Gemini CLI",
+  "description": "Assistant for Pi, Claude Code, Codex, Antigravity and OpenCode",
   "type": "module",
   "scripts": {
     "dev": "pnpm tauri dev",

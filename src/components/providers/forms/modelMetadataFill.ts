@@ -2,9 +2,7 @@
 // 统一规则：只补空着的字段，用户填过的值一律不动；布尔和模态只往「支持」方向补。
 
 import type { KnownModelMetadata } from "@/lib/modelMetadata";
-import type { CodexCatalogModel, OpenClawModel, OpenCodeModel } from "@/types";
-import type { HermesModel } from "@/config/hermesProviderPresets";
-import type { KimiProviderConfig } from "@/config/kimiProviderPresets";
+import type { CodexCatalogModel, OpenCodeModel } from "@/types";
 import {
   PI_THINKING_LEVELS,
   type PiThinkingLevelMap,
@@ -17,7 +15,7 @@ export const metadataFilledAnything = (before: unknown, after: unknown) =>
 const isBlank = (value: unknown) =>
   value === undefined || value === null || String(value).trim() === "";
 
-/** 只认文字和图片两种输入（Codex / OpenClaw / Pi 的模态字段只有这两种）。 */
+/** 只认文字和图片两种输入（Codex / Pi 的模态字段只有这两种）。 */
 function textImageModalities(
   modalities: string[] | undefined,
 ): string[] | undefined {
@@ -49,56 +47,6 @@ export function fillCodexCatalogModel<T extends CodexCatalogModel>(
   return next;
 }
 
-export function fillOpenClawModel(
-  model: OpenClawModel,
-  metadata: KnownModelMetadata,
-): OpenClawModel {
-  const next = { ...model };
-  if (isBlank(model.contextWindow) && metadata.contextWindow) {
-    next.contextWindow = metadata.contextWindow;
-  }
-  if (isBlank(model.maxTokens) && metadata.maxOutputTokens) {
-    next.maxTokens = metadata.maxOutputTokens;
-  }
-  if (model.reasoning === undefined && metadata.reasoning !== undefined) {
-    next.reasoning = metadata.reasoning;
-  } else if (metadata.reasoning === true) {
-    next.reasoning = true;
-  }
-  if (!model.input?.length) {
-    const input = textImageModalities(metadata.inputModalities);
-    if (input) next.input = input;
-  } else if (
-    metadata.inputModalities?.includes("image") &&
-    !model.input.includes("image")
-  ) {
-    // 新建的行默认只有 text，模型支持图片就补上。
-    next.input = [...model.input, "image"];
-  }
-  if (!model.cost && metadata.cost) {
-    next.cost = { ...metadata.cost };
-  }
-  return next;
-}
-
-export function fillHermesModel(
-  model: HermesModel,
-  metadata: KnownModelMetadata,
-): HermesModel {
-  const next = { ...model };
-  if (isBlank(model.context_length) && metadata.contextWindow) {
-    next.context_length = metadata.contextWindow;
-  }
-  // 只补 true：没写时 Hermes 自己查目录，用户明确写的 false 也不动。
-  if (
-    model.supports_vision === undefined &&
-    metadata.inputModalities?.includes("image")
-  ) {
-    next.supports_vision = true;
-  }
-  return next;
-}
-
 export function fillOpenCodeModel(
   model: OpenCodeModel,
   metadata: KnownModelMetadata,
@@ -126,40 +74,8 @@ export function fillOpenCodeModel(
   return next;
 }
 
-type KimiModel = KimiProviderConfig["models"][string];
-
-/**
- * Kimi 的 `max_context_size` 是必填项，新加的行先带一个占位值；`replaceContext`
- * 为真表示这一行的窗口还是占位值、可以换成查到的值。能力只往「支持」方向补，
- * 和 Kimi 按目录导入模型时的取法一致（`image_in` 看输入模态，`thinking` 看
- * reasoning）。
- */
-export function fillKimiModel(
-  model: KimiModel,
-  metadata: KnownModelMetadata,
-  { replaceContext }: { replaceContext: boolean },
-): KimiModel {
-  const next = { ...model };
-  if (replaceContext && metadata.contextWindow) {
-    next.max_context_size = metadata.contextWindow;
-  }
-  const capabilities = new Set(model.capabilities ?? []);
-  if (metadata.inputModalities?.includes("image")) capabilities.add("image_in");
-  if (metadata.reasoning === true) capabilities.add("thinking");
-  if (capabilities.size > (model.capabilities?.length ?? 0)) {
-    next.capabilities = [...capabilities];
-  }
-  return next;
-}
-
 const PI_EFFORT_LEVELS = PI_THINKING_LEVELS.filter((level) => level !== "off");
 
-/**
- * 把 effort 档位转成 Pi 的 thinkingLevelMap，规则照搬 Pi 官方从 models.dev 生成
- * 内置模型目录的 `getEffortThinkingLevelMap`：列出的档位发同名值，没列出的写
- * `null` 隐藏；`off` 在列出 `none` 时发 `"none"`，否则同样隐藏。一个 Pi 档位都
- * 对不上时不生成。
- */
 export function piThinkingLevelMapFromEfforts(
   efforts: readonly string[] | undefined,
 ): PiThinkingLevelMap | undefined {

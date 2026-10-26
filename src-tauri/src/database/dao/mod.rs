@@ -5,7 +5,6 @@
 pub mod custom_icons;
 pub mod failover;
 pub mod mcp;
-pub mod profiles;
 pub mod prompts;
 pub mod providers;
 pub mod providers_seed;
@@ -17,6 +16,5 @@ pub mod universal_providers;
 pub mod usage_rollup;
 
 // 所有 DAO 方法都通过 Database impl 提供，无需单独导出
-// 导出 FailoverQueueItem / Profile 供外部使用
+// 导出 FailoverQueueItem 供外部使用
 pub use failover::FailoverQueueItem;
-pub use profiles::Profile;

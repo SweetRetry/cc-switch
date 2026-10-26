@@ -420,14 +420,10 @@ command = "echo"
                 agy: false,
                 claude: false,
                 codex: false, // 初始未启用
-                gemini: false,
-                grokbuild: false,
+
                 opencode: false,
-                hermes: false,
-                mcode: false,
-                kimi: false,
+
                 pi: false,
-                omp: false,
             },
             description: None,
             homepage: None,
@@ -555,14 +551,10 @@ fn import_from_claude_merges_into_config() {
                 agy: false,
                 claude: false, // 初始未启用
                 codex: false,
-                gemini: false,
-                grokbuild: false,
+
                 opencode: false,
-                hermes: false,
-                mcode: false,
-                kimi: false,
+
                 pi: false,
-                omp: false,
             },
             description: None,
             homepage: None,

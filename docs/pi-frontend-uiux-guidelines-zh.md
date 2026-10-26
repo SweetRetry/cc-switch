@@ -27,8 +27,6 @@ Pi 不建立独立设计系统。交互参考顺序如下：
 2. Hermes：模型详情、可选能力和原生设置的渐进展示。
 3. Claude Code、Codex：供应商表单、请求头、配置 JSON、卡片和操作按钮的视觉语言。
 
-应该复用现有的 `ProviderPresetSelector`、`BasicFormFields`、`ApiKeySection`、`EndpointField`、`RequestHeadersEditor`、`JsonEditor`、供应商卡片、图标、分类与合作伙伴排序。只有 Pi 原生语义无法用现有组件表达时，才增加 Pi 专用组件。
-
 同一种信息在不同应用中应使用相同的层级、字号、间距和操作位置。Pi 可以有不同的数据语义，不能因此出现一套完全不同的布局。
 
 ## 3. Pi 原生语义是最高约束

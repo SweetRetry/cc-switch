@@ -2,9 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   fillCodexCatalogModel,
-  fillHermesModel,
-  fillKimiModel,
-  fillOpenClawModel,
   fillOpenCodeModel,
   piPresetThinkingFor,
   piSendsReasoningEffort,
@@ -64,66 +61,6 @@ describe("fillCodexCatalogModel", () => {
   });
 });
 
-describe("fillOpenClawModel", () => {
-  it("fills numbers and cost, and upgrades the default text-only input", () => {
-    expect(
-      fillOpenClawModel({ id: "m", name: "m", input: ["text"] }, metadata),
-    ).toEqual({
-      id: "m",
-      name: "m",
-      contextWindow: 262144,
-      maxTokens: 32768,
-      reasoning: true,
-      input: ["text", "image"],
-      cost: { input: 1, output: 4 },
-    });
-  });
-
-  it("keeps user values and never downgrades capabilities", () => {
-    const model = {
-      id: "m",
-      name: "m",
-      contextWindow: 1000,
-      maxTokens: 10,
-      reasoning: true,
-      input: ["text", "image"],
-      cost: { input: 9, output: 9 },
-    };
-    expect(
-      fillOpenClawModel(model, {
-        ...metadata,
-        reasoning: false,
-        inputModalities: ["text"],
-      }),
-    ).toEqual(model);
-  });
-});
-
-describe("fillHermesModel", () => {
-  it("fills context_length and supports_vision only when blank", () => {
-    expect(fillHermesModel({ id: "m" }, metadata)).toEqual({
-      id: "m",
-      context_length: 262144,
-      supports_vision: true,
-    });
-    expect(
-      fillHermesModel(
-        { id: "m", context_length: 1, supports_vision: true },
-        metadata,
-      ),
-    ).toEqual({ id: "m", context_length: 1, supports_vision: true });
-  });
-
-  it("only fills supports_vision towards true and keeps an explicit false", () => {
-    expect(
-      fillHermesModel({ id: "m" }, { inputModalities: ["text"] }),
-    ).toEqual({ id: "m" });
-    expect(
-      fillHermesModel({ id: "m", supports_vision: false }, metadata),
-    ).toEqual({ id: "m", context_length: 262144, supports_vision: false });
-  });
-});
-
 describe("fillOpenCodeModel", () => {
   it("fills missing limits, modalities and reasoning", () => {
     expect(fillOpenCodeModel({ name: "m" }, metadata)).toEqual({
@@ -163,37 +100,6 @@ describe("fillOpenCodeModel", () => {
 
   it("leaves the model untouched when nothing is known", () => {
     expect(fillOpenCodeModel({ name: "m" }, {})).toEqual({ name: "m" });
-  });
-});
-
-describe("fillKimiModel", () => {
-  it("replaces a placeholder window and adds supported capabilities", () => {
-    expect(
-      fillKimiModel(
-        { model: "m", max_context_size: 1, capabilities: ["tool_use"] },
-        metadata,
-        { replaceContext: true },
-      ),
-    ).toEqual({
-      model: "m",
-      max_context_size: 262144,
-      capabilities: ["tool_use", "image_in", "thinking"],
-    });
-  });
-
-  it("keeps a window the user set and never removes capabilities", () => {
-    const model = {
-      model: "m",
-      max_context_size: 1000,
-      capabilities: ["thinking", "video_in"],
-    };
-    expect(
-      fillKimiModel(
-        model,
-        { contextWindow: 9, inputModalities: ["text"], reasoning: false },
-        { replaceContext: false },
-      ),
-    ).toEqual(model);
   });
 });
 

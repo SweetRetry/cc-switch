@@ -2,22 +2,14 @@ import { describe, expect, it } from "vitest";
 import { resolveProviderIcon } from "./providerIcon";
 
 describe("resolveProviderIcon", () => {
-  it("clears the legacy automatic Grok Build icon", () => {
-    expect(resolveProviderIcon("grokbuild", "grok", "")).toBeUndefined();
-    expect(resolveProviderIcon("grokbuild", "grok")).toBeUndefined();
-  });
-
-  it("preserves a Grok icon explicitly selected by the user", () => {
-    expect(resolveProviderIcon("grokbuild", "grok", "currentColor")).toBe(
-      "grok",
+  it("preserves a selected vendor icon on a supported app", () => {
+    expect(resolveProviderIcon("codex", "grok", "")).toBe("grok");
+    expect(resolveProviderIcon("claude", "anthropic", "currentColor")).toBe(
+      "anthropic",
     );
   });
-
-  it("does not reinterpret another app's provider icon", () => {
-    expect(resolveProviderIcon("codex", "grok", "")).toBe("grok");
-  });
-
-  it("normalizes an empty icon to the initials fallback", () => {
-    expect(resolveProviderIcon("grokbuild", "  ", "")).toBeUndefined();
+  it("normalizes the selected icon and falls back for empty names", () => {
+    expect(resolveProviderIcon("pi", "  openai  ")).toBe("openai");
+    expect(resolveProviderIcon("opencode", "  ", "")).toBeUndefined();
   });
 });

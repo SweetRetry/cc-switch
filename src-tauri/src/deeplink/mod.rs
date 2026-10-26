@@ -2,14 +2,13 @@
 //!
 //! This module implements the ccswitch:// protocol for importing configurations
 //! via deep links. Supports importing:
-//! - Provider configurations (Claude/Codex/Gemini)
+//! - Provider configurations (Claude Code, Codex, OpenCode, Pi, Antigravity)
 //! - MCP server configurations
 //! - Prompts
 //! - Skills
 //!
 
 mod codex_link;
-mod grok_link;
 mod icon_fetch;
 mod mcp;
 mod parser;
@@ -96,7 +95,7 @@ pub struct DeepLinkImportRequest {
     pub resource: String,
 
     // ============ Common fields ============
-    /// Target application (e.g. claude/codex/gemini/agy) - for provider and prompt
+    /// Target application (e.g. claude/codex/opencode/pi/agy) - for provider and prompt
     #[serde(skip_serializing_if = "Option::is_none")]
     pub app: Option<String>,
     /// Resource name
@@ -153,7 +152,7 @@ pub struct DeepLinkImportRequest {
     pub description: Option<String>,
 
     // ============ MCP-specific fields ============
-    /// Target applications for MCP (comma-separated: "claude,codex,gemini,agy")
+    /// Target applications for MCP (comma-separated: "claude,codex,opencode,pi,agy")
     #[serde(skip_serializing_if = "Option::is_none")]
     pub apps: Option<String>,
 

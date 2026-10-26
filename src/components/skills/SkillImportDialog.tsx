@@ -12,7 +12,7 @@ import { MatrixSearch } from "@/components/mcp/AppMatrix";
 import { CHECKBOX_CLASS, V7Dialog } from "@/components/mcp/formBits";
 
 /** Pi 与 Oh My Pi 的启用状态由各自原生 skills 目录里有没有这个目录决定，导入时不勾选 */
-const NATIVE_DIR_APPS: AppId[] = ["pi", "omp"];
+const NATIVE_DIR_APPS: AppId[] = ["pi"];
 const IMPORT_APP_IDS = SKILLS_APP_IDS.filter(
   (app) => !NATIVE_DIR_APPS.includes(app),
 );
@@ -96,14 +96,8 @@ export function SkillImportDialog({
             apps: {
               claude: chosen.has("claude"),
               codex: chosen.has("codex"),
-              gemini: chosen.has("gemini"),
-              grokbuild: chosen.has("grokbuild"),
               opencode: chosen.has("opencode"),
-              openclaw: false,
-              hermes: chosen.has("hermes"),
               pi: false,
-              mcode: chosen.has("mcode"),
-              kimi: chosen.has("kimi"),
               agy: chosen.has("agy"),
             },
           };

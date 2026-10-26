@@ -84,60 +84,11 @@ fn deeplink_codex_config_rows() {
     import_deeplinks(AppType::Codex, &[&url], "rows/deeplink-codex-config.txt");
 }
 
-#[test]
-fn deeplink_gemini_rows() {
-    import_deeplinks(
-        AppType::Gemini,
-        &[
-            "ccswitch://v1/import?resource=provider&app=gemini&name=Relay%20Gemini&homepage=https%3A%2F%2Frelay.example&endpoint=https%3A%2F%2Fapi.relay.example&apiKey=g-relay&model=gemini-2.5-pro",
-        ],
-        "rows/deeplink-gemini.txt",
-    );
-}
-
-#[test]
-fn deeplink_grokbuild_rows() {
-    import_deeplinks(
-        AppType::GrokBuild,
-        &[
-            "ccswitch://v1/import?resource=provider&app=grokbuild&name=Relay%20Grok&homepage=https%3A%2F%2Frelay.example&endpoint=https%3A%2F%2Fapi.relay.example%2Fv1&apiKey=xai-relay&model=grok-4.5",
-        ],
-        "rows/deeplink-grokbuild.txt",
-    );
-}
-
-/// 带 `config.toml` 的 Grok Build 链接：只收 `models.default` 指向的那张表，地址和 Key
-/// 用链接参数。
-#[test]
-fn deeplink_grokbuild_config_rows() {
-    use base64::prelude::*;
-
-    let config = serde_json::json!({
-        "config": concat!(
-            "[models]\ndefault = \"grok-4.6\"\n\n",
-            "[model.\"grok-4.6\"]\nmodel = \"grok-4.6\"\nname = \"Grok 4.6 (Relay)\"\n",
-            "description = \"Fast coding model\"\n",
-            "base_url = \"https://ignored.example/v1\"\napi_key = \"sk-ignored\"\n",
-            "api_backend = \"chat_completions\"\ncontext_window = 256000\n\n",
-            "[model.\"grok-4.5\"]\nmodel = \"grok-4.5\"\nname = \"Grok 4.5\"\n",
-        )
-    });
-    let url = format!(
-        "ccswitch://v1/import?resource=provider&app=grokbuild&name=Relay%20Grok%20Config&endpoint=https%3A%2F%2Fapi.relay.example%2Fv1&apiKey=xai-relay&configFormat=json&config={}",
-        BASE64_URL_SAFE_NO_PAD.encode(config.to_string())
-    );
-    import_deeplinks(
-        AppType::GrokBuild,
-        &[&url],
-        "rows/deeplink-grokbuild-config.txt",
-    );
-}
-
 /// 首启：先把 live 导入成 `default`，再 seed 官方预设（顺序同 `lib.rs` 的启动流程）。
 /// live 里供应商以外的部分进了通用配置片段，片段也一起锁。关键字段（模型名、推理档位
 /// 等）不进片段、留在 `default` 行里：片段已冻结，收进去就再也写不回 live。
 ///
-/// `settings_sort` 见 [`crate::util::sort_objects`]：Gemini 的 `.env` 解析顺序不稳定。
+/// `settings_sort` 指定按键排序的对象路径，见 [`crate::util::sort_objects`]。
 fn first_run_import(app: AppType, snapshot: &str, settings_sort: &[&str]) {
     let state = create_test_state().expect("create test state");
     import_default_config_test_hook(&state, app.clone()).expect("import live config");
@@ -210,43 +161,4 @@ command = "external"
 "#,
     );
     first_run_import(AppType::Codex, "rows/first-run-codex.txt", &[]);
-}
-
-#[test]
-fn first_run_gemini_rows() {
-    let _guard = test_mutex().lock().unwrap_or_else(|e| e.into_inner());
-    reset_test_fs();
-    write_home_file(
-        ".gemini/.env",
-        "GEMINI_API_KEY=g-live\nGOOGLE_GEMINI_BASE_URL=https://relay.example\nGEMINI_MODEL=gemini-2.5-pro\n",
-    );
-    write_home_file(
-        ".gemini/settings.json",
-        r#"{
-  "security": { "auth": { "selectedType": "gemini-api-key" } },
-  "ui": { "theme": "GitHub" }
-}"#,
-    );
-    first_run_import(AppType::Gemini, "rows/first-run-gemini.txt", &["/env"]);
-}
-
-#[test]
-fn first_run_grokbuild_rows() {
-    let _guard = test_mutex().lock().unwrap_or_else(|e| e.into_inner());
-    reset_test_fs();
-    write_home_file(
-        ".grok/config.toml",
-        r#"[models]
-default = "grok-4.5"
-
-[model."grok-4.5"]
-model = "grok-4.5"
-base_url = "https://relay.example/v1"
-name = "Relay"
-api_key = "xai-live"
-api_backend = "responses"
-context_window = 500000
-"#,
-    );
-    first_run_import(AppType::GrokBuild, "rows/first-run-grokbuild.txt", &[]);
 }

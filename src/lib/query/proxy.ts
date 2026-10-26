@@ -120,9 +120,8 @@ export function useSetProxyStackMember() {
     onSuccess: (notice, variables) => {
       toast.success(
         t(
-          // 这两个客户端只在启动时读配置（Desktop 的模型列表写在配置里）
-          variables.appType === "codex" ||
-            variables.appType === "claude-desktop"
+          // Codex 在启动时读取配置。
+          variables.appType === "codex"
             ? "provider.stackSaved"
             : "provider.stackSavedLive",
           { client: getAppLabel(variables.appType) },

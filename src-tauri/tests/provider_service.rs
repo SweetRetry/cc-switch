@@ -1,9 +1,8 @@
 use serde_json::json;
 
 use cc_switch_lib::{
-    get_claude_settings_path, import_default_config_test_hook, read_json_file,
-    write_codex_live_atomic, AppError, AppType, McpApps, McpServer, MultiAppConfig, Provider,
-    ProviderMeta, ProviderService,
+    get_claude_settings_path, read_json_file, write_codex_live_atomic, AppError, AppType, McpApps,
+    McpServer, MultiAppConfig, Provider, ProviderMeta, ProviderService,
 };
 
 #[path = "support.rs"]
@@ -165,14 +164,10 @@ command = "say"
                 agy: false,
                 claude: false,
                 codex: true,
-                gemini: false,
-                grokbuild: false,
+
                 opencode: false,
-                hermes: false,
-                mcode: false,
-                kimi: false,
+
                 pi: false,
-                omp: false,
             },
             description: None,
             homepage: None,
@@ -1578,14 +1573,10 @@ fn switch_codex_ignores_a_broken_claude_json() {
                 agy: false,
                 claude: false,
                 codex: true,
-                gemini: false,
-                grokbuild: false,
+
                 opencode: false,
-                hermes: false,
-                mcode: false,
-                kimi: false,
+
                 pi: false,
-                omp: false,
             },
             description: None,
             homepage: None,
@@ -1644,14 +1635,10 @@ fn sync_all_enabled_reports_broken_app_but_projects_the_rest() {
                 agy: false,
                 claude: false,
                 codex: true,
-                gemini: false,
-                grokbuild: false,
+
                 opencode: false,
-                hermes: false,
-                mcode: false,
-                kimi: false,
+
                 pi: false,
-                omp: false,
             },
             description: None,
             homepage: None,
@@ -2171,212 +2158,6 @@ fn legacy_common_config_migration_flag_roundtrip() {
             .is_legacy_common_config_migrated()
             .expect("read migration flag after clear"),
         "migration flag should be removable for tests/debugging"
-    );
-}
-
-#[test]
-fn switch_packycode_gemini_updates_security_selected_type() {
-    let _guard = test_mutex().lock().unwrap_or_else(|e| e.into_inner());
-    reset_test_fs();
-    let home = ensure_test_home();
-
-    let mut config = MultiAppConfig::default();
-    {
-        let manager = config
-            .get_manager_mut(&AppType::Gemini)
-            .expect("gemini manager");
-        manager.current = "packy-gemini".to_string();
-        manager.providers.insert(
-            "packy-gemini".to_string(),
-            Provider::with_id(
-                "packy-gemini".to_string(),
-                "PackyCode".to_string(),
-                json!({
-                    "env": {
-                        "GEMINI_API_KEY": "pk-key",
-                        "GOOGLE_GEMINI_BASE_URL": "https://www.packyapi.com"
-                    }
-                }),
-                Some("https://www.packyapi.com".to_string()),
-            ),
-        );
-    }
-
-    let state = create_test_state_with_config(&config).expect("create test state");
-
-    ProviderService::switch(&state, AppType::Gemini, "packy-gemini")
-        .expect("switching to PackyCode Gemini should succeed");
-
-    // Gemini security settings are written to ~/.gemini/settings.json, not ~/.cc-switch/settings.json
-    let settings_path = home.join(".gemini").join("settings.json");
-    assert!(
-        settings_path.exists(),
-        "Gemini settings.json should exist at {}",
-        settings_path.display()
-    );
-    let raw = std::fs::read_to_string(&settings_path).expect("read gemini settings.json");
-    let value: serde_json::Value =
-        serde_json::from_str(&raw).expect("parse gemini settings.json after switch");
-
-    assert_eq!(
-        value
-            .pointer("/security/auth/selectedType")
-            .and_then(|v| v.as_str()),
-        Some("gemini-api-key"),
-        "PackyCode Gemini should set security.auth.selectedType"
-    );
-}
-
-#[test]
-fn packycode_partner_meta_triggers_security_flag_even_without_keywords() {
-    let _guard = test_mutex().lock().unwrap_or_else(|e| e.into_inner());
-    reset_test_fs();
-    let home = ensure_test_home();
-
-    let mut config = MultiAppConfig::default();
-    {
-        let manager = config
-            .get_manager_mut(&AppType::Gemini)
-            .expect("gemini manager");
-        manager.current = "packy-meta".to_string();
-        let mut provider = Provider::with_id(
-            "packy-meta".to_string(),
-            "Generic Gemini".to_string(),
-            json!({
-                "env": {
-                    "GEMINI_API_KEY": "pk-meta",
-                    "GOOGLE_GEMINI_BASE_URL": "https://generativelanguage.googleapis.com"
-                }
-            }),
-            Some("https://example.com".to_string()),
-        );
-        provider.meta = Some(ProviderMeta {
-            partner_promotion_key: Some("packycode".to_string()),
-            ..ProviderMeta::default()
-        });
-        manager.providers.insert("packy-meta".to_string(), provider);
-    }
-
-    let state = create_test_state_with_config(&config).expect("create test state");
-
-    ProviderService::switch(&state, AppType::Gemini, "packy-meta")
-        .expect("switching to partner meta provider should succeed");
-
-    // Gemini security settings are written to ~/.gemini/settings.json, not ~/.cc-switch/settings.json
-    let settings_path = home.join(".gemini").join("settings.json");
-    assert!(
-        settings_path.exists(),
-        "Gemini settings.json should exist at {}",
-        settings_path.display()
-    );
-    let raw = std::fs::read_to_string(&settings_path).expect("read gemini settings.json");
-    let value: serde_json::Value =
-        serde_json::from_str(&raw).expect("parse gemini settings.json after switch");
-
-    assert_eq!(
-        value
-            .pointer("/security/auth/selectedType")
-            .and_then(|v| v.as_str()),
-        Some("gemini-api-key"),
-        "Partner meta should set security.auth.selectedType even without packy keywords"
-    );
-}
-
-#[test]
-fn switching_back_to_imported_gemini_default_keeps_an_export_line_key() {
-    let _guard = test_mutex().lock().unwrap_or_else(|e| e.into_inner());
-    reset_test_fs();
-    let env_path = ensure_test_home().join(".gemini").join(".env");
-    std::fs::create_dir_all(env_path.parent().expect("env dir")).expect("create ~/.gemini");
-    std::fs::write(&env_path, "export GEMINI_API_KEY=AIza-user-key\n").expect("write .env");
-
-    let state = create_test_state().expect("create test state");
-    import_default_config_test_hook(&state, AppType::Gemini).expect("import live .env");
-    let relay = Provider::with_id(
-        "relay".to_string(),
-        "Relay".to_string(),
-        json!({
-            "env": {
-                "GEMINI_API_KEY": "relay-key",
-                "GOOGLE_GEMINI_BASE_URL": "https://relay.example"
-            }
-        }),
-        None,
-    );
-    state
-        .db
-        .save_provider("gemini", &relay)
-        .expect("save relay");
-
-    ProviderService::switch(&state, AppType::Gemini, "relay").expect("switch to relay");
-    ProviderService::switch(&state, AppType::Gemini, "default").expect("switch back");
-
-    assert_eq!(
-        std::fs::read_to_string(&env_path).expect("read .env"),
-        "export GEMINI_API_KEY=AIza-user-key\n"
-    );
-}
-
-#[test]
-fn switch_google_official_gemini_preserves_env_vars() {
-    let _guard = test_mutex().lock().unwrap_or_else(|e| e.into_inner());
-    reset_test_fs();
-    let home = ensure_test_home();
-
-    let mut config = MultiAppConfig::default();
-    {
-        let manager = config
-            .get_manager_mut(&AppType::Gemini)
-            .expect("gemini manager");
-        manager.current = "google-official".to_string();
-        let mut provider = Provider::with_id(
-            "google-official".to_string(),
-            "Google".to_string(),
-            json!({
-                "env": {
-                    "GEMINI_MODEL": "gemini-2.5-pro"
-                }
-            }),
-            Some("https://ai.google.dev".to_string()),
-        );
-        provider.meta = Some(ProviderMeta {
-            partner_promotion_key: Some("google-official".to_string()),
-            ..ProviderMeta::default()
-        });
-        manager
-            .providers
-            .insert("google-official".to_string(), provider);
-    }
-
-    let state = create_test_state_with_config(&config).expect("create test state");
-
-    ProviderService::switch(&state, AppType::Gemini, "google-official")
-        .expect("switching to Google official Gemini should succeed");
-
-    // Verify env vars are preserved in ~/.gemini/.env
-    let env_path = home.join(".gemini").join(".env");
-    assert!(
-        env_path.exists(),
-        "Gemini .env should exist at {}",
-        env_path.display()
-    );
-    let env_content = std::fs::read_to_string(&env_path).expect("read gemini .env");
-    assert!(
-        env_content.contains("GEMINI_MODEL=gemini-2.5-pro"),
-        "GEMINI_MODEL should be preserved in .env, got: {env_content}"
-    );
-
-    // Verify OAuth security flag is still set correctly
-    let gemini_settings = home.join(".gemini").join("settings.json");
-    let gemini_raw = std::fs::read_to_string(&gemini_settings).expect("read gemini settings");
-    let gemini_value: serde_json::Value =
-        serde_json::from_str(&gemini_raw).expect("parse gemini settings");
-    assert_eq!(
-        gemini_value
-            .pointer("/security/auth/selectedType")
-            .and_then(|v| v.as_str()),
-        Some("oauth-personal"),
-        "OAuth security flag should still be set"
     );
 }
 
@@ -3032,7 +2813,7 @@ fn recover_from_crash_without_backup_cleans_placeholder_instead_of_writing_it_ba
 }
 
 /// 切换写出的 live 文件里有 Key（Codex 的 auth.json 与 config.toml、Claude Code 的
-/// settings.json、Grok Build 的 config.toml），新建或替换时都只给本人读写：普通写入
+/// settings.json），新建或替换时都只给本人读写：普通写入
 /// 新建文件按 umask 落成 0644，同机其他用户就能读到 Key。
 #[cfg(unix)]
 #[test]
@@ -3042,7 +2823,7 @@ fn switch_writes_credential_files_owner_only() {
     let _guard = test_mutex().lock().unwrap_or_else(|e| e.into_inner());
     reset_test_fs();
     let home = ensure_test_home();
-    for dir in [".claude", ".codex", ".grok"] {
+    for dir in [".claude", ".codex"] {
         std::fs::create_dir_all(home.join(dir)).expect("create client dir");
     }
     // 已有的 settings.json 是 0644：替换写入后也收紧。
@@ -3098,19 +2879,6 @@ fn switch_writes_credential_files_owner_only() {
         );
     }
     let state = create_test_state_with_config(&config).expect("create test state");
-    state
-        .db
-        .save_provider(
-            AppType::GrokBuild.as_str(),
-            &Provider::with_id(
-                "grok-relay".to_string(),
-                "Relay".to_string(),
-                json!({ "config": "[models]\ndefault = \"grok-4.5\"\n\n[model.\"grok-4.5\"]\nmodel = \"grok-4.5\"\nbase_url = \"https://relay.example/v1\"\nname = \"Relay\"\napi_key = \"xai-relay\"\napi_backend = \"responses\"\ncontext_window = 500000\n" }),
-                None,
-            ),
-        )
-        .expect("save grok provider");
-
     let mode = |path: &std::path::Path| {
         std::fs::metadata(path)
             .unwrap_or_else(|e| panic!("stat {}: {e}", path.display()))
@@ -3125,8 +2893,6 @@ fn switch_writes_credential_files_owner_only() {
     assert_eq!(mode(&cc_switch_lib::get_codex_config_path()), 0o600);
     ProviderService::switch(&state, AppType::Claude, "claude-b").expect("claude b");
     assert_eq!(mode(&claude_settings), 0o600);
-    ProviderService::switch(&state, AppType::GrokBuild, "grok-relay").expect("grok relay");
-    assert_eq!(mode(&cc_switch_lib::get_grok_config_path()), 0o600);
 }
 
 fn editor_save(base: &serde_json::Value, on_conflict: &str) -> cc_switch_lib::EditorSave {
@@ -3563,57 +3329,6 @@ fn claude_editor_keeps_a_legacy_bedrock_key_where_older_versions_read_it() {
     );
 }
 
-/// 旧版没有 `category` 的 Google 卡：编辑器按库里那一行认出官方卡，预览的登录方式和切换
-/// 写的相同；新增时没有行，只看草稿的 `category`。
-#[test]
-fn gemini_editor_recognizes_a_legacy_google_card_like_switching_does() {
-    let _guard = test_mutex().lock().unwrap_or_else(|e| e.into_inner());
-    reset_test_fs();
-    let home = ensure_test_home();
-
-    let state = create_test_state().expect("create test state");
-    let mut google = Provider::with_id(
-        "google".to_string(),
-        "Google".to_string(),
-        json!({ "env": {} }),
-        None,
-    );
-    google.category = None;
-    state
-        .db
-        .save_provider(AppType::Gemini.as_str(), &google)
-        .expect("save legacy google card");
-
-    let category = ProviderService::editor_category(&state, &AppType::Gemini, Some("google"), None)
-        .expect("category");
-    assert_eq!(category.as_deref(), Some("official"));
-    let shown = ProviderService::editor_view(
-        &state,
-        AppType::Gemini,
-        &google.settings_config,
-        category.as_deref(),
-    )
-    .expect("view")
-    .settings;
-    ProviderService::switch(&state, AppType::Gemini, "google").expect("switch");
-    let live = read_json_file::<serde_json::Value>(&home.join(".gemini/settings.json"))
-        .expect("read gemini settings");
-    assert_eq!(
-        shown.pointer("/config/security/auth/selectedType"),
-        live.pointer("/security/auth/selectedType"),
-    );
-    assert_eq!(
-        live.pointer("/security/auth/selectedType"),
-        Some(&json!("oauth-personal"))
-    );
-
-    assert_eq!(
-        ProviderService::editor_category(&state, &AppType::Gemini, None, Some("third".into()))
-            .expect("category for a draft"),
-        Some("third".to_string())
-    );
-}
-
 /// 新增对话框：底是还没套预设的 live，预设带的独有字段归新供应商，live 里用户自己的
 /// 独有字段不归它。
 #[test]
@@ -3784,46 +3499,4 @@ fn codex_editor_official_auth_shows_disk_login_and_keeps_row_auth() {
             "{id}: saving leaves auth.json alone"
         );
     }
-}
-
-#[test]
-fn omp_edit_save_keeps_every_byte_outside_the_edited_entry() {
-    use cc_switch_lib::update_settings;
-    use std::fs;
-
-    let _guard = test_mutex().lock().unwrap_or_else(|e| e.into_inner());
-    reset_test_fs();
-    let home = ensure_test_home();
-    let agent_dir = home.join(".omp/agent");
-    fs::create_dir_all(&agent_dir).unwrap();
-    let models_path = agent_dir.join("models.yml");
-    let sibling = "  # hand-written sibling\n  other:\n    baseUrl: https://other.test/v1 # keep\n";
-    fs::write(
-        &models_path,
-        format!("# managed by me\nproviders:\n  duolalab:\n    baseUrl: https://api.duolalab.test/v1\n    api: openai-completions\n    apiKey: sk-live\n    models:\n    - id: glm-4.7\n{sibling}"),
-    )
-    .unwrap();
-    update_settings(cc_switch_lib::AppSettings {
-        omp_config_dir: Some(agent_dir.to_string_lossy().into_owned()),
-        ..Default::default()
-    })
-    .unwrap();
-    let state = create_test_state().expect("create test state");
-
-    let mut edited = ProviderService::list(&state, AppType::Omp)
-        .expect("list")
-        .get("duolalab")
-        .cloned()
-        .expect("provider imported from models.yml");
-    edited.settings_config["name"] = json!("Duolalab");
-    ProviderService::update(&state, AppType::Omp, Some("duolalab"), edited)
-        .expect("edit save must not conflict");
-
-    let after = fs::read_to_string(&models_path).unwrap();
-    assert!(
-        after.starts_with("# managed by me\nproviders:\n  duolalab:\n"),
-        "{after}"
-    );
-    assert!(after.contains("name: Duolalab"), "{after}");
-    assert!(after.ends_with(sibling), "{after}");
 }

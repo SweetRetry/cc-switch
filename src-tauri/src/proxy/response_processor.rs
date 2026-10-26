@@ -1369,23 +1369,6 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn test_claude_desktop_inherits_claude_pricing_source() -> Result<(), AppError> {
-        use crate::proxy::usage::logger::UsageLogger;
-
-        let db = Arc::new(Database::memory()?);
-
-        // proxy_config 没有 claude-desktop 行；它的计费模式必须继承 claude，
-        // 而不是静默落回工厂默认（response）
-        db.set_pricing_model_source("claude", "request").await?;
-
-        let logger = UsageLogger::new(&db);
-        let source = logger.resolve_pricing_model_source("claude-desktop").await;
-
-        assert_eq!(source, "request");
-        Ok(())
-    }
-
     // #7818 回归闸门：使用量写入必须离开异步执行器线程。
     // Database 全局只有单把 std::sync::Mutex<Connection>，先让专用线程占住
     // 这把锁模拟慢盘/竞争。修复前，log_usage_internal 会在当前 tokio worker

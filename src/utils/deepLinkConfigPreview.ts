@@ -4,7 +4,7 @@ import { decodeBase64Utf8 } from "@/lib/utils/base64";
 import { isSensitiveConfigKey, maskSensitiveValue } from "@/utils/deeplinkRisk";
 
 export interface ParsedDeepLinkConfig {
-  type: "claude" | "codex" | "gemini" | "grokbuild" | "agy";
+  type: "claude" | "codex" | "agy";
   env?: Record<string, string>;
   model?: string;
   auth?: Record<string, string>;
@@ -48,14 +48,6 @@ export function parseDeepLinkConfigPreview(
 
   try {
     const decoded = decodeBase64Utf8(request.config);
-    const format = request.configFormat?.trim().toLowerCase();
-
-    if (request.app === "grokbuild" && format === "toml") {
-      return {
-        type: "grokbuild",
-        tomlConfig: sanitizeTomlForPreview(decoded),
-      };
-    }
 
     const parsed = JSON.parse(decoded) as Record<string, unknown>;
     if (request.app === "claude") {
@@ -90,22 +82,7 @@ export function parseDeepLinkConfigPreview(
         model: typeof model === "string" ? model : undefined,
       };
     }
-    if (request.app === "gemini") {
-      return {
-        type: "gemini",
-        env: parsed as Record<string, string>,
-      };
-    }
-    if (request.app === "grokbuild") {
-      const config =
-        typeof parsed.config === "string"
-          ? parsed.config
-          : stringifyToml(parsed);
-      return {
-        type: "grokbuild",
-        tomlConfig: sanitizeTomlForPreview(config),
-      };
-    }
+
     return null;
   } catch (error) {
     console.error("Failed to parse deep link config preview:", error);

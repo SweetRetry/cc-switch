@@ -103,9 +103,9 @@ describe("状态", () => {
   });
 
   it("statusGlyph：unknown 用成功符号", () => {
-    const gemini = AGENT_READER_STYLES.gemini;
-    expect(statusGlyph("unknown", gemini)).toBe("✓");
-    expect(statusGlyph("pending", gemini)).toBe("o");
+    const opencode = AGENT_READER_STYLES.opencode;
+    expect(statusGlyph("unknown", opencode)).toBe("✓");
+    expect(statusGlyph("pending", opencode)).toBe("~");
   });
 });
 
@@ -211,7 +211,7 @@ describe("格式化小工具", () => {
   });
 });
 
-describe("formatStepTitle · 五家 fixture", () => {
+describe("formatStepTitle · 支持的应用 fixture", () => {
   it("Claude：Name(arg)，Edit 显示为 Update，MCP 为 server.tool(arg)", () => {
     expect(fixtureTitles("claude")).toEqual([
       "Bash(cargo build 2>&1 | tail -50)",
@@ -241,17 +241,6 @@ describe("formatStepTitle · 五家 fixture", () => {
       "Updated plan 3 项",
       "Spawned agent Check docs for dead links",
       "Asked 失效的外链直接删除还是换成归档地址？",
-    ]);
-  });
-
-  it("Gemini：Shell / ReadFile / GoogleSearch", () => {
-    expect(fixtureTitles("gemini")).toEqual([
-      "ReadFile src/main.ts",
-      "Shell npm run build",
-      "Edit src/config.ts",
-      "GoogleSearch Node 22 top-level await ESM pitfalls",
-      "Todos 2 项",
-      "Shell npm run build",
     ]);
   });
 

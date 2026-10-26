@@ -129,9 +129,6 @@ export function RoutingSection({ onOpenApp }: RoutingSectionProps) {
   const providerQueries = {
     claude: useProvidersQuery("claude").data,
     codex: useProvidersQuery("codex").data,
-    gemini: useProvidersQuery("gemini").data,
-    grokbuild: useProvidersQuery("grokbuild").data,
-    "claude-desktop": useProvidersQuery("claude-desktop").data,
   };
 
   const usingApps = MODE_APP_IDS.flatMap((app, index) => {

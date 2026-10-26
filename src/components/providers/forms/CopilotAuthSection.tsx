@@ -405,7 +405,7 @@ export const CopilotAuthSection: React.FC<CopilotAuthSectionProps> = ({
       iconName="githubcopilot"
       help={t("authCenter.group.copilotHelp", {
         defaultValue:
-          "用于 Claude Code、Claude Desktop 的 GitHub Copilot 预设。没指定账号的供应商用「默认」账号。",
+          "用于 Claude Code 的 GitHub Copilot 预设。没指定账号的供应商用「默认」账号。",
       })}
       helpSide={helpSide}
       accounts={rows}

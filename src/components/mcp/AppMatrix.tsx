@@ -1,6 +1,5 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import { AlertTriangle, BookOpen, Check } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { settingsApi } from "@/lib/api";
@@ -160,29 +159,6 @@ export function MatrixCell({
 }
 
 // ─── 列头 + 批量弹层 ─────────────────────────────────────────────────────
-const OMP_DISCOVERY_DOCS_URL =
-  "https://github.com/can1357/oh-my-pi/blob/main/docs/context-files.md#disabling-discovery-providers";
-
-/**
- * Oh My Pi 列的说明：它还会从其他 Agent 的目录发现 MCP、技能等，实际加载的可能比这里勾的多。
- * MCP 和 Skills 两个矩阵都展开到 Oh My Pi 的列头上；别的列返回空对象，不覆盖已有的 `help`。
- */
-export function ompDiscoveryColumnNote(
-  app: AppId,
-  t: TFunction,
-): Pick<MatrixColumnHeaderProps, "help" | "docsLink"> {
-  if (app !== "omp") return {};
-  return {
-    help: {
-      title: t("appMatrix.ompDiscovery.title"),
-      body: t("appMatrix.ompDiscovery.help"),
-    },
-    docsLink: {
-      label: t("appMatrix.ompDiscovery.docsLink"),
-      url: OMP_DISCOVERY_DOCS_URL,
-    },
-  };
-}
 
 interface MatrixColumnHeaderProps {
   app: AppId;

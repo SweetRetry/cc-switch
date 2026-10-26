@@ -8,9 +8,9 @@ import { useTranslation } from "react-i18next";
 import type { AppId } from "@/lib/api";
 import type { ResolvedDirectories } from "@/hooks/useSettings";
 
-export type DirectoryAppId = Exclude<
+export type DirectoryAppId = Extract<
   AppId,
-  "claude-desktop" | "mcode" | "agy" | "kimi"
+  "claude" | "codex" | "opencode" | "pi"
 >;
 
 interface DirectorySettingsProps {
@@ -21,13 +21,8 @@ interface DirectorySettingsProps {
   onResetAppConfig: () => Promise<void>;
   claudeDir?: string;
   codexDir?: string;
-  geminiDir?: string;
-  grokDir?: string;
   opencodeDir?: string;
-  openclawDir?: string;
-  hermesDir?: string;
   piDir?: string;
-  ompDir?: string;
   onDirectoryChange: (app: DirectoryAppId, value?: string) => void;
   onBrowseDirectory: (app: DirectoryAppId) => Promise<void>;
   onResetDirectory: (app: DirectoryAppId) => Promise<void>;
@@ -41,13 +36,8 @@ export function DirectorySettings({
   onResetAppConfig,
   claudeDir,
   codexDir,
-  geminiDir,
-  grokDir,
   opencodeDir,
-  openclawDir,
-  hermesDir,
   piDir,
-  ompDir,
   onDirectoryChange,
   onBrowseDirectory,
   onResetDirectory,
@@ -131,28 +121,6 @@ export function DirectorySettings({
         />
 
         <DirectoryInput
-          label={t("settings.geminiConfigDir")}
-          description={undefined}
-          value={geminiDir}
-          resolvedValue={resolvedDirs.gemini}
-          placeholder={t("settings.browsePlaceholderGemini")}
-          onChange={(val) => onDirectoryChange("gemini", val)}
-          onBrowse={() => onBrowseDirectory("gemini")}
-          onReset={() => onResetDirectory("gemini")}
-        />
-
-        <DirectoryInput
-          label={t("settings.grokConfigDir")}
-          description={undefined}
-          value={grokDir}
-          resolvedValue={resolvedDirs.grokbuild}
-          placeholder={t("settings.browsePlaceholderGrok")}
-          onChange={(val) => onDirectoryChange("grokbuild", val)}
-          onBrowse={() => onBrowseDirectory("grokbuild")}
-          onReset={() => onResetDirectory("grokbuild")}
-        />
-
-        <DirectoryInput
           label={t("settings.opencodeConfigDir")}
           description={undefined}
           value={opencodeDir}
@@ -164,28 +132,6 @@ export function DirectorySettings({
         />
 
         <DirectoryInput
-          label={t("settings.openclawConfigDir")}
-          description={undefined}
-          value={openclawDir}
-          resolvedValue={resolvedDirs.openclaw}
-          placeholder={t("settings.browsePlaceholderOpenclaw")}
-          onChange={(val) => onDirectoryChange("openclaw", val)}
-          onBrowse={() => onBrowseDirectory("openclaw")}
-          onReset={() => onResetDirectory("openclaw")}
-        />
-
-        <DirectoryInput
-          label={t("settings.hermesConfigDir")}
-          description={undefined}
-          value={hermesDir}
-          resolvedValue={resolvedDirs.hermes}
-          placeholder={t("settings.browsePlaceholderHermes")}
-          onChange={(val) => onDirectoryChange("hermes", val)}
-          onBrowse={() => onBrowseDirectory("hermes")}
-          onReset={() => onResetDirectory("hermes")}
-        />
-
-        <DirectoryInput
           label={t("settings.piConfigDir")}
           description={undefined}
           value={piDir}
@@ -194,17 +140,6 @@ export function DirectorySettings({
           onChange={(val) => onDirectoryChange("pi", val)}
           onBrowse={() => onBrowseDirectory("pi")}
           onReset={() => onResetDirectory("pi")}
-        />
-
-        <DirectoryInput
-          label={t("settings.ompConfigDir")}
-          description={undefined}
-          value={ompDir}
-          resolvedValue={resolvedDirs.omp}
-          placeholder={t("settings.browsePlaceholderOmp")}
-          onChange={(val) => onDirectoryChange("omp", val)}
-          onBrowse={() => onBrowseDirectory("omp")}
-          onReset={() => onResetDirectory("omp")}
         />
       </section>
     </div>

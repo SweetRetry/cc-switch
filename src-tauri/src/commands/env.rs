@@ -6,7 +6,10 @@ use crate::services::env_manager::{
 /// Check environment variable conflicts for a specific app
 #[tauri::command]
 pub fn check_env_conflicts(app: String) -> Result<Vec<EnvConflict>, String> {
-    check_conflicts(&app)
+    let app = app
+        .parse::<crate::app_config::AppType>()
+        .map_err(|e| e.to_string())?;
+    check_conflicts(app.as_str())
 }
 
 /// Delete environment variables with backup

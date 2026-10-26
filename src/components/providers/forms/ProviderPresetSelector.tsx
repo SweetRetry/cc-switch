@@ -9,15 +9,9 @@ import { ClaudeIcon, CodexIcon, GeminiIcon } from "@/components/BrandIcons";
 import { ProviderIconBox } from "@/components/ProviderIconBox";
 import type { ProviderPreset } from "@/config/claudeProviderPresets";
 import type { CodexProviderPreset } from "@/config/codexProviderPresets";
-import type { GeminiProviderPreset } from "@/config/geminiProviderPresets";
-import type { ClaudeDesktopProviderPreset } from "@/config/claudeDesktopProviderPresets";
+import type { AgyProviderPreset } from "@/config/agyProviderPresets";
 import type { OpenCodeProviderPreset } from "@/config/opencodeProviderPresets";
-import type { OpenClawProviderPreset } from "@/config/openclawProviderPresets";
-import type { HermesProviderPreset } from "@/config/hermesProviderPresets";
-import type { McodeProviderPreset } from "@/config/mcodeProviderPresets";
-import type { KimiProviderPreset } from "@/config/kimiProviderPresets";
 import type { PiProviderPreset } from "@/config/piProviderPresets";
-import type { OmpProviderPreset } from "@/config/ompProviderPresets";
 import type { ProviderCategory } from "@/types";
 import type { AppId } from "@/lib/api";
 import {
@@ -67,15 +61,9 @@ type PresetTranslator = (key: string) => unknown;
 export type AnyPreset =
   | ProviderPreset
   | CodexProviderPreset
-  | GeminiProviderPreset
-  | ClaudeDesktopProviderPreset
+  | AgyProviderPreset
   | OpenCodeProviderPreset
-  | OpenClawProviderPreset
-  | HermesProviderPreset
-  | PiProviderPreset
-  | McodeProviderPreset
-  | KimiProviderPreset
-  | OmpProviderPreset;
+  | PiProviderPreset;
 
 export type PresetEntry = {
   id: string;
@@ -99,7 +87,7 @@ export function filterPresetEntries(
   return entries.filter((entry) => presetMatches(entry, query, t));
 }
 
-/** 一律按名称排（中文名按拼音插进字母序），不再有官方 / 赞助商置顶 */
+/** 一律按名称排（中文名按拼音插进字母序） */
 export function getVisiblePresetEntries(
   entries: PresetEntry[],
   { query, t }: { query: string; t: PresetTranslator },

@@ -8,7 +8,6 @@ export const UNINSTALL_METHODS = {
   bun: "bun",
   "brew-formula": "Homebrew (formula)",
   "brew-cask": "Homebrew (cask)",
-  hermes: "Hermes",
 };
 
 export type UninstallMethod = keyof typeof UNINSTALL_METHODS;
@@ -25,33 +24,18 @@ const COMMANDS: Record<UninstallMethod, UninstallCommand[]> = {
   npm: [
     { tool: "claude", command: "npm uninstall -g @anthropic-ai/claude-code" },
     { tool: "codex", command: "npm uninstall -g @openai/codex" },
-    { tool: "gemini", command: "npm uninstall -g @google/gemini-cli" },
-    { tool: "grok", command: "npm uninstall -g @xai-official/grok" },
     { tool: "opencode", command: "npm uninstall -g opencode-ai" },
-    { tool: "openclaw", command: "npm uninstall -g openclaw" },
     { tool: "pi", command: "npm uninstall -g @earendil-works/pi-coding-agent" },
-    { tool: "mcode", command: "npm uninstall -g @minimax-ai/code" },
-    { tool: "kimi", command: "npm uninstall -g @moonshot-ai/kimi-code" },
   ],
-  pnpm: [
-    { tool: "opencode", command: "pnpm remove -g opencode-ai" },
-    { tool: "openclaw", command: "pnpm remove -g openclaw" },
-  ],
+  pnpm: [{ tool: "opencode", command: "pnpm remove -g opencode-ai" }],
   bun: [
     {
       tool: "opencode",
       command: "bun remove -g opencode-ai",
       environments: ["macos", "linux"],
     },
-    { tool: "openclaw", command: "bun remove -g openclaw" },
-    { tool: "omp", command: "bun remove -g @oh-my-pi/pi-coding-agent" },
   ],
   "brew-formula": [
-    {
-      tool: "gemini",
-      command: "brew uninstall --formula gemini-cli",
-      environments: ["macos", "linux"],
-    },
     {
       tool: "opencode",
       command: "brew uninstall --formula anomalyco/tap/opencode",
@@ -89,7 +73,6 @@ const COMMANDS: Record<UninstallMethod, UninstallCommand[]> = {
       environments: ["macos"],
     },
   ],
-  hermes: [{ tool: "hermes", command: "hermes uninstall --yes" }],
 };
 
 export function uninstallCommandsFor(

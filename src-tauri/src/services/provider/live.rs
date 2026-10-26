@@ -1,11 +1,10 @@
 //! Live 配置的读取、首次导入和按模式分发的写入。
 //!
-//! 切换式应用（Claude Code、Codex、Gemini CLI、Grok Build）的客户端文件只经写入引擎写
-//! （`*_direct.rs`），这里只负责分发；Claude Desktop 和累加式应用仍在这里写。
+//! 切换式应用的客户端文件经写入引擎写入，这里负责读取和按模式分发。
 
 use std::sync::Arc;
 
-use serde_json::{json, Value};
+use serde_json::Value;
 use toml_edit::{DocumentMut, Item, TableLike};
 
 use crate::app_config::AppType;
@@ -25,17 +24,9 @@ pub(crate) fn provider_exists_in_live_config(
     match app_type {
         AppType::OpenCode => crate::opencode_config::get_providers()
             .map(|providers| providers.contains_key(provider_id)),
-        AppType::OpenClaw => crate::openclaw_config::get_providers()
-            .map(|providers| providers.contains_key(provider_id)),
-        AppType::Hermes => crate::hermes_config::get_providers()
-            .map(|providers| providers.contains_key(provider_id)),
+
         AppType::Pi => crate::pi_config::pi_provider_exists(provider_id),
-        AppType::Kimi => {
-            crate::kimi_config::get_providers().map(|providers| providers.contains_key(provider_id))
-        }
-        AppType::Mcode => crate::mcode_config::get_providers()
-            .map(|providers| providers.contains_key(provider_id)),
-        AppType::Omp => Ok(crate::omp_config::get_providers()?.contains_key(provider_id)),
+
         _ => Ok(false),
     }
 }
@@ -286,29 +277,8 @@ fn settings_contain_common_config(app_type: &AppType, settings: &Value, snippet:
 
             toml_item_is_subset(target_doc.as_item(), source_doc.as_item())
         }
-        AppType::Gemini => match serde_json::from_str::<Value>(trimmed) {
-            Ok(Value::Object(source_map)) => {
-                let Some(target_map) = settings.get("env").and_then(Value::as_object) else {
-                    return false;
-                };
-                source_map.iter().all(|(key, source_value)| {
-                    target_map
-                        .get(key)
-                        .is_some_and(|target_value| json_is_subset(target_value, source_value))
-                })
-            }
-            _ => false,
-        },
-        AppType::GrokBuild
-        | AppType::OpenCode
-        | AppType::OpenClaw
-        | AppType::Hermes
-        | AppType::Pi
-        | AppType::Mcode
-        | AppType::Kimi
-        | AppType::Agy
-        | AppType::Omp
-        | AppType::ClaudeDesktop => false,
+
+        AppType::OpenCode | AppType::Pi | AppType::Agy => false,
     }
 }
 
@@ -369,25 +339,8 @@ pub(crate) fn remove_common_config_from_settings(
             }
             Ok(result)
         }
-        AppType::Gemini => {
-            let source = serde_json::from_str::<Value>(trimmed)
-                .map_err(|e| AppError::Message(format!("Invalid Gemini common config: {e}")))?;
-            let mut result = settings.clone();
-            if let Some(env) = result.get_mut("env") {
-                json_deep_remove(env, &source);
-            }
-            Ok(result)
-        }
-        AppType::GrokBuild
-        | AppType::OpenCode
-        | AppType::OpenClaw
-        | AppType::Hermes
-        | AppType::Pi
-        | AppType::Mcode
-        | AppType::Kimi
-        | AppType::ClaudeDesktop
-        | AppType::Agy
-        | AppType::Omp => Ok(settings.clone()),
+
+        AppType::OpenCode | AppType::Pi | AppType::Agy => Ok(settings.clone()),
     }
 }
 
@@ -417,27 +370,9 @@ pub(crate) fn write_live_for_state(
         )?;
         return Ok(());
     }
-    if matches!(app_type, AppType::Gemini) {
-        // Gemini、Grok Build 同理：只替换关键字段，不合并片段、不补回 MCP。
-        super::gemini_direct::reapply(db, provider)?;
-        return Ok(());
-    }
-    if matches!(app_type, AppType::GrokBuild) {
-        super::grok_direct::reapply(db, Some(provider), provider)?;
-        return Ok(());
-    }
+
     if matches!(app_type, AppType::Agy) {
         // 卡片只作用于它打开的终端，全量同步不写真实 settings.json。
-        return Ok(());
-    }
-
-    if matches!(app_type, AppType::ClaudeDesktop) {
-        crate::claude_desktop_config::apply_provider(db, provider)?;
-        log::info!(
-            "Claude Desktop 3P profile '{}' written for provider '{}'",
-            crate::claude_desktop_config::PROFILE_ID,
-            provider.id
-        );
         return Ok(());
     }
 
@@ -545,13 +480,7 @@ pub(crate) fn write_live_snapshot(app_type: &AppType, provider: &Provider) -> Re
                 "Claude Code configuration must be written through the key-field write flow",
             ));
         }
-        AppType::ClaudeDesktop => {
-            return Err(AppError::localized(
-                "claude_desktop.live.requires_db_context",
-                "Claude Desktop 配置写入需要通过供应商切换流程执行",
-                "Claude Desktop configuration must be written through the provider switch flow",
-            ));
-        }
+
         AppType::Codex => {
             return Err(AppError::localized(
                 "codex.live.requires_engine",
@@ -559,20 +488,7 @@ pub(crate) fn write_live_snapshot(app_type: &AppType, provider: &Provider) -> Re
                 "Codex configuration must be written through the key-field write flow",
             ));
         }
-        AppType::Gemini => {
-            return Err(AppError::localized(
-                "gemini.live.requires_engine",
-                "Gemini CLI 配置只能经关键字段写入流程写入",
-                "Gemini CLI configuration must be written through the key-field write flow",
-            ));
-        }
-        AppType::GrokBuild => {
-            return Err(AppError::localized(
-                "grokbuild.live.requires_engine",
-                "Grok Build 配置只能经关键字段写入流程写入",
-                "Grok Build configuration must be written through the key-field write flow",
-            ));
-        }
+
         AppType::OpenCode => {
             // OpenCode uses additive mode - write provider to config
             use crate::opencode_config;
@@ -656,58 +572,7 @@ pub(crate) fn write_live_snapshot(app_type: &AppType, provider: &Provider) -> Re
                 }
             }
         }
-        AppType::OpenClaw => {
-            // OpenClaw uses additive mode - write provider to config
-            use crate::openclaw_config;
-            use crate::openclaw_config::OpenClawProviderConfig;
 
-            // Convert settings_config to OpenClawProviderConfig
-            let openclaw_config_result =
-                serde_json::from_value::<OpenClawProviderConfig>(provider.settings_config.clone());
-
-            match openclaw_config_result {
-                Ok(config) => {
-                    openclaw_config::set_typed_provider(&provider.id, &config)?;
-                    log::info!("OpenClaw provider '{}' written to live config", provider.id);
-                }
-                Err(e) => {
-                    log::warn!(
-                        "Failed to parse OpenClaw provider config for '{}': {}",
-                        provider.id,
-                        e
-                    );
-                    // Try to write as raw JSON if it looks valid
-                    if provider.settings_config.get("baseUrl").is_some()
-                        || provider.settings_config.get("api").is_some()
-                        || provider.settings_config.get("models").is_some()
-                    {
-                        openclaw_config::set_provider(
-                            &provider.id,
-                            provider.settings_config.clone(),
-                        )?;
-                        log::info!(
-                            "OpenClaw provider '{}' written as raw JSON to live config",
-                            provider.id
-                        );
-                    } else {
-                        return Err(AppError::Message(format!(
-                            "OpenClaw provider '{}' has invalid config structure for live config (must contain 'baseUrl', 'api', or 'models')",
-                            provider.id
-                        )));
-                    }
-                }
-            }
-        }
-        AppType::Hermes => {
-            crate::hermes_config::set_provider(&provider.id, provider.settings_config.clone())?;
-            log::debug!("Hermes provider '{}' written to live config", provider.id);
-        }
-        AppType::Kimi => {
-            crate::kimi_config::set_provider(&provider.id, provider.settings_config.clone())?
-        }
-        AppType::Mcode => {
-            crate::mcode_config::set_provider(&provider.id, provider.settings_config.clone())?
-        }
         AppType::Pi => {
             return Err(AppError::InvalidInput(
                 "Pi providers use the Pi provider service".to_string(),
@@ -716,11 +581,6 @@ pub(crate) fn write_live_snapshot(app_type: &AppType, provider: &Provider) -> Re
         AppType::Agy => {
             return Err(AppError::Config(
                 "Antigravity configuration requires the provider switch flow".into(),
-            ));
-        }
-        AppType::Omp => {
-            return Err(AppError::InvalidInput(
-                "Oh My Pi providers use the Oh My Pi provider service".to_string(),
             ));
         }
     }
@@ -808,9 +668,6 @@ pub(crate) fn sync_live_for_provider_respecting_mode(
     }
     if matches!(app_type, AppType::Claude) {
         super::claude_direct::reapply(state.db.as_ref(), prev.or(Some(provider)), provider)?;
-    } else if matches!(app_type, AppType::GrokBuild) {
-        // 编辑前的行用来推断旧版写的表（还没有写入记录时），改了表名也能删掉旧表。
-        super::grok_direct::reapply(state.db.as_ref(), prev.or(Some(provider)), provider)?;
     } else {
         write_live_for_state(state, app_type, provider)?;
     }
@@ -853,10 +710,7 @@ pub fn sync_current_to_live(state: &AppState) -> Result<(), AppError> {
 
     // Sync providers based on mode
     for app_type in AppType::all() {
-        if matches!(
-            app_type,
-            AppType::Pi | AppType::Mcode | AppType::Kimi | AppType::Omp
-        ) {
+        if matches!(app_type, AppType::Pi) {
             continue;
         }
         let result = if app_type.is_additive_mode() {
@@ -929,49 +783,17 @@ pub fn read_live_settings(app_type: AppType) -> Result<Value, AppError> {
             }
             read_json_file(&path)
         }
-        AppType::ClaudeDesktop => Err(AppError::localized(
-            "claude_desktop.live.read_unsupported",
-            "Claude Desktop 3P 配置不支持作为通用 live 配置导入，请使用“从 Claude 导入兼容供应商”。",
-            "Claude Desktop 3P configuration cannot be imported as a generic live config. Use 'Import compatible providers from Claude' instead.",
-        )),
-        AppType::Gemini => {
-            use crate::gemini_config::{
-                env_to_json, get_gemini_env_path, get_gemini_settings_path, read_gemini_env,
-            };
 
-            // Read .env file (environment variables)
-            let env_path = get_gemini_env_path();
-            if !env_path.exists() {
-                return Err(AppError::localized(
-                    "gemini.env.missing",
-                    "Gemini .env 文件不存在",
-                    "Gemini .env file not found",
-                ));
-            }
-
-            let env_map = read_gemini_env()?;
-            let env_json = env_to_json(&env_map);
-            let env_obj = env_json.get("env").cloned().unwrap_or_else(|| json!({}));
-
-            // Read settings.json file (MCP config etc.)
-            let settings_path = get_gemini_settings_path();
-            let config_obj = if settings_path.exists() {
-                read_json_file(&settings_path)?
-            } else {
-                json!({})
-            };
-
-            // Return complete structure: { "env": {...}, "config": {...} }
-            Ok(json!({
-                "env": env_obj,
-                "config": config_obj
-            }))
-        }
         AppType::OpenCode => {
-            use crate::opencode_config::{get_opencode_config_path, read_opencode_config_from_path};
+            use crate::opencode_config::{
+                get_opencode_config_path, read_opencode_config_from_path,
+            };
 
             let config_path = get_opencode_config_path()?;
-            if !config_path.try_exists().map_err(|e| AppError::io(&config_path, e))? {
+            if !config_path
+                .try_exists()
+                .map_err(|e| AppError::io(&config_path, e))?
+            {
                 return Err(AppError::localized(
                     "opencode.config.missing",
                     "OpenCode 配置文件不存在",
@@ -982,44 +804,11 @@ pub fn read_live_settings(app_type: AppType) -> Result<Value, AppError> {
             let config = read_opencode_config_from_path(&config_path)?;
             Ok(config)
         }
-        AppType::GrokBuild => crate::grok_config::read_grok_live_settings(),
-        AppType::OpenClaw => {
-            use crate::openclaw_config::{get_openclaw_config_path, read_openclaw_config};
 
-            let config_path = get_openclaw_config_path();
-            if !config_path.exists() {
-                return Err(AppError::localized(
-                    "openclaw.config.missing",
-                    "OpenClaw 配置文件不存在",
-                    "OpenClaw configuration file not found",
-                ));
-            }
-
-            let config = read_openclaw_config()?;
-            Ok(config)
-        }
-        AppType::Hermes => {
-            let config_path = crate::hermes_config::get_hermes_config_path();
-            if !config_path.exists() {
-                return Err(AppError::localized(
-                    "hermes.config.missing",
-                    "Hermes 配置文件不存在",
-                    "Hermes configuration file not found",
-                ));
-            }
-            let yaml_config = crate::hermes_config::read_hermes_config()?;
-            let config = crate::hermes_config::yaml_to_json(&yaml_config)?;
-            Ok(config)
-        }
-        AppType::Mcode => Ok(json!(crate::mcode_config::get_providers()?)),
-        AppType::Kimi => Ok(json!(crate::kimi_config::get_providers()?)),
         AppType::Pi => Err(AppError::InvalidInput(
             "Pi providers are read from Pi's native models file".to_string(),
         )),
         AppType::Agy => crate::agy_config::read_live_settings(),
-        AppType::Omp => Err(AppError::InvalidInput(
-            "Oh My Pi providers are read from Oh My Pi's native models file".to_string(),
-        )),
     }
 }
 
@@ -1028,7 +817,7 @@ pub fn read_live_settings(app_type: AppType) -> Result<Value, AppError> {
 /// Returns `Ok(true)` if a provider was actually imported,
 /// `Ok(false)` if skipped (providers already exist for this app).
 pub fn import_default_config(state: &AppState, app_type: AppType) -> Result<bool, AppError> {
-    // Additive mode apps (OpenCode, OpenClaw) should use their dedicated
+    // Additive mode apps (OpenCode, Pi) should use their dedicated
     // import_xxx_providers_from_live functions, not this generic default config import
     if app_type.is_additive_mode() {
         return Ok(false);
@@ -1056,21 +845,7 @@ pub fn import_default_config(state: &AppState, app_type: AppType) -> Result<bool
 
     let settings_config = match app_type {
         AppType::Codex => crate::codex_config::read_codex_live_settings()?,
-        AppType::GrokBuild => {
-            let mut settings = crate::grok_config::read_grok_live_settings()?;
-            let config = settings
-                .get("config")
-                .and_then(Value::as_str)
-                .unwrap_or_default();
-            // 官方登录态（无自定义模型表）在这里必须报错：本函数也被启动
-            // 自动导入调用，而全项目惯例是"启动自动导入只产出 default，
-            // 从不产出官方条目"——否则删掉的官方条目每次重启都会复活。
-            // 官方态的成功导入（补官方条目并激活）只挂在手动导入的命令层
-            // （`import_default_config_internal`）。
-            crate::grok_config::validate_config_toml(config)?;
-            crate::grok_config::strip_grok_mcp_servers_from_settings(&mut settings)?;
-            settings
-        }
+
         AppType::Claude => {
             let settings_path = get_claude_settings_path();
             if !settings_path.exists() {
@@ -1084,46 +859,7 @@ pub fn import_default_config(state: &AppState, app_type: AppType) -> Result<bool
             let _ = normalize_claude_models_in_value(&mut v);
             v
         }
-        AppType::ClaudeDesktop => {
-            return Err(AppError::localized(
-                "claude_desktop.import_unsupported",
-                "Claude Desktop 3P 配置不能通过通用导入读取，请使用“从 Claude 导入兼容供应商”。",
-                "Claude Desktop 3P config cannot be imported through the generic import flow. Use 'Import compatible providers from Claude' instead.",
-            ));
-        }
-        AppType::Gemini => {
-            use crate::gemini_config::{
-                env_to_json, get_gemini_env_path, get_gemini_settings_path, read_gemini_env,
-            };
 
-            // Read .env file (environment variables)
-            let env_path = get_gemini_env_path();
-            if !env_path.exists() {
-                return Err(AppError::localized(
-                    "gemini.live.missing",
-                    "Gemini 配置文件不存在",
-                    "Gemini configuration file is missing",
-                ));
-            }
-
-            let env_map = read_gemini_env()?;
-            let env_json = env_to_json(&env_map);
-            let env_obj = env_json.get("env").cloned().unwrap_or_else(|| json!({}));
-
-            // Read settings.json file (MCP config etc.)
-            let settings_path = get_gemini_settings_path();
-            let config_obj = if settings_path.exists() {
-                read_json_file(&settings_path)?
-            } else {
-                json!({})
-            };
-
-            // Return complete structure: { "env": {...}, "config": {...} }
-            json!({
-                "env": env_obj,
-                "config": config_obj
-            })
-        }
         AppType::Agy => {
             let live = crate::agy_config::read_live_settings()?;
             // agy 首次启动就会写出空的 settings.json；没有 Key、端点、模型的配置
@@ -1133,14 +869,8 @@ pub fn import_default_config(state: &AppState, app_type: AppType) -> Result<bool
             }
             live
         }
-        // OpenCode, OpenClaw and Hermes use additive mode and are handled by early return above
-        AppType::OpenCode
-        | AppType::OpenClaw
-        | AppType::Hermes
-        | AppType::Pi
-        | AppType::Mcode
-        | AppType::Kimi
-        | AppType::Omp => {
+        // OpenCode and Pi use additive mode and are handled by early return above
+        AppType::OpenCode | AppType::Pi => {
             unreachable!("additive mode apps are handled by early return")
         }
     };
@@ -1192,14 +922,6 @@ pub fn import_default_config(state: &AppState, app_type: AppType) -> Result<bool
     // flag 引入，存量库的主播种不会再跑，只能挂在导入动作上补。
     // 只在导入成功时执行；live 完全不可导入（文件缺失/语法错误/残缺配置）
     // 不会到达这里。失败只 warn。
-    if matches!(app_type, AppType::GrokBuild) {
-        if let Err(e) = state.db.ensure_official_seed_by_id(
-            crate::database::GROKBUILD_OFFICIAL_PROVIDER_ID,
-            AppType::GrokBuild,
-        ) {
-            log::warn!("Failed to ensure grokbuild-official seed after import: {e}");
-        }
-    }
 
     Ok(true) // 真正导入了
 }
@@ -1335,199 +1057,19 @@ pub fn import_opencode_providers_from_live(state: &AppState) -> Result<usize, Ap
     Ok(imported + updated)
 }
 
-/// Import all providers from OpenClaw live config to database
-///
 /// This imports existing providers from ~/.openclaw/openclaw.json
 /// into the CC Switch database. Each provider found will be added to the
 /// database with is_current set to false.
-pub fn import_openclaw_providers_from_live(state: &AppState) -> Result<usize, AppError> {
-    use crate::openclaw_config;
 
-    let providers = openclaw_config::get_typed_providers()?;
-    if providers.is_empty() {
-        return Ok(0);
-    }
-
-    let mut imported = 0;
-    let mut updated = 0;
-    let existing_ids = state.db.get_provider_ids("openclaw")?;
-
-    for (id, config) in providers {
-        // Validate: skip entries with empty id or no models
-        if id.trim().is_empty() {
-            log::warn!("Skipping OpenClaw provider with empty id");
-            continue;
-        }
-        if config.models.is_empty() {
-            log::warn!("Skipping OpenClaw provider '{id}': no models defined");
-            continue;
-        }
-
-        // Convert to Value for settings_config
-        let settings_config = match serde_json::to_value(&config) {
-            Ok(v) => v,
-            Err(e) => {
-                log::warn!("Failed to serialize OpenClaw provider '{id}': {e}");
-                continue;
-            }
-        };
-
-        if existing_ids.contains(&id) {
-            match state.db.get_provider_by_id(&id, "openclaw") {
-                Ok(Some(existing)) => {
-                    if existing.settings_config != settings_config {
-                        let mut provider = existing;
-                        provider.settings_config = settings_config;
-                        if let Err(e) = state.db.save_provider("openclaw", &provider) {
-                            log::warn!(
-                                "Failed to update OpenClaw provider '{id}' from live config: {e}"
-                            );
-                        } else {
-                            updated += 1;
-                            log::info!("Updated OpenClaw provider '{id}' from live config");
-                        }
-                    }
-                }
-                Ok(None) => {
-                    log::warn!("OpenClaw provider '{id}' disappeared while importing live config")
-                }
-                Err(e) => log::warn!("Failed to look up OpenClaw provider '{id}': {e}"),
-            }
-            continue;
-        }
-
-        // Determine display name: use first model name if available, otherwise use id
-        let display_name = config
-            .models
-            .first()
-            .and_then(|m| m.name.clone())
-            .unwrap_or_else(|| id.clone());
-
-        // Create provider
-        let mut provider = Provider::with_id(id.clone(), display_name, settings_config, None);
-        provider.meta = Some(crate::provider::ProviderMeta {
-            live_config_managed: Some(true),
-            ..Default::default()
-        });
-
-        // Save to database
-        if let Err(e) = state.db.save_provider("openclaw", &provider) {
-            log::warn!("Failed to import OpenClaw provider '{id}': {e}");
-            continue;
-        }
-
-        imported += 1;
-        log::info!("Imported OpenClaw provider '{id}' from live config");
-    }
-
-    Ok(imported + updated)
-}
-
-/// Import all providers from Hermes live config to database
-///
 /// This imports existing providers from ~/.hermes/config.yaml
 /// into the CC Switch database. Each provider found will be added to the
 /// database with is_current set to false.
-pub fn import_hermes_providers_from_live(state: &AppState) -> Result<usize, AppError> {
-    use crate::hermes_config;
 
-    let providers = hermes_config::get_providers()?;
-    if providers.is_empty() {
-        return Ok(0);
-    }
-
-    let mut imported = 0;
-    let mut updated = 0;
-    let existing_ids = state.db.get_provider_ids("hermes")?;
-
-    for (name, config) in providers {
-        // Validate: skip entries with empty name
-        if name.trim().is_empty() {
-            log::warn!("Skipping Hermes provider with empty name");
-            continue;
-        }
-
-        if existing_ids.contains(&name) {
-            match state.db.get_provider_by_id(&name, "hermes") {
-                Ok(Some(existing)) => {
-                    if existing.settings_config != config {
-                        let mut provider = existing;
-                        provider.settings_config = config;
-                        if let Err(e) = state.db.save_provider("hermes", &provider) {
-                            log::warn!(
-                                "Failed to update Hermes provider '{name}' from live config: {e}"
-                            );
-                        } else {
-                            updated += 1;
-                            log::info!("Updated Hermes provider '{name}' from live config");
-                        }
-                    }
-                }
-                Ok(None) => {
-                    log::warn!("Hermes provider '{name}' disappeared while importing live config")
-                }
-                Err(e) => log::warn!("Failed to look up Hermes provider '{name}': {e}"),
-            }
-            continue;
-        }
-
-        // Create provider
-        let mut provider = Provider::with_id(name.clone(), name.clone(), config, None);
-        provider.meta = Some(crate::provider::ProviderMeta {
-            live_config_managed: Some(true),
-            ..Default::default()
-        });
-
-        // Save to database
-        if let Err(e) = state.db.save_provider("hermes", &provider) {
-            log::warn!("Failed to import Hermes provider '{name}': {e}");
-            continue;
-        }
-
-        imported += 1;
-        log::info!("Imported Hermes provider '{name}' from live config");
-    }
-
-    Ok(imported + updated)
-}
-
-/// Remove a Hermes provider from live config
-///
 /// This removes a specific provider from ~/.hermes/config.yaml
 /// without affecting other providers in the file.
-pub fn remove_hermes_provider_from_live(provider_id: &str) -> Result<(), AppError> {
-    use crate::hermes_config;
 
-    // Check if Hermes config directory exists
-    if !hermes_config::get_hermes_dir().exists() {
-        log::debug!("Hermes config directory doesn't exist, skipping removal of '{provider_id}'");
-        return Ok(());
-    }
-
-    hermes_config::remove_provider(provider_id)?;
-    log::info!("Hermes provider '{provider_id}' removed from live config");
-
-    Ok(())
-}
-
-/// Remove an OpenClaw provider from live config
-///
 /// This removes a specific provider from ~/.openclaw/openclaw.json
 /// without affecting other providers in the file.
-pub fn remove_openclaw_provider_from_live(provider_id: &str) -> Result<(), AppError> {
-    use crate::openclaw_config;
-
-    // Check if OpenClaw config directory exists
-    if !openclaw_config::get_openclaw_dir().exists() {
-        log::debug!("OpenClaw config directory doesn't exist, skipping removal of '{provider_id}'");
-        return Ok(());
-    }
-
-    openclaw_config::remove_provider(provider_id)?;
-    log::info!("OpenClaw provider '{provider_id}' removed from live config");
-
-    Ok(())
-}
 
 #[cfg(test)]
 mod tests {

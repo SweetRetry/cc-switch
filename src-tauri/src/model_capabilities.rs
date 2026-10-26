@@ -1,3 +1,5 @@
+pub const ONE_M_CONTEXT_MARKER: &str = "[1m]";
+
 use serde_json::Value;
 
 /// Image-input capability shared by Codex catalog generation and proxy request
@@ -198,9 +200,7 @@ fn normalize_model_id(value: &str) -> String {
         .trim_start_matches("models/")
         .trim()
         .to_ascii_lowercase();
-    if let Some(stripped) =
-        normalized.strip_suffix(crate::claude_desktop_config::ONE_M_CONTEXT_MARKER)
-    {
+    if let Some(stripped) = normalized.strip_suffix(ONE_M_CONTEXT_MARKER) {
         normalized = stripped.trim().to_string();
     }
     normalized

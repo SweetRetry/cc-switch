@@ -76,9 +76,7 @@ mod style {
 #[serde(rename_all = "camelCase")]
 pub struct PanelTexts {
     pub switch_provider: &'static str,
-    pub search_placeholder: &'static str,
     pub in_use: &'static str,
-    pub no_match: &'static str,
     pub open_main: &'static str,
     pub quit: &'static str,
     pub settings: &'static str,
@@ -102,9 +100,7 @@ impl PanelTexts {
         match language {
             "en" | "tr" => Self {
                 switch_provider: "Switch provider",
-                search_placeholder: "Search providers…",
                 in_use: "In use",
-                no_match: "No matching providers",
                 open_main: "Open main window",
                 quit: "Quit",
                 settings: "Settings",
@@ -125,9 +121,7 @@ impl PanelTexts {
             },
             "ja" => Self {
                 switch_provider: "プロバイダーを切り替え",
-                search_placeholder: "プロバイダーを検索…",
                 in_use: "使用中",
-                no_match: "一致するプロバイダーはありません",
                 open_main: "メインウィンドウを開く",
                 quit: "終了",
                 settings: "設定",
@@ -144,9 +138,7 @@ impl PanelTexts {
             },
             "zh-TW" => Self {
                 switch_provider: "切換供應商",
-                search_placeholder: "搜尋供應商…",
                 in_use: "使用中",
-                no_match: "沒有符合的供應商",
                 open_main: "開啟主視窗",
                 quit: "結束",
                 settings: "設定",
@@ -163,9 +155,7 @@ impl PanelTexts {
             },
             _ => Self {
                 switch_provider: "切换供应商",
-                search_placeholder: "搜索供应商…",
                 in_use: "使用中",
-                no_match: "没有匹配的供应商",
                 open_main: "打开主窗口",
                 quit: "退出",
                 settings: "设置",
@@ -1182,8 +1172,7 @@ pub fn tray_panel_hide(app: AppHandle) {
 /// `WebviewWindowBuilder::build()` 会死锁（WebView2 限制）。原生菜单的事件回调没有这个问题。
 #[tauri::command]
 pub async fn tray_panel_action(app: AppHandle, id: String) {
-    let stays_open =
-        id.starts_with("prov:") || id.starts_with("profile_") || id == "lightweight_mode";
+    let stays_open = id.starts_with("prov:") || id == "lightweight_mode";
     if !stays_open {
         hide_panel(&app);
     }

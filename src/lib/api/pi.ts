@@ -2,8 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type { UsageScript } from "@/types";
 import type { AppId } from "./types";
 
-/** Pi and Oh My Pi share the provider form, membership state and usage-script command. */
-export type PiFamilyAppId = Extract<AppId, "pi" | "omp">;
+/** Pi provider membership and usage-script commands. */
+export type PiFamilyAppId = Extract<AppId, "pi">;
 
 export interface PiCurrentState {
   enabledProviderIds: string[];

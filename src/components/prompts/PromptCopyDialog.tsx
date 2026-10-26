@@ -55,12 +55,7 @@ export function PromptCopyDialog({
   useEffect(() => {
     if (!ready || picks) return;
     setPicks(
-      Object.fromEntries(
-        targets.map((app, index) => [
-          app,
-          !sameName(index) && app !== "hermes",
-        ]),
-      ),
+      Object.fromEntries(targets.map((app, index) => [app, !sameName(index)])),
     );
     // sameName 依赖 lists，只在第一次读完时定默认勾选
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -100,9 +95,7 @@ export function PromptCopyDialog({
               const noteId = `${inputId}-note`;
               const note = sameName(index)
                 ? t("prompts.copyDialog.sameName")
-                : app === "hermes"
-                  ? t("prompts.copyDialog.hermesNote")
-                  : "";
+                : "";
               return (
                 <li
                   key={app}

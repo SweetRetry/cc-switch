@@ -19,7 +19,6 @@ import {
 import { RADIO_CLASS } from "@/components/mcp/formBits";
 import { ToolInstallRow } from "@/components/settings/ToolInstallRow";
 import {
-  hermesUninstallMayLeaveFiles,
   toolDisplayName,
   type ToolName,
   type WslShellPreference,
@@ -155,11 +154,6 @@ export function ToolUninstallConfirmDialog({
                   {plan.native && (
                     <p className="text-caption text-fg-2">
                       {t("settings.toolUninstallNativeHint")}
-                    </p>
-                  )}
-                  {hermesUninstallMayLeaveFiles(plan) && (
-                    <p role="note" className="text-caption text-fg-2">
-                      {t("settings.toolUninstallHermesWindowsHint")}
                     </p>
                   )}
                 </>

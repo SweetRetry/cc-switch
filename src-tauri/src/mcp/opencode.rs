@@ -259,14 +259,14 @@ pub fn import_from_opencode(config: &mut MultiAppConfig) -> Result<usize, AppErr
                         agy: false,
                         claude: false,
                         codex: false,
-                        gemini: false,
-                        grokbuild: false,
+
+
                         opencode: true,
-                        hermes: false,
-                        mcode: false,
-                        kimi: false,
+
+
+
                         pi: false,
-                        omp: false,
+
                     },
                     description: None,
                     homepage: None,

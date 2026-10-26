@@ -11,15 +11,10 @@ use crate::provider::Provider;
 pub(crate) fn is_official(provider: &Provider) -> bool {
     // Provider names are user editable and must never silently select OAuth.
     provider.category.as_deref() == Some("official")
-        || provider
-            .meta
-            .as_ref()
-            .and_then(|meta| meta.partner_promotion_key.as_deref())
-            == Some("google-official")
 }
 
 fn live_settings(provider: &Provider) -> Result<Value, AppError> {
-    crate::gemini_config::validate_gemini_settings(&provider.settings_config)?;
+    crate::agy_config::validate_settings(&provider.settings_config)?;
     let mut settings = provider.settings_config.clone();
     if is_official(provider) {
         if let Some(env) = settings.get_mut("env").and_then(Value::as_object_mut) {

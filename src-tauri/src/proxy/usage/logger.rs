@@ -347,14 +347,7 @@ impl<'a> UsageLogger<'a> {
 
     /// 获取计费模式来源（按请求模型 / 按返回模型），只读应用级全局配置
     pub async fn resolve_pricing_model_source(&self, app_type: &str) -> String {
-        // Claude Desktop 网关没有独立的全局计费配置（proxy_config 的 CHECK 不含
-        // claude-desktop），继承 claude 的设置。
-        let default_app_type = if app_type == "claude-desktop" {
-            "claude"
-        } else {
-            app_type
-        };
-        match self.db.get_pricing_model_source(default_app_type).await {
+        match self.db.get_pricing_model_source(app_type).await {
             Ok(value) if value == PRICING_SOURCE_RESPONSE || value == PRICING_SOURCE_REQUEST => {
                 value
             }
@@ -616,58 +609,6 @@ mod tests {
     }
 
     #[test]
-    fn claude_desktop_proxy_replaces_matching_session_log_row() -> Result<(), AppError> {
-        let db = Database::memory()?;
-        {
-            let conn = crate::database::lock_conn!(db.conn);
-            conn.execute(
-                "INSERT INTO proxy_request_logs (
-                    request_id, provider_id, app_type, model, input_tokens,
-                    output_tokens, cache_read_tokens, cache_creation_tokens,
-                    latency_ms, status_code, created_at, data_source
-                 ) VALUES ('session:msg_desktop', '_session', 'claude',
-                    'claude-sonnet-4-5', 10, 5, 2, 1, 0, 200, 1, 'session_log')",
-                [],
-            )?;
-        }
-
-        let usage = TokenUsage {
-            input_tokens: 10,
-            output_tokens: 5,
-            cache_read_tokens: 2,
-            cache_creation_tokens: 1,
-            cache_creation_1h_tokens: 0,
-            model: Some("claude-sonnet-4-5".to_string()),
-            message_id: Some("msg_desktop".to_string()),
-        };
-        let request_id = usage.dedup_request_id(crate::proxy::usage::parser::dedup_scope_for_app(
-            "claude-desktop",
-            "desktop-provider",
-        ));
-        let mut proxy_log = request_log(&request_id, 10);
-        proxy_log.provider_id = "desktop-provider".to_string();
-        proxy_log.app_type = "claude-desktop".to_string();
-        proxy_log.model = "claude-sonnet-4-5".to_string();
-        proxy_log.request_model = "claude-sonnet-4-5".to_string();
-        proxy_log.pricing_model = "claude-sonnet-4-5".to_string();
-        proxy_log.usage = usage;
-
-        UsageLogger::new(&db).log_request(&proxy_log)?;
-
-        let conn = crate::database::lock_conn!(db.conn);
-        let (count, source, app_type): (i64, String, String) = conn.query_row(
-            "SELECT COUNT(*), data_source, app_type FROM proxy_request_logs
-             WHERE request_id = 'session:msg_desktop'",
-            [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        )?;
-        assert_eq!(count, 1);
-        assert_eq!(source, "proxy");
-        assert_eq!(app_type, "claude-desktop");
-        Ok(())
-    }
-
-    #[test]
     fn test_log_error() -> Result<(), AppError> {
         let db = Database::memory()?;
         let logger = UsageLogger::new(&db);
@@ -693,41 +634,6 @@ mod tests {
             .unwrap();
         assert_eq!(status, 500);
         assert_eq!(error, Some("Internal Server Error".to_string()));
-        Ok(())
-    }
-
-    #[test]
-    fn grokbuild_logs_total_input_token_semantics() -> Result<(), AppError> {
-        let db = Database::memory()?;
-        let logger = UsageLogger::new(&db);
-        let log = RequestLog {
-            request_id: "grok-semantics".to_string(),
-            provider_id: "grok-provider".to_string(),
-            app_type: "grokbuild".to_string(),
-            model: "grok-4.5".to_string(),
-            request_model: "grok-4.5".to_string(),
-            pricing_model: String::new(),
-            usage: TokenUsage::default(),
-            cost: None,
-            latency_ms: 1,
-            first_token_ms: None,
-            status_code: 200,
-            error_message: None,
-            session_id: None,
-            provider_type: Some("grokbuild".to_string()),
-            is_streaming: false,
-            cost_multiplier: "1".to_string(),
-        };
-
-        logger.log_request(&log)?;
-
-        let conn = crate::database::lock_conn!(db.conn);
-        let semantics: i64 = conn.query_row(
-            "SELECT input_token_semantics FROM proxy_request_logs WHERE request_id = 'grok-semantics'",
-            [],
-            |row| row.get(0),
-        )?;
-        assert_eq!(semantics, INPUT_TOKEN_SEMANTICS_TOTAL);
         Ok(())
     }
 }

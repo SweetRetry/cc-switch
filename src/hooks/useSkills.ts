@@ -7,17 +7,13 @@ import {
 import {
   skillsApi,
   type SkillBackupEntry,
-  type DiscoverableSkill,
   type ImportSkillSelection,
   type InstalledSkill,
-  type SkillDiscoveryResult,
   type SkillUpdateCheckResult,
   type SkillUpdateInfo,
-  type SkillsShSearchResult,
 } from "@/lib/api/skills";
 import type { AppId } from "@/lib/api/types";
 import { mergeImportedSkills } from "@/hooks/useSkills.helpers";
-import { readLocalCache, writeLocalCache } from "@/lib/localCache";
 import { runSequentialBulkAction } from "@/lib/utils/sequentialBulkAction";
 
 /**
@@ -56,77 +52,6 @@ export function useDeleteSkillBackup() {
     // returning an error, so reconcile the authoritative list either way.
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: ["skills", "backups"] }),
-  });
-}
-
-/**
- * 发现可安装的 Skills（从仓库获取）
- * 使用 staleTime: Infinity 和 placeholderData: keepPreviousData
- * 实现首次进入使用缓存，只有刷新时才重新获取
- */
-// 发现要从 GitHub 下载每个仓库，很慢：上次的结果存在本地，打开时先显示，
-// 每次启动只在后台重新拉一次（之后同一次运行里不再自动拉，手动刷新照常）
-const DISCOVER_CACHE_KEY = "skills.discoverable.v1";
-let discoverRevalidated = false;
-
-const discoverableQuery = {
-  queryKey: ["skills", "discoverable"],
-  queryFn: async () => {
-    const result = await skillsApi.discoverAvailable();
-    discoverRevalidated = true;
-    writeLocalCache(DISCOVER_CACHE_KEY, result);
-    return result;
-  },
-  staleTime: Infinity,
-  initialData: () => readLocalCache<SkillDiscoveryResult>(DISCOVER_CACHE_KEY),
-  // 本地缓存是旧数据：时间记成 0，配合 refetchOnMount 在后台刷新
-  initialDataUpdatedAt: 0,
-  refetchOnMount: () => (discoverRevalidated ? false : ("always" as const)),
-  placeholderData: keepPreviousData,
-};
-
-export function useDiscoverableSkills() {
-  return useQuery({ ...discoverableQuery, select: selectDiscoveredSkills });
-}
-
-const selectDiscoveredSkills = (result: SkillDiscoveryResult) => result.skills;
-const selectDiscoveryFailures = (result: SkillDiscoveryResult) =>
-  result.failures;
-
-/**
- * 发现时没读到的仓库（和 useDiscoverableSkills 共用一次请求）
- */
-export function useDiscoverableSkillsFailures() {
-  return useQuery({ ...discoverableQuery, select: selectDiscoveryFailures });
-}
-
-/**
- * 安装 Skill
- * 成功后先合并缓存，并在结束后刷新权威列表
- */
-export function useInstallSkill() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      skill,
-      currentApp,
-    }: {
-      skill: DiscoverableSkill;
-      currentApp: AppId;
-    }) => skillsApi.installUnified(skill, currentApp),
-    onSuccess: (installedSkill) => {
-      queryClient.setQueryData<InstalledSkill[]>(
-        ["skills", "installed"],
-        (oldData) => mergeImportedSkills(oldData, [installedSkill]),
-      );
-    },
-    // The backend can persist the installation before live-config sync fails.
-    // Always refresh the authoritative list, including rejected mutations.
-    onSettled: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["skills", "installed"] }),
-        queryClient.invalidateQueries({ queryKey: ["skills", "unmanaged"] }),
-      ]),
   });
 }
 
@@ -288,13 +213,8 @@ export function useImportSkillsFromApps() {
     },
     // Import may persist Skills or auto-discovered repositories before a
     // later item fails, so refresh every affected authoritative collection.
-    // 只等导入弹窗关心的两个列表：mutation 要等 onSettled 返回的 Promise
-    // 才结束，「发现」重拉要从 GitHub 下载仓库，等它会让弹窗一直锁着（#7994）
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["skills", "repos"] });
-      void queryClient.invalidateQueries({
-        queryKey: ["skills", "discoverable"],
-      });
       return Promise.all([
         queryClient.invalidateQueries({ queryKey: ["skills", "installed"] }),
         queryClient.invalidateQueries({ queryKey: ["skills", "unmanaged"] }),
@@ -322,7 +242,6 @@ export function useAddSkillRepo() {
     mutationFn: skillsApi.addRepo,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["skills", "repos"] });
-      queryClient.invalidateQueries({ queryKey: ["skills", "discoverable"] });
     },
   });
 }
@@ -337,7 +256,6 @@ export function useRemoveSkillRepo() {
       skillsApi.removeRepo(owner, name),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["skills", "repos"] });
-      queryClient.invalidateQueries({ queryKey: ["skills", "discoverable"] });
     },
   });
 }
@@ -421,35 +339,13 @@ export function useUpdateSkill() {
   });
 }
 
-// ========== skills.sh 搜索 ==========
-
-/**
- * 搜索 skills.sh 公共目录
- * 使用 300ms staleTime 和 keepPreviousData 实现平滑搜索体验
- */
-export function useSearchSkillsSh(
-  query: string,
-  limit: number,
-  offset: number,
-) {
-  return useQuery({
-    queryKey: ["skills", "skillssh", query, limit, offset],
-    queryFn: () => skillsApi.searchSkillsSh(query, limit, offset),
-    enabled: query.length >= 2,
-    staleTime: 5 * 60 * 1000,
-    placeholderData: keepPreviousData,
-  });
-}
-
 // ========== 辅助类型 ==========
 
 export type {
   InstalledSkill,
-  DiscoverableSkill,
   ImportSkillSelection,
   SkillBackupEntry,
   SkillUpdateInfo,
-  SkillsShSearchResult,
   AppId,
 };
 

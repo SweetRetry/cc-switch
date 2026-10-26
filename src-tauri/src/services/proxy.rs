@@ -182,23 +182,11 @@ impl ProxyService {
     /// 各应用是否处于代理模式（读设备本地的模式状态，不读会随云同步的
     /// `proxy_config.enabled`）。
     pub async fn get_takeover_status(&self) -> Result<ProxyTakeoverStatus, String> {
-        let [claude, codex, gemini, grokbuild, claude_desktop] =
-            crate::mode::current::proxy_flags([
-                AppType::Claude,
-                AppType::Codex,
-                AppType::Gemini,
-                AppType::GrokBuild,
-                AppType::ClaudeDesktop,
-            ]);
+        let [claude, codex] = crate::mode::current::proxy_flags([AppType::Claude, AppType::Codex]);
         Ok(ProxyTakeoverStatus {
             claude,
             codex,
-            gemini,
-            grokbuild,
-            claude_desktop,
             // OpenCode and OpenClaw don't support proxy features
-            opencode: false,
-            openclaw: false,
         })
     }
 
@@ -294,14 +282,7 @@ impl ProxyService {
                     Err(_) => false,
                 }
             }
-            AppType::Gemini => match self.read_gemini_live() {
-                Ok(config) => Self::is_gemini_live_taken_over(&config),
-                Err(_) => false,
-            },
-            AppType::GrokBuild => match self.read_grok_live() {
-                Ok(config) => Self::is_grok_live_taken_over(&config),
-                Err(_) => false,
-            },
+
             _ => false,
         }
     }
@@ -312,8 +293,7 @@ impl ProxyService {
         match app_type {
             AppType::Claude => Self::is_claude_live_taken_over(config),
             AppType::Codex => Self::is_codex_live_taken_over(config),
-            AppType::Gemini => Self::is_gemini_live_taken_over(config),
-            AppType::GrokBuild => Self::is_grok_live_taken_over(config),
+
             _ => false,
         }
     }
@@ -321,11 +301,7 @@ impl ProxyService {
     /// 是否有应用处于代理模式
     pub async fn is_takeover_active(&self) -> Result<bool, String> {
         let status = self.get_takeover_status().await?;
-        Ok(status.claude
-            || status.codex
-            || status.gemini
-            || status.grokbuild
-            || status.claude_desktop)
+        Ok(status.claude || status.codex)
     }
 
     fn is_claude_live_taken_over(config: &Value) -> bool {
@@ -375,23 +351,6 @@ impl ProxyService {
                 .is_some_and(crate::codex_config::codex_config_has_official_proxy_route)
     }
 
-    fn is_gemini_live_taken_over(config: &Value) -> bool {
-        let env = match config.get("env").and_then(|v| v.as_object()) {
-            Some(env) => env,
-            None => return false,
-        };
-        env.get("GEMINI_API_KEY").and_then(|v| v.as_str()) == Some(PROXY_TOKEN_PLACEHOLDER)
-    }
-
-    fn is_grok_live_taken_over(config: &Value) -> bool {
-        config
-            .get("config")
-            .and_then(Value::as_str)
-            .is_some_and(|config_toml| {
-                crate::grok_config::has_proxy_placeholder(config_toml, PROXY_TOKEN_PLACEHOLDER)
-            })
-    }
-
     // ==================== Live 配置读写辅助方法 ====================
 
     fn read_claude_live(&self) -> Result<Value, String> {
@@ -428,23 +387,6 @@ impl ProxyService {
     fn read_codex_live(&self) -> Result<Value, String> {
         crate::codex_config::read_codex_live_settings()
             .map_err(|e| format!("读取 Codex Live 配置失败: {e}"))
-    }
-
-    fn read_gemini_live(&self) -> Result<Value, String> {
-        use crate::gemini_config::{env_to_json, get_gemini_env_path, read_gemini_env};
-
-        let env_path = get_gemini_env_path();
-        if !env_path.exists() {
-            return Err("Gemini .env 文件不存在".to_string());
-        }
-
-        let env_map = read_gemini_env().map_err(|e| format!("读取 Gemini env 失败: {e}"))?;
-        Ok(env_to_json(&env_map))
-    }
-
-    fn read_grok_live(&self) -> Result<Value, String> {
-        crate::grok_config::read_grok_live_settings()
-            .map_err(|e| format!("读取 Grok Build 配置失败: {e}"))
     }
 
     // ==================== 原有方法 ====================

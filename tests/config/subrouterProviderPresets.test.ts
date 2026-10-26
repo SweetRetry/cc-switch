@@ -1,15 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { claudeDesktopProviderPresets } from "@/config/claudeDesktopProviderPresets";
 import { providerPresets } from "@/config/claudeProviderPresets";
 import { codexProviderPresets } from "@/config/codexProviderPresets";
-import { geminiProviderPresets } from "@/config/geminiProviderPresets";
-import { hermesProviderPresets } from "@/config/hermesProviderPresets";
-import { openclawProviderPresets } from "@/config/openclawProviderPresets";
+import { agyProviderPresets } from "@/config/agyProviderPresets";
 import { opencodeProviderPresets } from "@/config/opencodeProviderPresets";
 import { hasIcon } from "@/icons/extracted";
 
 const WEBSITE_URL = "https://subrouter.ai";
-const API_KEY_URL = "https://subrouter.ai/register?aff=l3ri";
+const API_KEY_URL = "https://subrouter.ai/register";
 
 describe("SubRouter provider presets", () => {
   it("uses the Anthropic-compatible root endpoint for Claude", () => {
@@ -19,8 +16,6 @@ describe("SubRouter provider presets", () => {
     expect(preset?.websiteUrl).toBe(WEBSITE_URL);
     expect(preset?.apiKeyUrl).toBe(API_KEY_URL);
     expect(preset?.category).toBe("aggregator");
-    expect(preset?.isPartner).toBe(true);
-    expect(preset?.partnerPromotionKey).toBe("subrouter");
     expect(preset?.icon).toBe("subrouter");
 
     const env = (preset?.settingsConfig as { env: Record<string, string> }).env;
@@ -46,9 +41,7 @@ describe("SubRouter provider presets", () => {
   });
 
   it("uses the Gemini-compatible v1beta endpoint for Gemini", () => {
-    const preset = geminiProviderPresets.find(
-      (item) => item.name === "SubRouter",
-    );
+    const preset = agyProviderPresets.find((item) => item.name === "SubRouter");
 
     expect(preset).toBeDefined();
     expect(preset?.baseURL).toBe("https://subrouter.ai/v1beta");
@@ -72,56 +65,6 @@ describe("SubRouter provider presets", () => {
     );
     expect(preset?.settingsConfig.options?.apiKey).toBe("");
     expect(preset?.settingsConfig.models).toHaveProperty("gpt-6.1-sol");
-  });
-
-  it("uses OpenAI completions config for OpenClaw without hardcoded pricing", () => {
-    const preset = openclawProviderPresets.find(
-      (item) => item.name === "SubRouter",
-    );
-    const [model] = preset?.settingsConfig.models ?? [];
-
-    expect(preset).toBeDefined();
-    expect(preset?.settingsConfig.baseUrl).toBe("https://subrouter.ai/v1");
-    expect(preset?.settingsConfig.api).toBe("openai-completions");
-    expect(model).toMatchObject({
-      id: "gpt-6.1-sol",
-      name: "GPT-6.1 Sol",
-      contextWindow: 272000,
-    });
-    expect(model).not.toHaveProperty("cost");
-    expect(preset?.suggestedDefaults?.model).toEqual({
-      primary: "subrouter/gpt-6.1-sol",
-    });
-  });
-
-  it("uses chat completions config for Hermes", () => {
-    const preset = hermesProviderPresets.find(
-      (item) => item.name === "SubRouter",
-    );
-
-    expect(preset).toBeDefined();
-    expect(preset?.settingsConfig).toMatchObject({
-      name: "subrouter",
-      base_url: "https://subrouter.ai/v1",
-      api_key: "",
-      api_mode: "chat_completions",
-    });
-    expect(preset?.suggestedDefaults?.model).toEqual({
-      default: "gpt-6.1-sol",
-      provider: "subrouter",
-    });
-  });
-
-  it("uses direct Anthropic routing for Claude Desktop", () => {
-    const preset = claudeDesktopProviderPresets.find(
-      (item) => item.name === "SubRouter",
-    );
-
-    expect(preset).toBeDefined();
-    expect(preset?.baseUrl).toBe("https://subrouter.ai");
-    expect(preset?.mode).toBe("direct");
-    expect(preset?.apiFormat).toBe("anthropic");
-    expect(preset?.modelRoutes?.length).toBeGreaterThan(0);
   });
 
   it("registers the SubRouter provider icon", () => {

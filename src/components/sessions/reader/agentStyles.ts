@@ -4,13 +4,13 @@ import type { SessionAppId } from "../utils";
 /**
  * 会话阅读页的 Agent 风格配置。
  *
- * 五家 Agent 共用同一套版式骨架，只用这份配置区分符号、动作叫法、主题色和合并规则；
- * 没有专属配置的来源（Hermes / OpenClaw / Grok Build / MiniMax Code）一律用 generic。
+ * Agent 共用同一套版式骨架，只用这份配置区分符号、动作叫法、主题色和合并规则；
+ * 没有专属配置的来源一律用 generic。
  * 主题色只用于提问竖条和助手 glyph，正文保持中性（决策 D4）。
  */
 
 export type ReaderStyleId =
-  | Extract<SessionAppId, "claude" | "codex" | "gemini" | "opencode" | "pi">
+  | Extract<SessionAppId, "claude" | "codex" | "opencode" | "pi">
   | "generic";
 
 export interface AgentReaderStyle {
@@ -106,36 +106,6 @@ const codex: AgentReaderStyle = {
   monoTitles: false,
 };
 
-const gemini: AgentReaderStyle = {
-  id: "gemini",
-  accentVar: "--agent-gemini",
-  assistantGlyph: "✦",
-  userGlyph: ">",
-  step: { success: "✓", error: "x", pending: "o", interrupted: "-" },
-  resultFrame: "box",
-  resultConnector: "",
-  thinkingGlyph: "✦",
-  thinkingLabelKey: "sessionManager.reader.thinking.gemini",
-  titleFormat: "verb",
-  verbs: {
-    shell: "Shell",
-    read: "ReadFile",
-    search: "Search",
-    edit: "Edit",
-    write: "WriteFile",
-    web: "WebFetch",
-    mcp: "MCP",
-    agent: "Agent",
-    ask: "Ask",
-    todo: "Todos",
-  },
-  merge: { readSearchRuns: false, mcpSameServerRuns: false },
-  showDiffCounts: true,
-  showStepCost: false,
-  showExitCode: "nonzero",
-  monoTitles: true,
-};
-
 const opencode: AgentReaderStyle = {
   id: "opencode",
   accentVar: "--agent-opencode",
@@ -225,7 +195,7 @@ const generic: AgentReaderStyle = {
 
 export const AGENT_READER_STYLES: Readonly<
   Record<ReaderStyleId, AgentReaderStyle>
-> = { claude, codex, gemini, opencode, pi, generic };
+> = { claude, codex, opencode, pi, generic };
 
 /** 按会话来源取风格；没有专属配置的来源映射到 generic */
 export const getAgentReaderStyle = (

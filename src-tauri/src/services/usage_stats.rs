@@ -406,28 +406,7 @@ fn data_source_expr(log_alias: &str) -> String {
 }
 
 fn dedup_app_type_match_sql(left: &str, right: &str) -> String {
-    format!(
-        "{left} IN ({right}, CASE WHEN {right} = 'claude' THEN 'claude-desktop' ELSE {right} END)"
-    )
-}
-
-/// SQL 标量表达式：把 Claude Desktop 网关的 `claude-desktop` app_type 在“展示口径”
-/// 上折叠进 `claude`，其余 app_type 原样返回。
-///
-/// 背景：Desktop 网关流量在记账层按各自入口写为 `app_type='claude-desktop'`，
-/// 以保留路由接管的账单审计精度（不要回退这一点）。但 Dashboard 把它当作
-/// Claude Code 呈现——它本质就是跑在 Desktop 壳里的内嵌 Claude Code 运行时，
-/// 且 Desktop 聊天用量永远不经过本软件，单列只会让用户误以为是“桌面版全部用量”。
-///
-/// 用法：把任一参与“按应用筛选/分组”的 `app_type` 列包进此表达式即可，
-/// 这样 `= 'claude'` 过滤会同时命中 `claude-desktop`、`GROUP BY` 会把两者合并，
-/// 而不改动任何已存储的行（详情面板仍读原始 `app_type`）。
-///
-/// 注意：包裹后该列上的索引在此比较中失效，但这些都是已带时间过滤的聚合扫描，
-/// app_type 本就不是主访问路径，可接受。仅用于读侧；跨源去重使用更窄的
-/// [`dedup_app_type_match_sql`]，额度检查（`check_provider_limits`）仍保留原始精确比较。
-fn folded_app_type_sql(column: &str) -> String {
-    format!("CASE WHEN {column} = 'claude-desktop' THEN 'claude' ELSE {column} END")
+    format!("{left} = {right}")
 }
 
 /// SQL 片段：把日志/汇总行 LEFT JOIN 到 providers 表以取得供应商名称。
@@ -455,6 +434,14 @@ fn effective_model_sql(alias: &str) -> String {
 /// 可读名如 "Claude (Session)" 也能选中）；模型按 [`effective_model_sql`] 匹配。
 /// 注意：传入 `provider_name` 时调用方必须把 [`providers_join`] 拼进 FROM，
 /// 否则 `{provider_alias}.name` 无法解析。
+fn managed_usage_app_filter(alias: &str) -> String {
+    let apps = crate::app_config::AppType::all()
+        .map(|app| format!("'{}'", app.as_str()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{alias}.app_type IN ({apps})")
+}
+
 fn push_provider_model_filters(
     conditions: &mut Vec<String>,
     params: &mut Vec<Box<dyn rusqlite::ToSql>>,
@@ -463,6 +450,7 @@ fn push_provider_model_filters(
     provider_name: Option<&str>,
     model: Option<&str>,
 ) {
+    conditions.push(managed_usage_app_filter(log_alias));
     if let Some(name) = provider_name {
         conditions.push(format!(
             "{} = ?",
@@ -481,8 +469,9 @@ pub(crate) fn effective_usage_log_filter(log_alias: &str) -> String {
     let proxy_data_source = data_source_expr("proxy_dedup");
     let app_type_match =
         dedup_app_type_match_sql("proxy_dedup.app_type", &format!("{log_alias}.app_type"));
+    let managed_apps = managed_usage_app_filter(log_alias);
     format!(
-        "NOT (
+        "{managed_apps} AND NOT (
             {data_source} IN ('session_log', 'codex_session', 'gemini_session', 'opencode_session')
             AND EXISTS (
                 SELECT 1
@@ -561,23 +550,21 @@ pub(crate) fn effective_usage_log_filter_for_range(
     )?;
 
     if proxy_count == 0 || session_count == 0 {
-        return Ok("1 = 1".to_string());
+        return Ok(managed_usage_app_filter(log_alias));
     }
     if proxy_count > session_count {
         return Ok(effective_usage_log_filter(log_alias));
     }
 
+    let managed_apps = managed_usage_app_filter(log_alias);
     let dp_source = data_source_expr("dedup_p");
     let ds_source = data_source_expr("dedup_s");
     Ok(format!(
-        "{log_alias}.rowid NOT IN (
+        "{managed_apps} AND {log_alias}.rowid NOT IN (
             SELECT dedup_s.rowid
             FROM proxy_request_logs dedup_p
             JOIN proxy_request_logs dedup_s
-              ON dedup_s.app_type IN (
-                     dedup_p.app_type,
-                     CASE WHEN dedup_p.app_type = 'claude-desktop' THEN 'claude' ELSE dedup_p.app_type END
-                 )
+              ON dedup_s.app_type = dedup_p.app_type
              AND {ds_source} IN ({DEDUP_SESSION_SOURCES_SQL})
              AND dedup_s.input_tokens = dedup_p.input_tokens
              AND dedup_s.output_tokens = dedup_p.output_tokens
@@ -785,27 +772,6 @@ pub(crate) fn has_matching_proxy_usage_log(
 /// 已知局限（有意取舍，方向保守只漏不双）：窗口不含 session 维度，任一
 /// grokbuild 代理行会给 ±窗口内的全部会话事件投下阴影——接管/官方两态在
 /// 十分钟内交替或并行使用时，官方侧轮次会被跳过（漏记而非双算）。
-pub(crate) fn has_recent_grokbuild_proxy_activity(
-    conn: &Connection,
-    created_at: i64,
-) -> Result<bool, AppError> {
-    let l_data_source = data_source_expr("l");
-    let sql = format!(
-        "SELECT EXISTS (
-            SELECT 1
-            FROM proxy_request_logs l
-            WHERE {l_data_source} = 'proxy'
-              AND l.app_type = 'grokbuild'
-              AND l.created_at BETWEEN ?1 - ?2 AND ?1 + ?2
-        )"
-    );
-    conn.query_row(
-        &sql,
-        params![created_at, SESSION_PROXY_DEDUP_WINDOW_SECONDS],
-        |row| row.get::<_, bool>(0),
-    )
-    .map_err(|e| AppError::Database(format!("查询 Grok 接管活动失败: {e}")))
-}
 
 static SUSPECTED_CODEX_DUPLICATE_SQL: LazyLock<String> = LazyLock::new(|| {
     let data_source = data_source_expr("l");
@@ -965,7 +931,7 @@ impl Database {
             params_vec.push(Box::new(end));
         }
         if let Some(at) = app_type {
-            conditions.push(format!("{} = ?", folded_app_type_sql("l.app_type")));
+            conditions.push(format!("{} = ?", "l.app_type"));
             params_vec.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -1000,7 +966,7 @@ impl Database {
             &rollup_bounds,
         );
         if let Some(at) = app_type {
-            rollup_conditions.push(format!("{} = ?", folded_app_type_sql("r.app_type")));
+            rollup_conditions.push(format!("{} = ?", "r.app_type"));
             rollup_params.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -1077,7 +1043,7 @@ impl Database {
     ) -> Result<UsageSummary, AppError> {
         let conn = lock_conn!(self.conn);
         let fresh_input = fresh_input_sql("l");
-        let app_type_expr = folded_app_type_sql("l.app_type");
+        let app_type_expr = "l.app_type";
         let data_source = data_source_expr("l");
         let sql = format!(
             "SELECT
@@ -1173,8 +1139,8 @@ impl Database {
         let fresh_input_detail = fresh_input_sql("l");
         let fresh_input_rollup = fresh_input_sql("r");
         // 折叠 claude-desktop → claude：内层投影成同一桶名，外层 GROUP BY 自然合并。
-        let detail_app_type = folded_app_type_sql("l.app_type");
-        let rollup_app_type = folded_app_type_sql("r.app_type");
+        let detail_app_type = "l.app_type";
+        let rollup_app_type = "r.app_type";
 
         let sql = format!(
             "SELECT app_type,
@@ -1304,7 +1270,7 @@ impl Database {
             let mut extra_conditions: Vec<String> = Vec::new();
             let mut extra_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
             if let Some(at) = app_type {
-                extra_conditions.push(format!("{} = ?", folded_app_type_sql("l.app_type")));
+                extra_conditions.push(format!("{} = ?", "l.app_type"));
                 extra_params.push(Box::new(at.to_string()));
             }
             push_provider_model_filters(
@@ -1418,7 +1384,7 @@ impl Database {
         let mut extra_conditions: Vec<String> = Vec::new();
         let mut extra_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
         if let Some(at) = app_type {
-            extra_conditions.push(format!("{} = ?", folded_app_type_sql("l.app_type")));
+            extra_conditions.push(format!("{} = ?", "l.app_type"));
             extra_params.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -1502,7 +1468,7 @@ impl Database {
             &rollup_bounds,
         );
         if let Some(at) = app_type {
-            rollup_conditions.push(format!("{} = ?", folded_app_type_sql("r.app_type")));
+            rollup_conditions.push(format!("{} = ?", "r.app_type"));
             rollup_params.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -1627,7 +1593,7 @@ impl Database {
         let mut detail_conditions = Vec::new();
         let mut detail_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
         if let Some(at) = app_type {
-            detail_conditions.push(format!("{} = ?", folded_app_type_sql("l.app_type")));
+            detail_conditions.push(format!("{} = ?", "l.app_type"));
             detail_params.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -1664,7 +1630,7 @@ impl Database {
         let mut rollup_conditions = Vec::new();
         let mut rollup_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
         if let Some(at) = app_type {
-            rollup_conditions.push(format!("{} = ?", folded_app_type_sql("r.app_type")));
+            rollup_conditions.push(format!("{} = ?", "r.app_type"));
             rollup_params.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -1730,7 +1696,7 @@ impl Database {
             detail_params.push(Box::new(end));
         }
         if let Some(at) = app_type {
-            detail_conditions.push(format!("{} = ?", folded_app_type_sql("l.app_type")));
+            detail_conditions.push(format!("{} = ?", "l.app_type"));
             detail_params.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -1757,7 +1723,7 @@ impl Database {
             &rollup_bounds,
         );
         if let Some(at) = app_type {
-            rollup_conditions.push(format!("{} = ?", folded_app_type_sql("r.app_type")));
+            rollup_conditions.push(format!("{} = ?", "r.app_type"));
             rollup_params.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -1923,7 +1889,7 @@ impl Database {
             detail_params.push(Box::new(end));
         }
         if let Some(at) = app_type {
-            detail_conditions.push(format!("{} = ?", folded_app_type_sql("l.app_type")));
+            detail_conditions.push(format!("{} = ?", "l.app_type"));
             detail_params.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -1955,7 +1921,7 @@ impl Database {
             &rollup_bounds,
         );
         if let Some(at) = app_type {
-            rollup_conditions.push(format!("{} = ?", folded_app_type_sql("r.app_type")));
+            rollup_conditions.push(format!("{} = ?", "r.app_type"));
             rollup_params.push(Box::new(at.to_string()));
         }
         push_provider_model_filters(
@@ -2121,7 +2087,7 @@ impl Database {
         if let Some(ref app_type) = filters.app_type {
             // 仅过滤口径折叠 claude-desktop→claude；行投影仍返回原始 app_type，
             // 详情面板据此展示真实入口（路由接管账单审计需要）。
-            conditions.push(format!("{} = ?", folded_app_type_sql("l.app_type")));
+            conditions.push(format!("{} = ?", "l.app_type"));
             params.push(Box::new(app_type.clone()));
         }
         // 与 Dashboard 顶部下拉筛选同口径：Provider 按展示名精确匹配（会话占位
@@ -2733,7 +2699,7 @@ fn model_pricing_candidates(model_id: &str) -> Vec<String> {
         if let Some(stripped) = strip_known_model_namespace(&candidate) {
             queue.push(stripped);
         }
-        if let Some(stripped) = strip_claude_desktop_non_anthropic_prefix(&candidate) {
+        if let Some(stripped) = strip_prefixed_non_anthropic_model(&candidate) {
             queue.push(stripped);
         }
         if let Some(stripped) = strip_bedrock_model_version_suffix(&candidate) {
@@ -2765,7 +2731,7 @@ fn clean_model_id_for_pricing(model_id: &str) -> String {
         .to_ascii_lowercase();
 
     normalized
-        .trim_end_matches(crate::claude_desktop_config::ONE_M_CONTEXT_MARKER)
+        .trim_end_matches(crate::model_capabilities::ONE_M_CONTEXT_MARKER)
         .trim()
         .to_string()
 }
@@ -2802,7 +2768,7 @@ fn strip_known_model_namespace(model_id: &str) -> Option<String> {
     None
 }
 
-fn strip_claude_desktop_non_anthropic_prefix(model_id: &str) -> Option<String> {
+fn strip_prefixed_non_anthropic_model(model_id: &str) -> Option<String> {
     const NON_ANTHROPIC_MARKERS: &[&str] = &[
         "abab",
         "ark-code",
@@ -2987,6 +2953,98 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn usage_dashboard_counts_only_managed_applications() -> Result<(), AppError> {
+        let db = Database::memory()?;
+        {
+            let conn = lock_conn!(db.conn);
+            for app in [
+                "claude",
+                "codex",
+                "opencode",
+                "pi",
+                "agy",
+                "claude-desktop",
+                "gemini",
+                "grokbuild",
+                "openclaw",
+                "hermes",
+                "mcode",
+                "kimi",
+                "omp",
+            ] {
+                insert_usage_log(
+                    &conn,
+                    app,
+                    app,
+                    "test-provider",
+                    "test-model",
+                    "proxy",
+                    1000,
+                    10,
+                    20,
+                    0,
+                    0,
+                    200,
+                    "1",
+                )?;
+            }
+        }
+        let summary = db.get_usage_summary(None, None, None, None, None)?;
+        assert_eq!(summary.total_requests, 5);
+        assert_eq!(summary.total_cost, "5.000000");
+        let mut apps = db
+            .get_usage_summary_by_app(None, None, None, None)?
+            .into_iter()
+            .map(|row| row.app_type)
+            .collect::<Vec<_>>();
+        apps.sort();
+        assert_eq!(apps, ["agy", "claude", "codex", "opencode", "pi"]);
+        Ok(())
+    }
+
+    #[test]
+    fn retired_proxy_usage_cannot_deduplicate_managed_sessions() -> Result<(), AppError> {
+        let db = Database::memory()?;
+        {
+            let conn = lock_conn!(db.conn);
+            insert_usage_log(
+                &conn,
+                "retired-proxy",
+                "claude-desktop",
+                "test",
+                "model",
+                "proxy",
+                1000,
+                10,
+                20,
+                0,
+                0,
+                200,
+                "1",
+            )?;
+            insert_usage_log(
+                &conn,
+                "managed-session",
+                "claude",
+                "test",
+                "model",
+                "session_log",
+                1001,
+                10,
+                20,
+                0,
+                0,
+                200,
+                "1",
+            )?;
+        }
+        let summary = db.get_usage_summary(None, None, None, None, None)?;
+        assert_eq!(summary.total_requests, 1);
+        assert_eq!(summary.total_cost, "1.000000");
+        Ok(())
+    }
+
     fn create_legacy_nullable_logs_table(conn: &Connection) -> Result<(), AppError> {
         conn.execute(
             "CREATE TABLE proxy_request_logs (
@@ -3129,10 +3187,10 @@ mod tests {
                 1100,
                 Some("session_log"),
             ),
-            // claude-desktop 的代理行也能去掉 claude 会话行
+            // 同应用的代理行会去掉重复的会话行
             (
                 "p2",
-                "claude-desktop",
+                "claude",
                 "sonnet",
                 20,
                 3,
@@ -3324,151 +3382,6 @@ mod tests {
             created_at: 1000,
         };
         assert!(has_matching_proxy_usage_log(&conn, &key)?);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_matching_proxy_log_matches_claude_desktop_for_claude_session() -> Result<(), AppError> {
-        let conn = Connection::open_in_memory()?;
-        create_legacy_nullable_logs_table(&conn)?;
-        conn.execute(
-            "INSERT INTO proxy_request_logs (
-                request_id, app_type, model, input_tokens, output_tokens,
-                cache_read_tokens, cache_creation_tokens, status_code, created_at, data_source
-            ) VALUES ('desktop-proxy', 'claude-desktop', 'claude-sonnet-4-5', 100, 20, 10, 5, 200, 1000, 'proxy')",
-            [],
-        )?;
-
-        let key = DedupKey {
-            app_type: "claude",
-            model: "claude-sonnet-4-5",
-            input_tokens: 100,
-            output_tokens: 20,
-            cache_read_tokens: 10,
-            cache_creation_tokens: 5,
-            created_at: 1060,
-        };
-        assert!(has_matching_proxy_usage_log(&conn, &key)?);
-
-        let mut outside_window = key;
-        outside_window.created_at = 1_601;
-        assert!(!has_matching_proxy_usage_log(&conn, &outside_window)?);
-
-        let mut different_model = key;
-        different_model.model = "claude-opus-4-5";
-        assert!(!has_matching_proxy_usage_log(&conn, &different_model)?);
-
-        let mut different_input = key;
-        different_input.input_tokens += 1;
-        assert!(!has_matching_proxy_usage_log(&conn, &different_input)?);
-
-        let mut different_cache_creation = key;
-        different_cache_creation.cache_creation_tokens += 1;
-        assert!(!has_matching_proxy_usage_log(
-            &conn,
-            &different_cache_creation
-        )?);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_effective_filter_dedups_claude_session_against_desktop_proxy() -> Result<(), AppError> {
-        let conn = Connection::open_in_memory()?;
-        create_legacy_nullable_logs_table(&conn)?;
-        conn.execute_batch(
-            "INSERT INTO proxy_request_logs (
-                request_id, app_type, model, input_tokens, output_tokens,
-                cache_read_tokens, cache_creation_tokens, status_code, created_at, data_source
-            ) VALUES
-                ('desktop-proxy', 'claude-desktop', 'claude-sonnet-4-5', 100, 20, 10, 5, 200, 1000, 'proxy'),
-                ('claude-session', 'claude', 'claude-sonnet-4-5', 100, 20, 10, 5, 200, 1060, 'session_log');",
-        )?;
-
-        let filter = effective_usage_log_filter("l");
-        let sql = format!("SELECT request_id FROM proxy_request_logs l WHERE {filter}");
-        let request_ids = conn
-            .prepare(&sql)?
-            .query_map([], |row| row.get::<_, String>(0))?
-            .collect::<Result<Vec<_>, _>>()?;
-        assert_eq!(request_ids, vec!["desktop-proxy"]);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_claude_desktop_folds_into_claude_for_display() -> Result<(), AppError> {
-        let db = Database::memory()?;
-        let ts = local_ts(2026, 6, 10, 12, 0, 0);
-
-        {
-            let conn = lock_conn!(db.conn);
-            // 一条 Claude Code 行 + 一条 Claude Desktop 网关行，同一时间窗。
-            insert_usage_log(
-                &conn,
-                "cc-1",
-                "claude",
-                "p-claude",
-                "claude-sonnet-4-5",
-                "proxy",
-                ts,
-                100,
-                10,
-                0,
-                0,
-                200,
-                "0.5",
-            )?;
-            insert_usage_log(
-                &conn,
-                "cd-1",
-                "claude-desktop",
-                "p-desktop",
-                "claude-opus-4-8",
-                "proxy",
-                ts,
-                200,
-                20,
-                0,
-                0,
-                200,
-                "1.5",
-            )?;
-        }
-
-        // ① 分应用汇总：desktop 折叠进 claude，不再单列 claude-desktop 桶。
-        let by_app = db.get_usage_summary_by_app(None, None, None, None)?;
-        assert_eq!(by_app.len(), 1, "应只剩一个合并后的 claude 桶");
-        assert_eq!(by_app[0].app_type, "claude");
-        assert_eq!(by_app[0].summary.total_requests, 2, "两条行都计入 claude");
-        assert!(
-            !by_app.iter().any(|a| a.app_type == "claude-desktop"),
-            "不应再出现 claude-desktop 桶"
-        );
-
-        // ② 选中 claude 过滤：汇总应同时覆盖 desktop 行。
-        let claude_summary = db.get_usage_summary(None, None, Some("claude"), None, None)?;
-        assert_eq!(claude_summary.total_requests, 2);
-
-        // ③ 请求日志按 claude 过滤返回两行，且 desktop 行投影仍是原始 app_type。
-        let logs = db.get_request_logs(
-            &LogFilters {
-                app_type: Some("claude".to_string()),
-                ..Default::default()
-            },
-            0, // 页码从 0 开始
-            50,
-        )?;
-        assert_eq!(logs.total, 2, "claude 过滤含 desktop 行");
-        assert!(
-            logs.data.iter().any(|r| r.app_type == "claude-desktop"),
-            "详情面板需要看到真实入口，行投影不可被折叠"
-        );
-
-        // ④ 折叠不外溢：codex 过滤为空。
-        let codex_summary = db.get_usage_summary(None, None, Some("codex"), None, None)?;
-        assert_eq!(codex_summary.total_requests, 0);
 
         Ok(())
     }
@@ -3687,53 +3600,6 @@ mod tests {
             ]
         );
 
-        Ok(())
-    }
-
-    #[test]
-    fn test_backfill_deducts_cache_read_for_grokbuild_total_rows() -> Result<(), AppError> {
-        // 回归：回填侧的 cache-inclusive 判定曾硬编码 codex|gemini 漏掉
-        // grokbuild，导致 TOTAL 行按全量 input 计价、cache_read 双算。
-        // 判定收敛到 sql_helpers::is_cache_inclusive_app 后按 450 fresh 计价。
-        let db = Database::memory()?;
-        {
-            let conn = lock_conn!(db.conn);
-            insert_usage_log(
-                &conn,
-                "grokbuild-total-backfill",
-                "grokbuild",
-                "_grok_session",
-                "grok-4.5",
-                "grok_session",
-                1000,
-                700,
-                100,
-                250,
-                0,
-                200,
-                "0",
-            )?;
-            conn.execute(
-                "UPDATE proxy_request_logs
-                 SET input_token_semantics = ?1
-                 WHERE request_id = 'grokbuild-total-backfill'",
-                [INPUT_TOKEN_SEMANTICS_TOTAL],
-            )?;
-        }
-
-        assert_eq!(db.backfill_missing_usage_costs()?, 1);
-
-        let conn = lock_conn!(db.conn);
-        let (input_cost, cache_read_cost, total_cost): (String, String, String) = conn.query_row(
-            "SELECT input_cost_usd, cache_read_cost_usd, total_cost_usd
-             FROM proxy_request_logs WHERE request_id = 'grokbuild-total-backfill'",
-            [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        )?;
-        // grok-4.5 定价 2/6/0.30：input = (700-250)×2/1M，cache_read = 250×0.3/1M
-        assert_eq!(input_cost, "0.000900");
-        assert_eq!(cache_read_cost, "0.000075");
-        assert_eq!(total_cost, "0.001575");
         Ok(())
     }
 
@@ -4080,7 +3946,7 @@ mod tests {
                 ),
                 (
                     "s2",
-                    "claude-desktop",
+                    "claude",
                     "sess-a",
                     "session_log",
                     20,
@@ -4150,7 +4016,7 @@ mod tests {
             insert_usage_log(
                 &conn,
                 "desktop-1",
-                "claude-desktop",
+                "claude",
                 "p3",
                 "claude-3",
                 "proxy",
@@ -4628,8 +4494,8 @@ mod tests {
             )?;
             insert_usage_log(
                 &conn,
-                "gemini-proxy",
-                "gemini",
+                "opencode-proxy",
+                "opencode",
                 "google",
                 "gemini-2.5-pro",
                 "proxy",
@@ -4643,11 +4509,11 @@ mod tests {
             )?;
             insert_usage_log(
                 &conn,
-                "gemini-session-dup",
-                "gemini",
-                "_gemini_session",
+                "opencode-session-dup",
+                "opencode",
+                "_opencode_session",
                 "gemini-2.5-pro",
-                "gemini_session",
+                "opencode_session",
                 20_060,
                 200,
                 40,
@@ -4675,17 +4541,14 @@ mod tests {
 
         let summary = db.get_usage_summary(None, None, None, None, None)?;
         assert_eq!(summary.total_requests, 4);
-        // codex-proxy contributes 100-10=90; gemini-proxy contributes 200-30=170
-        // (both cache-inclusive providers). claude-proxy=300, codex-session-only=50.
-        // 90 + 170 + 300 + 50 = 610.
-        assert_eq!(summary.total_input_tokens, 610);
+        // Codex contributes 100 - 10 = 90 fresh input. OpenCode already stores 200 fresh.
+        // Claude contributes 300 and the remaining Codex session contributes 50.
+        assert_eq!(summary.total_input_tokens, 640);
         assert_eq!(summary.total_output_tokens, 125);
         assert_eq!(summary.total_cache_read_tokens, 60);
         assert_eq!(summary.total_cache_creation_tokens, 12);
-        // real_total = fresh_input(610) + output(125) + cache_create(12) + cache_read(60) = 807
-        assert_eq!(summary.real_total_tokens, 807);
-        // hit_rate = 60 / (610 + 12 + 60) = 60 / 682
-        let expected_hit_rate = 60.0_f64 / 682.0_f64;
+        assert_eq!(summary.real_total_tokens, 837);
+        let expected_hit_rate = 60.0_f64 / 712.0_f64;
         assert!((summary.cache_hit_rate - expected_hit_rate).abs() < 1e-9);
 
         let trends = db.get_daily_trends(Some(0), Some(40_000), None, None, None)?;
@@ -4704,7 +4567,7 @@ mod tests {
             .any(|stat| stat.provider_id == "_codex_session" && stat.request_count == 1));
         assert!(!provider_stats
             .iter()
-            .any(|stat| stat.provider_id == "_gemini_session"));
+            .any(|stat| stat.provider_id == "_opencode_session"));
         assert!(!provider_stats
             .iter()
             .any(|stat| stat.provider_id == "_session"));
@@ -4727,11 +4590,11 @@ mod tests {
         assert_eq!(logs.total, 4);
         assert!(request_ids.contains(&"codex-proxy"));
         assert!(request_ids.contains(&"claude-proxy"));
-        assert!(request_ids.contains(&"gemini-proxy"));
+        assert!(request_ids.contains(&"opencode-proxy"));
         assert!(request_ids.contains(&"codex-session-only"));
         assert!(!request_ids.contains(&"codex-session-dup"));
         assert!(!request_ids.contains(&"claude-session-dup"));
-        assert!(!request_ids.contains(&"gemini-session-dup"));
+        assert!(!request_ids.contains(&"opencode-session-dup"));
 
         let breakdown = crate::services::session_usage::get_data_source_breakdown(&db)?;
         let proxy_count = breakdown
@@ -4744,7 +4607,7 @@ mod tests {
             .map(|item| item.request_count);
         let gemini_session_count = breakdown
             .iter()
-            .find(|item| item.data_source == "gemini_session")
+            .find(|item| item.data_source == "opencode_session")
             .map(|item| item.request_count);
         let session_log_count = breakdown
             .iter()
@@ -4812,10 +4675,10 @@ mod tests {
             insert_usage_log(
                 &conn,
                 "session-app-mismatch",
-                "gemini",
+                "opencode",
                 "_gemini_session",
                 "gpt-5.4",
-                "gemini_session",
+                "opencode_session",
                 10_060,
                 100,
                 20,
@@ -5210,7 +5073,7 @@ mod tests {
             )?;
             conn.execute(
                 "INSERT INTO providers (id, app_type, name, settings_config) VALUES (?, ?, ?, '{}')",
-                params!["shared-p1", "claude-desktop", "Shared Provider"],
+                params!["shared-p1", "codex", "Shared Provider"],
             )?;
 
             // Detail log under claude
@@ -5234,7 +5097,7 @@ mod tests {
                 ],
             )?;
 
-            // Rollup under claude-desktop
+            // Rollup under codex
             conn.execute(
                 "INSERT INTO usage_daily_rollups (
                     date, app_type, provider_id, model,
@@ -5244,7 +5107,7 @@ mod tests {
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
                     "2026-10-08",
-                    "claude-desktop",
+                    "codex",
                     "shared-p1",
                     "m1",
                     10,
@@ -5259,8 +5122,8 @@ mod tests {
             )?;
         }
 
-        // Folded query for "claude" matches both claude and claude-desktop
-        let stats = db.get_provider_stats(None, None, Some("claude"), None, None)?;
+        // An unfiltered query retains separate application identities.
+        let stats = db.get_provider_stats(None, None, None, None, None)?;
         assert_eq!(stats.len(), 2);
 
         let claude_stat = stats
@@ -5271,13 +5134,13 @@ mod tests {
         assert_eq!(claude_stat.provider_name, "Shared Provider");
         assert_eq!(claude_stat.request_count, 1);
 
-        let desktop_stat = stats
+        let codex_stat = stats
             .iter()
-            .find(|s| s.app_type == "claude-desktop")
-            .expect("claude-desktop stat");
-        assert_eq!(desktop_stat.provider_id, "shared-p1");
-        assert_eq!(desktop_stat.provider_name, "Shared Provider");
-        assert_eq!(desktop_stat.request_count, 10);
+            .find(|s| s.app_type == "codex")
+            .expect("codex stat");
+        assert_eq!(codex_stat.provider_id, "shared-p1");
+        assert_eq!(codex_stat.provider_name, "Shared Provider");
+        assert_eq!(codex_stat.request_count, 10);
 
         Ok(())
     }

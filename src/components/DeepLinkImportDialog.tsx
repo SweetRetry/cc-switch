@@ -721,8 +721,7 @@ export function DeepLinkImportDialog() {
                             )}
 
                           {/* Codex config */}
-                          {(parsedConfig.type === "codex" ||
-                            parsedConfig.type === "grokbuild") && (
+                          {parsedConfig.type === "codex" && (
                             <div className="space-y-2">
                               {parsedConfig.type === "codex" &&
                                 parsedConfig.auth &&
@@ -754,9 +753,7 @@ export function DeepLinkImportDialog() {
                                   </pre>
                                   {/* 后端按白名单收（deeplink/codex_link.rs、grok_link.rs），原文不会整份导入 */}
                                   <p className="text-xs text-fg-2">
-                                    {parsedConfig.type === "codex"
-                                      ? t("deeplink.codexConfigScopeHint")
-                                      : t("deeplink.grokConfigScopeHint")}
+                                    {t("deeplink.codexConfigScopeHint")}
                                   </p>
                                 </div>
                               )}
@@ -764,27 +761,25 @@ export function DeepLinkImportDialog() {
                           )}
 
                           {/* Gemini config */}
-                          {(parsedConfig.type === "gemini" ||
-                            parsedConfig.type === "agy") &&
-                            parsedConfig.env && (
-                              <div className="space-y-1.5">
-                                {parsedConfig.model && (
+                          {parsedConfig.type === "agy" && parsedConfig.env && (
+                            <div className="space-y-1.5">
+                              {parsedConfig.model && (
+                                <EnvRow
+                                  envKey="model"
+                                  value={parsedConfig.model}
+                                />
+                              )}
+                              {Object.entries(parsedConfig.env).map(
+                                ([key, value]) => (
                                   <EnvRow
-                                    envKey="model"
-                                    value={parsedConfig.model}
+                                    key={key}
+                                    envKey={key}
+                                    value={String(value)}
                                   />
-                                )}
-                                {Object.entries(parsedConfig.env).map(
-                                  ([key, value]) => (
-                                    <EnvRow
-                                      key={key}
-                                      envKey={key}
-                                      value={String(value)}
-                                    />
-                                  ),
-                                )}
-                              </div>
-                            )}
+                                ),
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
 

@@ -50,9 +50,6 @@ const NEWAPI_DEFAULT_MODELS: UniversalProviderModels = {
     model: "gpt-5.6-sol",
     reasoningEffort: "high",
   },
-  gemini: {
-    model: "gemini-3.6-flash",
-  },
 };
 
 /**
@@ -65,7 +62,6 @@ export const universalProviderPresets: UniversalProviderPreset[] = [
     defaultApps: {
       claude: true,
       codex: true,
-      gemini: true,
     },
     defaultModels: NEWAPI_DEFAULT_MODELS,
     websiteUrl: "https://www.newapi.pro",
@@ -80,7 +76,6 @@ export const universalProviderPresets: UniversalProviderPreset[] = [
     defaultApps: {
       claude: true,
       codex: true,
-      gemini: true,
     },
     defaultModels: NEWAPI_DEFAULT_MODELS,
     icon: "openai",

@@ -105,16 +105,9 @@ export function SessionItem({
     .join("\n");
 
   const deleteReason = !deletable
-    ? t(
-        session.providerId === "kimi"
-          ? "kimi.deleteSessionHint"
-          : session.providerId === "agy"
-            ? "sessionManager.agyDeleteHint"
-            : "sessionManager.mcodeDeleteHint",
-        {
-          defaultValue: "请在 MiniMax Code 中删除",
-        },
-      )
+    ? t("sessionManager.agyDeleteHint", {
+        defaultValue: "请在 Antigravity 中删除",
+      })
     : null;
 
   return (

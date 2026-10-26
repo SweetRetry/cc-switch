@@ -40,7 +40,6 @@ export const READER_DEFAULTS: Record<string, string> = {
   diff: "改动",
   "thinking.claude": "思考中…",
   "thinking.codex": "推理",
-  "thinking.gemini": "想法",
   "thinking.opencode": "Thought",
   "thinking.pi": "Thinking…",
   "thinking.generic": "思考",

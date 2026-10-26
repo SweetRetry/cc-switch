@@ -38,26 +38,9 @@ export interface ToolVersion {
   update_blocked_by_node: NodeRequirementGap | null;
 }
 
-export const TOOL_NAMES = [
-  "claude",
-  "codex",
-  "gemini",
-  "grok",
-  "opencode",
-  "openclaw",
-  "hermes",
-  "pi",
-  "mcode",
-  "kimi",
-  "agy",
-  "omp",
-] as const;
+export const TOOL_NAMES = ["claude", "codex", "opencode", "pi", "agy"] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
 export type ToolLifecycleAction = "install" | "update" | "uninstall";
-
-export function hermesUninstallMayLeaveFiles(plan: ToolUninstallPlan) {
-  return isWindows() && plan.tool === "hermes" && !plan.wsl_distro;
-}
 
 interface PendingUpgrade {
   toolNames: ToolName[];
@@ -104,9 +87,6 @@ export const ENV_BADGE_CONFIG: Record<
 const posixScriptInstallCommand = (url: string) =>
   `bash -c 'tmp=$(mktemp) && curl -fsSL ${url} -o $tmp && bash $tmp; status=$?; rm -f $tmp; exit $status'`;
 
-const HERMES_WINDOWS_INSTALL_SCRIPT =
-  "irm https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.ps1 | iex";
-
 const powershellEncodedCommand = (script: string): string => {
   let binary = "";
   for (let i = 0; i < script.length; i += 1) {
@@ -115,18 +95,6 @@ const powershellEncodedCommand = (script: string): string => {
   }
   return btoa(binary);
 };
-
-const HERMES_WINDOWS_INSTALL_COMMAND = `powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${powershellEncodedCommand(
-  HERMES_WINDOWS_INSTALL_SCRIPT,
-)}`;
-
-const MCODE_WINDOWS_INSTALL_COMMAND = `powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${powershellEncodedCommand(
-  "irm https://filecdn.minimax.chat/public/install.ps1 | iex",
-)}`;
-
-const KIMI_WINDOWS_INSTALL_COMMAND = `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ${powershellEncodedCommand(
-  "irm https://code.kimi.com/kimi-code/install.ps1 | iex",
-)}`;
 
 const AGY_WINDOWS_INSTALL_COMMAND = `powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${powershellEncodedCommand(
   "irm https://antigravity.google/cli/install.ps1 | iex",
@@ -137,70 +105,32 @@ const AGY_WINDOWS_INSTALL_COMMAND = `powershell -NoProfile -ExecutionPolicy Bypa
 const CLAUDE_NPM_INSTALL_COMMAND =
   "npm i -g @anthropic-ai/claude-code@latest --ignore-scripts=false --include=optional --allow-scripts=@anthropic-ai/claude-code";
 
-// 与后端 npm_install_command_for("mcode") 保持一致：npm 12 默认拦截依赖的 install
-// 脚本，不放行 better-sqlite3 时 SQLite 不可用。
-const MCODE_NPM_INSTALL_COMMAND =
-  'npm i -g @minimax-ai/code@latest --ignore-scripts=false --include=optional "--allow-scripts=@minimax-ai/code,better-sqlite3"';
-
 // 与后端 npm_install_command_for("opencode") 保持一致：postinstall 负责把平台二进制
 // 铺到 bin/opencode.exe，npm 12 拦截后只剩文本占位文件。
 const OPENCODE_NPM_INSTALL_COMMAND =
   "npm i -g opencode-ai@latest --ignore-scripts=false --include=optional --allow-scripts=opencode-ai";
 
-// 与后端 npm_install_command_for("grok") 保持一致：postinstall 负责把平台二进制解到
-// ~/.grok/bin 并 relink，npm 12 拦截后升级会一直跑旧版。
-const GROK_NPM_INSTALL_COMMAND =
-  "npm i -g @xai-official/grok@latest --ignore-scripts=false --include=optional --allow-scripts=@xai-official/grok";
-
 const POSIX_ONE_CLICK_INSTALL_COMMANDS = `# Claude Code
 ${posixScriptInstallCommand("https://claude.ai/install.sh")} || ${CLAUDE_NPM_INSTALL_COMMAND}
 # Codex
 npm i -g @openai/codex@latest
-# Gemini CLI
-npm i -g @google/gemini-cli@latest
-# Grok Build
-${GROK_NPM_INSTALL_COMMAND}
 # OpenCode
 ${posixScriptInstallCommand("https://opencode.ai/install")} || ${OPENCODE_NPM_INSTALL_COMMAND}
-# OpenClaw
-npm i -g openclaw@latest
-# Hermes
-${posixScriptInstallCommand("https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh")}
 # Pi
 npm i -g @earendil-works/pi-coding-agent@latest
-# MiniMax Code
-${posixScriptInstallCommand("https://filecdn.minimax.chat/public/install.sh")} || ${MCODE_NPM_INSTALL_COMMAND}
-# Kimi Code
-${posixScriptInstallCommand("https://code.kimi.com/kimi-code/install.sh")}
 # Antigravity CLI
-${posixScriptInstallCommand("https://antigravity.google/cli/install.sh")}
-# Oh My Pi
-bun install -g @oh-my-pi/pi-coding-agent@latest`;
+${posixScriptInstallCommand("https://antigravity.google/cli/install.sh")}`;
 
 const WINDOWS_ONE_CLICK_INSTALL_COMMANDS = `# Claude Code
 ${CLAUDE_NPM_INSTALL_COMMAND}
 # Codex
 npm i -g @openai/codex@latest
-# Gemini CLI
-npm i -g @google/gemini-cli@latest
-# Grok Build
-${GROK_NPM_INSTALL_COMMAND}
 # OpenCode
 ${OPENCODE_NPM_INSTALL_COMMAND}
-# OpenClaw
-npm i -g openclaw@latest
-# Hermes
-${HERMES_WINDOWS_INSTALL_COMMAND}
 # Pi
 npm i -g @earendil-works/pi-coding-agent@latest
-# MiniMax Code
-${MCODE_WINDOWS_INSTALL_COMMAND}
-# Kimi Code
-${KIMI_WINDOWS_INSTALL_COMMAND}
 # Antigravity CLI
-${AGY_WINDOWS_INSTALL_COMMAND}
-# Oh My Pi
-bun install -g @oh-my-pi/pi-coding-agent@latest`;
+${AGY_WINDOWS_INSTALL_COMMAND}`;
 
 export const ONE_CLICK_INSTALL_COMMANDS = isWindows()
   ? WINDOWS_ONE_CLICK_INSTALL_COMMANDS
@@ -209,16 +139,9 @@ export const ONE_CLICK_INSTALL_COMMANDS = isWindows()
 export const TOOL_DISPLAY_NAMES: Record<ToolName, string> = {
   claude: "Claude Code",
   codex: "Codex",
-  gemini: "Gemini CLI",
-  grok: "Grok Build",
   opencode: "OpenCode",
-  openclaw: "OpenClaw",
-  hermes: "Hermes",
   pi: "Pi",
-  mcode: "MiniMax Code",
-  kimi: "Kimi Code",
   agy: "Antigravity CLI",
-  omp: "Oh My Pi",
 };
 
 // 后端返回的 tool 是 string；这里收敛唯一的 ToolName 断言与兜底，供升级确认
@@ -230,16 +153,9 @@ export function toolDisplayName(tool: string): string {
 export const TOOL_APP_IDS: Record<ToolName, AppId> = {
   claude: "claude",
   codex: "codex",
-  gemini: "gemini",
-  grok: "grokbuild",
   opencode: "opencode",
-  openclaw: "openclaw",
-  hermes: "hermes",
   pi: "pi",
-  mcode: "mcode",
-  kimi: "kimi",
   agy: "agy",
-  omp: "omp",
 };
 
 // 工具版本探测代价高：每个工具一次 `--version` 子进程 + 一次 npm/github/pypi 网络请求。
@@ -712,12 +628,6 @@ export function useToolManagement() {
               if (!tool || !diagnosed) {
                 warnings.push(t("settings.toolUninstallCheckFailed"));
               }
-              if (
-                uninstallPlan &&
-                hermesUninstallMayLeaveFiles(uninstallPlan)
-              ) {
-                warnings.push(t("settings.toolUninstallHermesWindowsHint"));
-              }
               if (tool?.version || tool?.installed_but_broken) {
                 toast.info(t("settings.toolUninstallRemaining"), {
                   description: TOOL_DISPLAY_NAMES[toolName],
@@ -767,7 +677,7 @@ export function useToolManagement() {
               }
             } else {
               // 命令退出码为 0、但刷新后仍探不到版本：多半是"装上了却跑不起来"
-              // （如 openclaw 要求更高的 Node 版本）。refreshToolVersions 的 merge 已把
+              // refreshToolVersions 的 merge 已把
               // version 置空并写入后端 error，这里只需归类为软失败并展示原因。
               const detail =
                 tool?.error?.trim() || t("settings.toolNotRunnable");

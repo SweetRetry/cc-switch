@@ -5,7 +5,6 @@ import { CodexOAuthSection } from "@/components/providers/forms/CodexOAuthSectio
 import { XaiOAuthSection } from "@/components/providers/forms/XaiOAuthSection";
 import { AgyOAuthSection } from "@/components/providers/forms/AgyOAuthSection";
 import { ClaudeOfficialSection } from "@/components/providers/forms/ClaudeOfficialSection";
-import { KimiAccountLogin } from "@/components/providers/KimiAccountLogin";
 import { isMac } from "@/lib/platform";
 import type { AuthCenterTarget } from "@/lib/api";
 
@@ -19,7 +18,7 @@ interface AuthCenterPanelProps {
 }
 
 /**
- * 授权中心：Claude 官方账号、GitHub Copilot、ChatGPT、xAI、Kimi Code，一组一张卡片；
+ * 授权中心：Claude 官方账号、GitHub Copilot、ChatGPT、xAI，一组一张卡片；
  * macOS 上另有 Antigravity 一组（切 agy 的官方登录，目前只实现了 macOS 钥匙串）。
  * 侧栏的「授权中心」页和供应商表单里「管理账号」打开的全屏页共用。
  */
@@ -33,24 +32,21 @@ export function AuthCenterPanel({
   const codexOauthSectionRef = useRef<HTMLDivElement | null>(null);
   const xaiOauthSectionRef = useRef<HTMLDivElement | null>(null);
   const agyOauthSectionRef = useRef<HTMLDivElement | null>(null);
-  const kimiOauthSectionRef = useRef<HTMLDivElement | null>(null);
   const showAgy = isMac();
 
   useEffect(() => {
     if (!authScrollTarget) return;
 
     const sectionRef =
-      authScrollTarget === "kimi_oauth"
-        ? kimiOauthSectionRef
-        : authScrollTarget === "claude_official"
-          ? claudeOfficialSectionRef
-          : authScrollTarget === "github_copilot"
-            ? copilotSectionRef
-            : authScrollTarget === "codex_oauth"
-              ? codexOauthSectionRef
-              : authScrollTarget === "agy_oauth"
-                ? agyOauthSectionRef
-                : xaiOauthSectionRef;
+      authScrollTarget === "claude_official"
+        ? claudeOfficialSectionRef
+        : authScrollTarget === "github_copilot"
+          ? copilotSectionRef
+          : authScrollTarget === "codex_oauth"
+            ? codexOauthSectionRef
+            : authScrollTarget === "agy_oauth"
+              ? agyOauthSectionRef
+              : xaiOauthSectionRef;
 
     const frame = requestAnimationFrame(() => {
       const prefersReducedMotion = window.matchMedia(
@@ -84,9 +80,6 @@ export function AuthCenterPanel({
       </div>
       <div ref={xaiOauthSectionRef} className="scroll-mt-4">
         <XaiOAuthSection mode="manage" helpSide="bottom" />
-      </div>
-      <div ref={kimiOauthSectionRef} className="scroll-mt-4">
-        <KimiAccountLogin helpSide={showAgy ? "bottom" : "top"} />
       </div>
       {showAgy && (
         <div ref={agyOauthSectionRef} className="scroll-mt-4">

@@ -445,9 +445,8 @@ function buildSwitchSectionsByView(input: SwitchModeInput): ProviderSection[] {
       ];
     }
 
-    // 实际在直连 / 聚合，正在查看路由：行上没有主操作，要生效只有通知条的「开始路由」，
-    // 路由到哪家在确认框里选（预选上次那家，框里看得到，卡上不再标）。不能路由的官方订阅
-    // 没有按钮可挂原因，原因挂在「官方」徽标上
+    // 实际在直连 / 聚合，正在查看路由：行上没有主操作。
+    // 不能路由的官方订阅没有按钮可挂原因，原因挂在「官方」徽标上。
     return [
       {
         key: "all",
@@ -613,11 +612,7 @@ function buildSwitchSectionsByView(input: SwitchModeInput): ProviderSection[] {
         : t("providerCard.section.stackDefaultAfterSwitch"),
       help: {
         title: t("providerCard.section.stackDefault"),
-        body: t(
-          app === "claude-desktop"
-            ? "providerCard.section.stackDefaultHelpDesktop"
-            : "providerCard.section.stackDefaultHelp",
-        ),
+        body: t("providerCard.section.stackDefaultHelp"),
       },
       emptyText: t("providerCard.section.stackNoDefault"),
       items: defaultItems,
@@ -694,12 +689,9 @@ export interface AdditiveInput {
   /** OpenClaw / OpenCode：每家可选的模型 */
   defaultModelOptions?: (provider: Provider) => { id: string; name?: string }[];
   /** Hermes：model.provider 指向的那家 */
-  hermesCurrentId?: string | null;
-  isHermesManaged?: (provider: Provider) => boolean;
   /** Pi / Oh My Pi：读不到当前配置时一律不能改 */
   piStateUnavailable?: boolean;
   /** Kimi：原生 default_model 别名所属的供应商。 */
-  kimiCurrentId?: string | null;
   actions: {
     add: (provider: Provider) => void;
     remove: (provider: Provider) => void;
@@ -719,65 +711,7 @@ export function buildAdditiveSections(input: AdditiveInput): ProviderSection[] {
 
   for (const p of providers) {
     const chips: CardChip[] = [];
-    if (app === "kimi") {
-      const official = isOfficialAccount(app, p);
-      const live = input.isInConfig(p);
-      // 官方卡可以编辑模型、可以移出 config.toml（登录留着，能再添加）；仍在 Kimi 里的
-      // 官方卡不能直接删，删号在授权中心（连登录一起删）
-      const deleteProtectedReason =
-        official && live ? t("kimi.oauth.managedHint") : undefined;
-      if (official) {
-        chips.push({
-          key: "official",
-          label: t("providerCard.chip.official"),
-          tone: "outline",
-        });
-      }
-      const current = live && p.id === input.kimiCurrentId;
-      // 「添加」只写进 config.toml（模型出现在 Kimi 的 /model 列表），「移除」从 config.toml
-      // 拿掉、卡片留着；改 default_model 的「设为默认」和 OpenCode 一样收在「更多」菜单里
-      const buttons: CardButton[] = [];
-      const menuItems: CardMenuItem[] = [];
-      if (!live) {
-        buttons.push({
-          key: "add",
-          label: t("providerCard.action.add"),
-          onClick: () => actions.add(p),
-        });
-      } else {
-        if (!current) {
-          menuItems.push({
-            key: "setDefault",
-            label: t("providerCard.action.setDefault"),
-            onSelect: () => actions.setDefault(p),
-          });
-        }
-        buttons.push({
-          key: "remove",
-          label: t("providerCard.action.remove"),
-          disabledReason: current
-            ? t("providerCard.reason.defaultCannotRemove")
-            : undefined,
-          onClick: () => actions.remove(p),
-        });
-      }
-      (live ? added : available).push({
-        provider: p,
-        presentation: {
-          tone: current ? "direct" : undefined,
-          status: current
-            ? { label: t("providerCard.status.default"), dot: "direct" }
-            : undefined,
-          chips,
-          buttons,
-          menuItems: menuItems.length ? menuItems : undefined,
-          deleteDisabledReason:
-            deleteProtectedReason ??
-            (current ? t("providerCard.reason.inUseCannotDelete") : undefined),
-        },
-      });
-      continue;
-    }
+
     const isOmo = p.category === "omo";
     const isOmoSlim = p.category === "omo-slim";
     if (isOmo) chips.push({ key: "omo", label: "OMO", tone: "outline" });
@@ -821,27 +755,12 @@ export function buildAdditiveSections(input: AdditiveInput): ProviderSection[] {
       continue;
     }
 
-    const managed = app === "hermes" && (input.isHermesManaged?.(p) ?? false);
-    if (managed) {
-      chips.push({
-        key: "managed",
-        label: t("providerCard.chip.hermesManaged"),
-        tone: "outline",
-        title: t("provider.managedByHermesHint"),
-      });
-    }
-    const readOnlyReason = managed
-      ? t("provider.managedByHermesHint")
-      : undefined;
-
     if (!input.isInConfig(p)) {
       available.push({
         provider: p,
         presentation: {
           chips,
-          dim: managed,
-          editDisabledReason: readOnlyReason,
-          deleteDisabledReason: readOnlyReason ?? piBlocked,
+          deleteDisabledReason: piBlocked,
           buttons: [
             {
               key: "add",
@@ -865,7 +784,7 @@ export function buildAdditiveSections(input: AdditiveInput): ProviderSection[] {
     let removeReason: string | undefined = piBlocked;
 
     // OpenCode 的顶层 model 一直允许移走所指的那家，这里不改；OpenClaw 不能
-    if (app === "openclaw" || app === "opencode") {
+    if (app === "opencode") {
       isDefault = input.defaultModel?.providerId === p.id;
       if (isDefault) {
         status = { label: t("providerCard.status.default"), dot: "direct" };
@@ -876,14 +795,11 @@ export function buildAdditiveSections(input: AdditiveInput): ProviderSection[] {
           }),
           tone: "outline",
         });
-        if (app === "openclaw") {
-          removeReason = t("providerCard.reason.defaultCannotRemove");
-        }
       } else {
         const models = input.defaultModelOptions?.(p) ?? [];
         // 「设为默认」放「更多」菜单，不占卡片上的主操作位；多个模型时展开子菜单选。
         // OpenCode 内置供应商可以不列模型（运行时才有），给不出选项就不显示
-        if (app === "openclaw" || models.length > 0) {
+        if (models.length > 0) {
           menuItems.push({
             key: "setDefault",
             label: t("providerCard.action.setDefault"),
@@ -910,26 +826,12 @@ export function buildAdditiveSections(input: AdditiveInput): ProviderSection[] {
 
     // Hermes 跟 OpenClaw / OpenCode 一样是累加式：model.provider 只是默认那家，
     // 「设为默认」收在「更多」菜单里，主操作位只留「移除」
-    if (app === "hermes") {
-      if (p.id === input.hermesCurrentId) {
-        isDefault = true;
-        status = { label: t("providerCard.status.default"), dot: "direct" };
-        removeReason = t("providerCard.reason.defaultCannotRemove");
-      } else {
-        menuItems.push({
-          key: "setDefault",
-          label: t("providerCard.action.setDefault"),
-          onSelect: () => actions.setDefault(p),
-          disabledReason: readOnlyReason,
-        });
-      }
-    }
 
     buttons.push({
       key: "remove",
       label: t("providerCard.action.remove"),
       onClick: () => actions.remove(p),
-      disabledReason: removeReason ?? readOnlyReason,
+      disabledReason: removeReason,
     });
 
     added.push({
@@ -938,9 +840,7 @@ export function buildAdditiveSections(input: AdditiveInput): ProviderSection[] {
         tone: isDefault ? "direct" : undefined,
         status,
         chips,
-        dim: managed,
-        editDisabledReason: readOnlyReason,
-        deleteDisabledReason: readOnlyReason ?? piBlocked,
+        deleteDisabledReason: piBlocked,
         buttons,
         menuItems: menuItems.length ? menuItems : undefined,
       },

@@ -8,7 +8,6 @@ import {
   type CSSProperties,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
 import {
   closestCenter,
   DndContext,
@@ -43,10 +42,9 @@ import {
   Trash2,
 } from "lucide-react";
 import type { AppId } from "@/lib/api";
-import { providersApi } from "@/lib/api/providers";
 import type { ToolInstallationReport } from "@/lib/api/settings";
 import type { VisibleApps } from "@/types";
-import { DEFAULT_VISIBLE_APPS, orderAppIds } from "@/config/appConfig";
+import { APP_IDS, normalizeVisibleApps, orderAppIds } from "@/config/appConfig";
 import { useSettings } from "@/hooks/useSettings";
 import { isUpdateAvailable } from "@/lib/version";
 import { cn } from "@/lib/utils";
@@ -107,17 +105,15 @@ const SOURCE_LABEL: Record<string, string> = {
   pip: "pip",
 };
 
-type Row = { kind: "tool"; tool: ToolName } | { kind: "desktop" };
+type Row = { tool: ToolName };
 
 const ROW_BY_APP = Object.fromEntries([
-  ["claude-desktop", { kind: "desktop" }],
-  ...TOOL_NAMES.map((tool) => [TOOL_APP_IDS[tool], { kind: "tool", tool }]),
+  ...TOOL_NAMES.map((tool) => [TOOL_APP_IDS[tool], { tool }]),
 ]) as Record<AppId, Row>;
 
 type RowSection = { key: string; title: string; rows: Row[] };
 
-const rowKey = (row: Row): AppId =>
-  row.kind === "desktop" ? "claude-desktop" : TOOL_APP_IDS[row.tool];
+const rowKey = (row: Row): AppId => TOOL_APP_IDS[row.tool];
 
 // 只上下拖，且停在本组的列表框里：列表框裁掉超出的部分，拖出去整行会看不见
 const verticalDragModifiers: Modifier[] = [
@@ -177,18 +173,10 @@ export function AppsPage() {
   const tools = useToolManagement();
   const { settings, updateSettings, autoSaveSettings } = useSettings();
   const tableRef = useRef<HTMLDivElement>(null);
-  const { data: desktopStatus, isPending: isDesktopStatusPending } = useQuery({
-    queryKey: ["claude-desktop-status"],
-    queryFn: () => providersApi.getClaudeDesktopStatus(),
-    staleTime: 30_000,
-  });
 
-  // 按「已安装 / 未安装」分两组。Claude Desktop 没有命令可探，用后端按数据目录 / 应用包推断的结果。
+  // 按「已安装 / 未安装」分两组。
   // 首次探测还没出结果时不分组，免得各行探完一个跳一个；之后重新检查时沿用上次结果，位置不动。
   const rowInstalled = (row: Row): boolean | null => {
-    if (row.kind === "desktop") {
-      return isDesktopStatusPending ? null : Boolean(desktopStatus?.installed);
-    }
     const info = tools.toolVersionByName.get(row.tool);
     if (!info && tools.isLoadingTools) return null;
     return isToolPresent(info, tools.installReports?.[row.tool]);
@@ -270,11 +258,8 @@ export function AppsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tools.toolDiagnostics]);
 
-  const visibleApps: VisibleApps = {
-    ...DEFAULT_VISIBLE_APPS,
-    ...settings?.visibleApps,
-  };
-  const visibleCount = Object.values(visibleApps).filter(Boolean).length;
+  const visibleApps: VisibleApps = normalizeVisibleApps(settings?.visibleApps);
+  const visibleCount = APP_IDS.filter((app) => visibleApps[app]).length;
 
   const setVisible = (app: AppId, visible: boolean) => {
     if (!settings) return;
@@ -335,44 +320,22 @@ export function AppsPage() {
     );
   };
 
-  const renderRow = (row: Row) =>
-    row.kind === "desktop" ? (
-      <AppRow
-        key="claude-desktop"
-        app="claude-desktop"
-        name={
-          <span className="truncate">{APP_DISPLAY_NAME["claude-desktop"]}</span>
-        }
-        version={
-          <span className="inline-flex items-center gap-1 text-caption text-fg-2">
-            {desktopStatus?.supported === false
-              ? t("appsPage.desktopUnsupported")
-              : desktopStatus?.configured
-                ? t("appsPage.desktopConnected")
-                : t("appsPage.desktopNotConnected")}
-            <HelpTip title={APP_DISPLAY_NAME["claude-desktop"]} align="end">
-              {t("appsPage.desktopHelp")}
-            </HelpTip>
-          </span>
-        }
-        visibility={visibilitySwitch("claude-desktop")}
-      />
-    ) : (
-      <ToolRow
-        key={row.tool}
-        tool={row.tool}
-        tools={tools}
-        onUninstall={() => setPendingUninstall(row.tool)}
-        expanded={expanded[row.tool] ?? false}
-        onToggleExpanded={() =>
-          setExpanded((prev) => ({
-            ...prev,
-            [row.tool]: !prev[row.tool],
-          }))
-        }
-        visibility={visibilitySwitch(TOOL_APP_IDS[row.tool])}
-      />
-    );
+  const renderRow = (row: Row) => (
+    <ToolRow
+      key={row.tool}
+      tool={row.tool}
+      tools={tools}
+      onUninstall={() => setPendingUninstall(row.tool)}
+      expanded={expanded[row.tool] ?? false}
+      onToggleExpanded={() =>
+        setExpanded((prev) => ({
+          ...prev,
+          [row.tool]: !prev[row.tool],
+        }))
+      }
+      visibility={visibilitySwitch(TOOL_APP_IDS[row.tool])}
+    />
+  );
 
   return (
     <>

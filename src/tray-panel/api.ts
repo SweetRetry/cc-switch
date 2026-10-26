@@ -5,9 +5,7 @@ import type { AppMode } from "@/types/proxy";
 /** 托盘面板的数据（后端 `tray_panel::TrayPanelState`）。 */
 export interface PanelTexts {
   switchProvider: string;
-  searchPlaceholder: string;
   inUse: string;
-  noMatch: string;
   openMain: string;
   quit: string;
   settings: string;

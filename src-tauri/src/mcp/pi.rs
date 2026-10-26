@@ -139,7 +139,7 @@ pub(crate) fn sync_and_commit<T>(
         .lock()
         .map_err(|e| AppError::Message(e.to_string()))?;
     let path = config_path()?;
-    crate::mcode_config::write_and_commit(&path, || sync_file(&path, id, change), commit)
+    crate::config::write_and_commit(&path, || sync_file(&path, id, change), commit)
 }
 
 fn sync_file(path: &Path, id: &str, change: PiChange<'_>) -> Result<(), AppError> {

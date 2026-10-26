@@ -27,6 +27,33 @@ use crate::error::AppError;
 use crate::live::patch::json::JsonPatch;
 use crate::live::patch::{KeyPath, LivePatch};
 
+pub fn validate_settings(settings: &Value) -> Result<(), AppError> {
+    // 只验证基本结构，不强制要求 GEMINI_API_KEY
+    // 如果有 env 字段，验证它是一个对象
+    if let Some(env) = settings.get("env") {
+        if !env.is_object() {
+            return Err(AppError::localized(
+                "agy.validation.invalid_env",
+                "Antigravity 配置格式错误: env 必须是对象",
+                "Antigravity config invalid: env must be an object",
+            ));
+        }
+    }
+
+    // 如果有 config 字段，验证它是对象或 null
+    if let Some(config) = settings.get("config") {
+        if !(config.is_object() || config.is_null()) {
+            return Err(AppError::localized(
+                "agy.validation.invalid_config",
+                "Antigravity 配置格式错误: config 必须是对象",
+                "Antigravity config invalid: config must be an object",
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 /// `~/.gemini/antigravity-cli`
 pub fn agy_dir() -> PathBuf {
     get_home_dir().join(".gemini").join("antigravity-cli")

@@ -20,8 +20,6 @@ export interface Provider {
   sortIndex?: number; // 排序索引（用于自定义拖拽排序）
   // 备注信息
   notes?: string;
-  // 新增：是否为商业合作伙伴
-  isPartner?: boolean;
   // 可选：供应商元数据（仅存于 ~/.cc-switch/config.json，不写入 live 配置）
   meta?: ProviderMeta;
   // 图标配置
@@ -120,12 +118,6 @@ export interface AuthBinding {
   accountId?: string;
 }
 
-export interface ClaudeDesktopModelRoute {
-  model: string;
-  labelOverride?: string;
-  supports1m?: boolean;
-}
-
 export type CodexChatThinkingParam =
   | "none"
   | "thinking"
@@ -178,18 +170,10 @@ export interface ProviderMeta {
   custom_endpoints?: Record<string, CustomEndpoint>;
   // 是否在切换/同步到 live 时应用通用配置片段
   commonConfigEnabled?: boolean;
-  // Claude Desktop 3P 配置写入模式
-  claudeDesktopMode?: "direct" | "proxy";
-  // Claude Desktop 本地路由模式：Claude-safe route -> upstream model
-  claudeDesktopModelRoutes?: Record<string, ClaudeDesktopModelRoute>;
   // 用量查询脚本配置
   usage_script?: UsageScript;
   // 请求地址管理：测速后自动选择最佳端点
   endpointAutoSelect?: boolean;
-  // 是否为官方合作伙伴
-  isPartner?: boolean;
-  // 合作伙伴促销 key（用于后端识别 PackyCode 等）
-  partnerPromotionKey?: string;
   // API 格式（Claude / Codex 供应商使用）
   // - "anthropic": 原生 Anthropic Messages API 格式，直接透传
   // - "openai_chat": OpenAI Chat Completions 格式，需要格式转换
@@ -306,18 +290,10 @@ export type ClaudeApiKeyField = "ANTHROPIC_AUTH_TOKEN" | "ANTHROPIC_API_KEY";
 // 主页面显示的应用配置
 export interface VisibleApps {
   claude: boolean;
-  "claude-desktop": boolean;
   codex: boolean;
-  gemini: boolean;
-  grokbuild: boolean;
   opencode: boolean;
-  openclaw: boolean;
-  hermes: boolean;
   pi: boolean;
-  mcode: boolean;
-  kimi: boolean;
   agy: boolean;
-  omp: boolean;
 }
 
 // WebDAV 同步状态
@@ -419,10 +395,6 @@ export interface Settings {
   sessionAutoSyncEnabled?: boolean;
   // Whether to show the failover toggle independently on the main page
   enableFailoverToggle?: boolean;
-  // Whether to show the project profile switcher on the main page header
-  showProfileSwitcher?: boolean;
-  // 供应商页页头显示搜索按钮（默认开；关掉后 ⌘F 仍可用）
-  showProviderSearch?: boolean;
   // 启动时检查已安装的命令行应用有没有新版本（默认关）
   checkToolUpdatesOnStartup?: boolean;
   // 点托盘图标出原生菜单，不出托盘面板（macOS / Windows；Linux 一律原生菜单；默认关，没写过视为关，即用托盘面板）
@@ -471,30 +443,16 @@ export interface Settings {
   claudeConfigDir?: string;
   // 覆盖 Codex 配置目录（可选）
   codexConfigDir?: string;
-  // 覆盖 Gemini 配置目录（可选）
-  geminiConfigDir?: string;
-  // 覆盖 Grok Build 配置目录（可选）
-  grokConfigDir?: string;
   // 覆盖 OpenCode 配置目录（可选）
   opencodeConfigDir?: string;
-  // 覆盖 OpenClaw 配置目录（可选）
-  openclawConfigDir?: string;
-  // 覆盖 Hermes 配置目录（可选）
-  hermesConfigDir?: string;
   // 覆盖 Pi agent 配置目录（可选）
   piConfigDir?: string;
-  // 覆盖 Oh My Pi agent 配置目录（可选）
-  ompConfigDir?: string;
 
   // ===== 当前供应商 ID（设备级）=====
   // 当前 Claude 供应商 ID（优先于数据库 is_current）
   currentProviderClaude?: string;
-  // 当前 Claude Desktop 供应商 ID（优先于数据库 is_current）
-  currentProviderClaudeDesktop?: string;
   // 当前 Codex 供应商 ID（优先于数据库 is_current）
   currentProviderCodex?: string;
-  // 当前 Gemini 供应商 ID（优先于数据库 is_current）
-  currentProviderGemini?: string;
 
   // ===== Skill 同步设置 =====
   // Skill 同步方式：auto（默认，优先 symlink）、symlink、copy
@@ -769,19 +727,11 @@ export interface McpServerSpec {
 
 // v3.7.0: MCP 服务器应用启用状态
 export interface McpApps {
-  mcode?: boolean;
-  kimi?: boolean;
   agy?: boolean;
   claude: boolean;
-  "claude-desktop"?: boolean;
   codex: boolean;
-  gemini: boolean;
-  grokbuild?: boolean;
   opencode: boolean;
-  openclaw: boolean;
-  hermes: boolean;
   pi?: boolean;
-  omp?: boolean;
 }
 
 // MCP 服务器条目（v3.7.0 统一结构）
@@ -824,7 +774,6 @@ export interface McpConfigResponse {
 export interface UniversalProviderApps {
   claude: boolean;
   codex: boolean;
-  gemini: boolean;
 }
 
 // Claude 模型配置
@@ -842,15 +791,11 @@ export interface CodexModelConfig {
 }
 
 // Gemini 模型配置
-export interface GeminiModelConfig {
-  model?: string;
-}
 
 // 各应用的模型配置
 export interface UniversalProviderModels {
   claude?: ClaudeModelConfig;
   codex?: CodexModelConfig;
-  gemini?: GeminiModelConfig;
 }
 
 // 统一供应商（跨应用共享配置）
@@ -921,108 +866,3 @@ export interface OpenCodeMcpServerSpec {
 }
 
 // ============================================================================
-// OpenClaw 专属配置（v3.11.0+）
-// ============================================================================
-
-// OpenClaw 模型配置
-export interface OpenClawModel {
-  id: string;
-  name: string;
-  alias?: string;
-  reasoning?: boolean; // 是否支持推理模式（如 o1、DeepSeek R1）
-  input?: string[]; // 支持的输入类型（如 ["text"]、["text", "image"]）
-  cost?: {
-    input: number;
-    output: number;
-    cacheRead?: number; // 缓存读取价格
-    cacheWrite?: number; // 缓存写入价格
-  };
-  contextWindow?: number;
-  maxTokens?: number; // 最大输出 token 数
-  compat?: {
-    maxTokensField?: string; // 最大输出 token 请求字段名（如 "max_tokens"）
-    supportsTools?: boolean; // 自定义供应商声明模型支持工具调用
-    toolSchemaProfile?: string; // 工具 schema 清理档案（如 llama-server 用 "llamacpp"）
-    supportsReasoningEffort?: boolean; // 接受 reasoning effort 参数
-    supportedReasoningEfforts?: string[]; // 接口接受的 effort 档位
-  };
-}
-
-// OpenClaw 默认模型配置（agents.defaults.model）
-export interface OpenClawDefaultModel {
-  primary: string;
-  fallbacks?: string[];
-}
-
-// OpenClaw 模型目录条目（agents.defaults.models 中的值）
-export interface OpenClawModelCatalogEntry {
-  alias?: string;
-}
-
-export interface OpenClawHealthWarning {
-  code: string;
-  message: string;
-  path?: string;
-}
-
-export interface OpenClawWriteOutcome {
-  backupPath?: string;
-  warnings: OpenClawHealthWarning[];
-}
-
-export type OpenClawToolsProfile = "minimal" | "coding" | "messaging" | "full";
-
-// OpenClaw 供应商配置（settings_config 结构）
-// 对应 OpenClaw 的 models.providers.<provider-id> 配置
-export interface OpenClawProviderConfig {
-  baseUrl?: string; // API 端点
-  apiKey?: string; // API 密钥
-  api?: string; // API 协议类型（如 "openai-completions"、"anthropic"）
-  models?: OpenClawModel[]; // 可用模型列表
-  headers?: Record<string, string>; // 自定义请求头（如 User-Agent）
-  authHeader?: boolean; // 供应商自定义认证开关（如 Longcat）
-}
-
-// OpenClaw agents.defaults 完整配置
-export interface OpenClawAgentsDefaults {
-  model?: OpenClawDefaultModel;
-  models?: Record<string, OpenClawModelCatalogEntry>;
-  timeoutSeconds?: number;
-  timeout?: number;
-  [key: string]: unknown; // preserve unknown fields
-}
-
-// OpenClaw env 配置（openclaw.json 的 env 节点）
-export interface OpenClawEnvConfig {
-  [key: string]: unknown;
-}
-
-// OpenClaw tools 配置（openclaw.json 的 tools 节点）
-export interface OpenClawToolsConfig {
-  profile?: OpenClawToolsProfile | string;
-  allow?: string[];
-  deny?: string[];
-  [key: string]: unknown; // preserve unknown fields
-}
-
-// ============================================================================
-// Hermes Agent 专属配置
-// ============================================================================
-
-export interface HermesModelConfig {
-  default?: string;
-  provider?: string;
-  base_url?: string;
-  context_length?: number;
-  max_tokens?: number;
-  [key: string]: unknown;
-}
-
-export type HermesMemoryKind = "memory" | "user";
-
-export interface HermesMemoryLimits {
-  memory: number;
-  user: number;
-  memoryEnabled: boolean;
-  userEnabled: boolean;
-}

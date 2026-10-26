@@ -57,10 +57,6 @@ import {
   normalizeRequestHeaders,
 } from "./helpers/requestHeaders";
 import {
-  ompProviderPresets,
-  type OmpProviderPreset,
-} from "@/config/ompProviderPresets";
-import {
   piProviderPresets,
   type PiApiFormat,
   type PiProviderPreset,
@@ -109,23 +105,6 @@ const ROOT_CONTROLLED_KEYS = new Set([
   "compat",
   "models",
 ]);
-const OMP_ROOT_CONTROLLED_KEYS = new Set(
-  [...ROOT_CONTROLLED_KEYS].filter((key) => key !== "name"),
-);
-// omp 的 `discovery.type`（docs/models.md）：运行时从端点拉模型列表，可以不写 models。
-// proxy 每个模型自己判断接口格式，其余类型要求供应商级 api（后端校验）。
-// 值里有点号，不能直接当 i18n key，所以另配一个 key。
-const OMP_DISCOVERY_TYPES: ReadonlyArray<{ value: string; labelKey: string }> =
-  [
-    { value: "openai-models-list", labelKey: "openaiModelsList" },
-    { value: "proxy", labelKey: "proxy" },
-    { value: "ollama", labelKey: "ollama" },
-    { value: "llama.cpp", labelKey: "llamaCpp" },
-    { value: "lm-studio", labelKey: "lmStudio" },
-    { value: "litellm", labelKey: "litellm" },
-    { value: "apple-foundation-models", labelKey: "appleFoundationModels" },
-  ];
-const OMP_DISCOVERY_OFF = "__off__";
 const MODEL_CONTROLLED_KEYS = new Set([
   "id",
   "name",
@@ -497,7 +476,6 @@ function buildPiSettingsConfig({
 }
 
 export function PiProviderForm({
-  appId,
   providerId,
   submitLabel,
   onSubmit,
@@ -508,14 +486,11 @@ export function PiProviderForm({
   showButtons = true,
 }: ProviderFormProps) {
   const { t } = useTranslation();
-  const isOmp = appId === "omp";
-  const rootControlledKeys = isOmp
-    ? OMP_ROOT_CONTROLLED_KEYS
-    : ROOT_CONTROLLED_KEYS;
-  const presets = isOmp ? ompProviderPresets : piProviderPresets;
+  const rootControlledKeys = ROOT_CONTROLLED_KEYS;
+  const presets = piProviderPresets;
   const modelPreview = (model: PiModelDraft) => {
     const value = piModelPreview(model);
-    if (isOmp) delete value.thinkingLevelMap;
+
     return value;
   };
   const isDarkMode = useDarkMode();
@@ -529,10 +504,9 @@ export function PiProviderForm({
   const initialConfigHasNativeName = hasOwn(initialConfig, "name");
   const [nativeNameFollowsDisplay, setNativeNameFollowsDisplay] = useState(
     () =>
-      !isOmp &&
-      (!isEdit ||
-        (initialConfigHasNativeName &&
-          initialNativeName === initialDisplayName.trim())),
+      !isEdit ||
+      (initialConfigHasNativeName &&
+        initialNativeName === initialDisplayName.trim()),
   );
   const [nativeNameOverride, setNativeNameOverride] = useState<
     string | undefined
@@ -559,15 +533,14 @@ export function PiProviderForm({
       ? preset
       : null;
   }, [initialConfig.api, initialConfig.baseUrl, isEdit, providerId]);
-  const [selectedPreset, setSelectedPreset] = useState<
-    PiProviderPreset | OmpProviderPreset | null
-  >(initialPreset);
+  const [selectedPreset, setSelectedPreset] = useState<PiProviderPreset | null>(
+    initialPreset,
+  );
   const [category, setCategory] = useState<ProviderCategory>(
     initialData?.category ?? "custom",
   );
   const [providerKey, setProviderKey] = useState(providerId ?? "");
-  // Pi 和 omp 的供应商各管各的，查重只看当前应用。
-  const { data: existingProviders } = useProvidersQuery(isOmp ? "omp" : "pi");
+  const { data: existingProviders } = useProvidersQuery("pi");
   // 预设自带标识；同一家加第二次时会撞上已有的卡，在字段下直接提示。
   const isDuplicateProviderKey =
     !isEdit &&
@@ -634,7 +607,7 @@ export function PiProviderForm({
             }
           : buildPiSettingsConfig({
               passthrough: {},
-              nativeName: isOmp ? undefined : initialDisplayName.trim(),
+              nativeName: initialDisplayName.trim(),
               baseUrl: "",
               api: "openai-completions",
               includeApi: true,
@@ -744,7 +717,7 @@ export function PiProviderForm({
 
       setNativeNameOverride(nextNativeName);
       setNativeNameFollowsDisplay(
-        !isOmp && hasNativeName && nextNativeName === currentDisplayName,
+        hasNativeName && nextNativeName === currentDisplayName,
       );
       setBaseUrl(optionalText(config.baseUrl));
       const nextApi = optionalText(config.api) || "openai-completions";
@@ -835,7 +808,7 @@ export function PiProviderForm({
     [
       form,
       invalidateFetchedModels,
-      isOmp,
+      false,
       replaceModelsState,
       rootControlledKeys,
     ],
@@ -916,8 +889,8 @@ export function PiProviderForm({
       setSelectedPreset(null);
       setCategory("custom");
       setProviderKey("");
-      setNativeNameFollowsDisplay(!isOmp);
-      setNativeNameOverride(isOmp ? undefined : identityDefaults.name.trim());
+      setNativeNameFollowsDisplay(true);
+      setNativeNameOverride(identityDefaults.name.trim());
       displayNameBaselineRef.current = identityDefaults.name.trim();
       lastValidSettingsConfigRef.current =
         parseJsonObject(identityDefaults.settingsConfig) ?? {};
@@ -948,8 +921,8 @@ export function PiProviderForm({
     setProviderKey(preset.providerKey);
     const presetName =
       optionalText(asObject(preset.settingsConfig).name) || preset.name;
-    setNativeNameFollowsDisplay(!isOmp);
-    setNativeNameOverride(isOmp ? undefined : presetName);
+    setNativeNameFollowsDisplay(true);
+    setNativeNameOverride(presetName);
     displayNameBaselineRef.current = presetName.trim();
     lastValidSettingsConfigRef.current = presetConfig;
     form.reset({
@@ -1031,7 +1004,7 @@ export function PiProviderForm({
           current,
           metadata,
           protocolRef.current,
-          !isOmp,
+          true,
         );
         if (!metadataFilledAnything(current, filled)) return false;
         return commitModelsRef.current(
@@ -1224,29 +1197,6 @@ export function PiProviderForm({
   );
 
   // discovery 不受表单控制（在 passthrough 里），这里只改它的 type，其余子键原样保留。
-  // 例外是 injectV1：omp 只允许它出现在 openai-models-list 上，留着会让整份 models.yml 失效。
-  const ompDiscoveryType = optionalText(
-    asObject(providerPassthrough.discovery).type,
-  );
-  const handleOmpDiscoveryChange = useCallback(
-    (value: string) => {
-      // 下拉在 <form> 里随折叠区挂载，Radix 可能回报一次空串，不能当成「关闭」
-      if (!value) return;
-      const next = { ...providerPassthrough };
-      const { type: _previous, injectV1, ...extra } = asObject(next.discovery);
-      if (value === "openai-models-list" && injectV1 !== undefined) {
-        extra.injectV1 = injectV1;
-      }
-      if (value === OMP_DISCOVERY_OFF) delete next.discovery;
-      else next.discovery = { type: value, ...extra };
-      const applied = updateSettingsConfig((config) => {
-        if (next.discovery) config.discovery = next.discovery;
-        else delete config.discovery;
-      });
-      if (applied) setProviderPassthrough(next);
-    },
-    [providerPassthrough, updateSettingsConfig],
-  );
 
   const handleApiKeyChange = useCallback(
     (value: string) => {
@@ -1347,7 +1297,7 @@ export function PiProviderForm({
           "#pi-api-key",
         );
       }
-      if (!isEdit && models.length === 0 && !(isOmp && ompDiscoveryType)) {
+      if (!isEdit && models.length === 0 && !false) {
         throw new PiFormValidationError(
           t("pi.form.modelRequired"),
           "#pi-add-model",
@@ -1408,7 +1358,6 @@ export function PiProviderForm({
             )
           : undefined;
         if (
-          !isOmp &&
           model.hasThinkingLevelMap &&
           !isPiThinkingLevelMap(model.thinkingLevelMap)
         ) {
@@ -1461,7 +1410,7 @@ export function PiProviderForm({
             : {}),
           ...(contextWindow !== undefined ? { contextWindow } : {}),
           ...(maxTokens !== undefined ? { maxTokens } : {}),
-          ...(!isOmp && model.hasThinkingLevelMap
+          ...(model.hasThinkingLevelMap
             ? { thinkingLevelMap: model.thinkingLevelMap }
             : {}),
         };
@@ -1482,7 +1431,7 @@ export function PiProviderForm({
 
       const settingsConfig = buildPiSettingsConfig({
         passthrough: providerPassthrough,
-        nativeName: isOmp ? undefined : resolveNativeName(trimmedName),
+        nativeName: resolveNativeName(trimmedName),
         baseUrl,
         api,
         includeApi,
@@ -1673,8 +1622,6 @@ export function PiProviderForm({
               category={category}
               shouldShowLink={Boolean(selectedPreset?.apiKeyUrl)}
               websiteUrl={selectedPreset?.apiKeyUrl ?? ""}
-              isPartner={selectedPreset?.isPartner}
-              partnerPromotionKey={selectedPreset?.partnerPromotionKey}
             />
 
             <div className="space-y-2">
@@ -1911,7 +1858,7 @@ export function PiProviderForm({
                                 placeholder="16384"
                               />
                             </Field>
-                            {!isOmp && model.reasoning === true && (
+                            {model.reasoning === true && (
                               <div
                                 id={`pi-model-thinking-levels-${model.key}`}
                                 tabIndex={-1}
@@ -2191,43 +2138,6 @@ export function PiProviderForm({
                   headers={providerHeaders}
                   onHeadersChange={handleProviderHeadersChange}
                 />
-
-                {isOmp && (
-                  <Field
-                    label={t("omp.form.discoveryType")}
-                    htmlFor="omp-discovery-type"
-                  >
-                    <Select
-                      value={ompDiscoveryType || OMP_DISCOVERY_OFF}
-                      onValueChange={handleOmpDiscoveryChange}
-                    >
-                      <SelectTrigger id="omp-discovery-type" className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={OMP_DISCOVERY_OFF}>
-                          {t("omp.form.discoveryOff")}
-                        </SelectItem>
-                        {OMP_DISCOVERY_TYPES.map(({ value, labelKey }) => (
-                          <SelectItem key={value} value={value}>
-                            {t(`omp.form.discoveryTypes.${labelKey}`)}
-                          </SelectItem>
-                        ))}
-                        {ompDiscoveryType &&
-                          !OMP_DISCOVERY_TYPES.some(
-                            ({ value }) => value === ompDiscoveryType,
-                          ) && (
-                            <SelectItem value={ompDiscoveryType}>
-                              {ompDiscoveryType}
-                            </SelectItem>
-                          )}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      {t("omp.form.discoveryHint")}
-                    </p>
-                  </Field>
-                )}
 
                 <StructuredOptionsEditor
                   id="pi-provider-compat"

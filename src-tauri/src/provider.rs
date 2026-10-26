@@ -189,7 +189,7 @@ impl Provider {
                 (base_url, api_key)
             }
             // Gemini uses Google-specific env keys (with a legacy GOOGLE_API_KEY fallback).
-            AppType::Gemini | AppType::Agy => {
+            AppType::Agy => {
                 let env = settings.get("env");
                 let base_url = str_at(env.and_then(|e| e.get("GOOGLE_GEMINI_BASE_URL")));
                 let api_key = first_non_empty(env, &["GEMINI_API_KEY", "GOOGLE_API_KEY"]);
@@ -201,31 +201,11 @@ impl Provider {
             // GUI 进程里读不到），端点不该被连坐——否则用量脚本的 {{baseUrl}} 变成
             // 相对路径、余额查询只报「API key is empty」掩盖真因。
             // 与上面 Codex 分支的写法保持一致。
-            AppType::GrokBuild => {
-                let config_text = settings.get("config").and_then(Value::as_str);
-                let base_url = config_text
-                    .and_then(crate::grok_config::extract_base_url)
-                    .unwrap_or_default();
-                let api_key = config_text
-                    .and_then(crate::grok_config::extract_credentials)
-                    .map(|(_, api_key)| api_key)
-                    .unwrap_or_default();
-                (base_url, api_key)
-            }
+
             // Hermes (config.yaml) flattens credentials at the top level, snake_case.
-            AppType::Kimi => (
-                str_at(settings.pointer("/provider/base_url")),
-                str_at(settings.pointer("/provider/api_key")),
-            ),
-            AppType::Hermes => (
-                str_at(settings.get("base_url")),
-                str_at(settings.get("api_key")),
-            ),
+
             // OpenClaw (openclaw.json) flattens credentials at the top level, camelCase.
-            AppType::OpenClaw => (
-                str_at(settings.get("baseUrl")),
-                str_at(settings.get("apiKey")),
-            ),
+
             // Pi custom providers use the native models.json field names. Pi expands
             // `$NAME` references in `apiKey`, so resolve them before sending (#8822).
             AppType::Pi => (
@@ -233,7 +213,7 @@ impl Provider {
                 crate::pi_config::resolve_usage_api_key(&str_at(settings.get("apiKey"))),
             ),
             // OpenCode (OMO) nests credentials under `options` (the SDK options object).
-            AppType::OpenCode | AppType::Mcode => {
+            AppType::OpenCode => {
                 let options = settings.get("options");
                 (
                     str_at(options.and_then(|o| o.get("baseURL"))),
@@ -243,7 +223,7 @@ impl Provider {
             // Claude and Claude Desktop both use the Anthropic-style env map, keeping
             // the OpenRouter/Google key fallbacks the JS-script path relies on.
             // Listed explicitly (not `_`) so a new AppType fails to compile here.
-            AppType::Claude | AppType::ClaudeDesktop => {
+            AppType::Claude => {
                 let env = settings.get("env");
                 let base_url = str_at(env.and_then(|e| e.get("ANTHROPIC_BASE_URL")));
                 let api_key = first_non_empty(
@@ -256,13 +236,8 @@ impl Provider {
                     ],
                 );
                 (base_url, api_key)
-            }
-            // Oh My Pi custom providers use the models.yml field names. omp reads `apiKey` as
-            // an environment variable name first, so resolve it before sending.
-            AppType::Omp => (
-                crate::omp_config::provider_base_url(settings).unwrap_or_default(),
-                crate::omp_config::resolve_usage_api_key(&str_at(settings.get("apiKey"))),
-            ),
+            } // Oh My Pi custom providers use the models.yml field names. omp reads `apiKey` as
+              // an environment variable name first, so resolve it before sending.
         };
 
         // Normalize like the JS-script path (extract_base_url_from_provider) so a
@@ -392,28 +367,6 @@ pub struct AuthBinding {
     pub account_id: Option<String>,
 }
 
-/// Claude Desktop 3P 写入模式。
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum ClaudeDesktopMode {
-    Direct,
-    Proxy,
-}
-
-/// Claude Desktop 本地路由模式下暴露给 Desktop 的安全模型路由。
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct ClaudeDesktopModelRoute {
-    /// 真实上游模型名，只保存在 CC Switch 内部，不写入 Claude Desktop profile。
-    pub model: String,
-    /// Claude Desktop 模型菜单显示名；写入 profile 的 `labelOverride`。
-    #[serde(rename = "labelOverride", skip_serializing_if = "Option::is_none")]
-    pub label_override: Option<String>,
-    /// Claude Desktop 3P 识别的 1M 上下文能力标记。
-    #[serde(rename = "supports1m", skip_serializing_if = "Option::is_none")]
-    pub supports_1m: Option<bool>,
-}
-
 /// Codex Copilot protocol selection; independent of legacy `apiFormat` metadata.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -490,31 +443,13 @@ pub struct ProviderMeta {
         skip_serializing_if = "Option::is_none"
     )]
     pub common_config_enabled: Option<bool>,
-    /// Claude Desktop 3P 写入模式：direct（直连）或 proxy（预留）
-    #[serde(rename = "claudeDesktopMode", skip_serializing_if = "Option::is_none")]
-    pub claude_desktop_mode: Option<ClaudeDesktopMode>,
-    /// Claude Desktop proxy 模式的模型路由映射：Claude-safe route -> upstream model。
-    #[serde(
-        default,
-        rename = "claudeDesktopModelRoutes",
-        skip_serializing_if = "HashMap::is_empty"
-    )]
-    pub claude_desktop_model_routes: HashMap<String, ClaudeDesktopModelRoute>,
+
     /// 用量查询脚本配置
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage_script: Option<UsageScript>,
     /// 请求地址管理：测速后自动选择最佳端点
     #[serde(rename = "endpointAutoSelect", skip_serializing_if = "Option::is_none")]
     pub endpoint_auto_select: Option<bool>,
-    /// 合作伙伴标记（前端使用 isPartner，保持字段名一致）
-    #[serde(rename = "isPartner", skip_serializing_if = "Option::is_none")]
-    pub is_partner: Option<bool>,
-    /// 合作伙伴促销 key，用于识别 PackyCode 等特殊供应商
-    #[serde(
-        rename = "partnerPromotionKey",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub partner_promotion_key: Option<String>,
     /// 已停用：供应商级成本倍率。新版不再读取，只为与旧版设备同步时原样往返保留
     #[serde(rename = "costMultiplier", skip_serializing_if = "Option::is_none")]
     pub cost_multiplier: Option<String>,
@@ -1648,19 +1583,6 @@ mod tests {
     }
 
     #[test]
-    fn resolve_credentials_gemini_env_with_google_fallback() {
-        let p = provider_with(json!({
-            "env": {
-                "GOOGLE_GEMINI_BASE_URL": "https://generativelanguage.googleapis.com",
-                "GOOGLE_API_KEY": "g-legacy",
-            }
-        }));
-        let (base_url, api_key) = p.resolve_usage_credentials(&AppType::Gemini);
-        assert_eq!(base_url, "https://generativelanguage.googleapis.com");
-        assert_eq!(api_key, "g-legacy");
-    }
-
-    #[test]
     fn resolve_credentials_claude_skips_empty_primary_key() {
         // Presets seed ANTHROPIC_AUTH_TOKEN as a present-but-empty placeholder.
         // The fallback chain must skip empty values (matching the frontend's
@@ -1675,49 +1597,6 @@ mod tests {
         }));
         let (_, api_key) = p.resolve_usage_credentials(&AppType::Claude);
         assert_eq!(api_key, "sk-or");
-    }
-
-    #[test]
-    fn resolve_credentials_gemini_skips_empty_primary_key() {
-        let p = provider_with(json!({
-            "env": {
-                "GOOGLE_GEMINI_BASE_URL": "https://generativelanguage.googleapis.com",
-                "GEMINI_API_KEY": "",
-                "GOOGLE_API_KEY": "g-real",
-            }
-        }));
-        let (_, api_key) = p.resolve_usage_credentials(&AppType::Gemini);
-        assert_eq!(api_key, "g-real");
-    }
-
-    #[test]
-    fn resolve_credentials_hermes_snake_case() {
-        let p = provider_with(json!({
-            "base_url": "https://api.deepseek.com",
-            "api_key": "sk-hermes",
-        }));
-        assert_eq!(
-            p.resolve_usage_credentials(&AppType::Hermes),
-            (
-                "https://api.deepseek.com".to_string(),
-                "sk-hermes".to_string()
-            )
-        );
-    }
-
-    #[test]
-    fn resolve_credentials_openclaw_camel_case() {
-        let p = provider_with(json!({
-            "baseUrl": "https://api.deepseek.com",
-            "apiKey": "sk-openclaw",
-        }));
-        assert_eq!(
-            p.resolve_usage_credentials(&AppType::OpenClaw),
-            (
-                "https://api.deepseek.com".to_string(),
-                "sk-openclaw".to_string()
-            )
-        );
     }
 
     #[test]
@@ -1767,26 +1646,6 @@ mod tests {
             (
                 "https://api.deepseek.com/v1".to_string(),
                 "sk-opencode".to_string()
-            )
-        );
-    }
-
-    #[test]
-    fn resolve_credentials_claude_desktop_uses_env() {
-        // ClaudeDesktop persists the Anthropic env shape (ClaudeDesktopProviderForm
-        // reads env.ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN), so it resolves via
-        // the default env branch — it is NOT unsupported.
-        let p = provider_with(json!({
-            "env": {
-                "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
-                "ANTHROPIC_AUTH_TOKEN": "sk-desktop",
-            }
-        }));
-        assert_eq!(
-            p.resolve_usage_credentials(&AppType::ClaudeDesktop),
-            (
-                "https://api.deepseek.com/anthropic".to_string(),
-                "sk-desktop".to_string()
             )
         );
     }

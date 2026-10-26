@@ -1,9 +1,7 @@
-import { useId, type ReactNode } from "react";
-import type { TFunction } from "i18next";
-import { RefreshCw } from "lucide-react";
-import { useTranslation } from "react-i18next";
-import { cn } from "@/lib/utils";
-import { HoverTip } from "@/components/ui/hover-tip";
+import {
+  QuotaBreakdownChevron,
+  QuotaBreakdownRow,
+} from "@/components/quota/QuotaBreakdown";
 import {
   ResetSlot,
   TONE_FILL,
@@ -11,11 +9,6 @@ import {
   TonedText,
   useNow,
 } from "@/components/quota/QuotaLines";
-import { useQuotaDisplay } from "@/components/quota/useQuotaDisplay";
-import {
-  QuotaBreakdownChevron,
-  QuotaBreakdownRow,
-} from "@/components/quota/QuotaBreakdown";
 import {
   barPercent,
   countdownStr,
@@ -25,19 +18,25 @@ import {
   type QuotaDisplay,
   type QuotaLine,
 } from "@/components/quota/quotaRules";
+import { useQuotaDisplay } from "@/components/quota/useQuotaDisplay";
 import {
   quotaFailureReason,
   quotaRows,
 } from "@/components/SubscriptionQuotaFooter";
-import type { SubscriptionQuota } from "@/types/subscription";
+import { HoverTip } from "@/components/ui/hover-tip";
 import { useCopilotQuota } from "@/lib/query/copilot";
 import {
   useAgyAccountQuota,
   useClaudeAccountQuota,
-  useKimiAccountQuota,
   useXaiOauthQuotaByAccountId,
 } from "@/lib/query/subscription";
+import { cn } from "@/lib/utils";
+import type { SubscriptionQuota } from "@/types/subscription";
 import { extractErrorMessage } from "@/utils/errorUtils";
+import type { TFunction } from "i18next";
+import { RefreshCw } from "lucide-react";
+import { useId, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 export interface AccountQuotaRow {
   label: string;
@@ -348,42 +347,6 @@ export function XaiAccountQuota({
 }
 
 /** Kimi 官方账号的剩余额度（kimi_oauth_quota(accountId)，不用先切号） */
-export function KimiAccountQuota({
-  accountId,
-  login,
-}: {
-  accountId: string;
-  login: string;
-}) {
-  const { t, i18n } = useTranslation();
-  const display = useQuotaDisplay();
-  const {
-    data: quota,
-    isFetching: loading,
-    refetch,
-  } = useKimiAccountQuota(accountId, { enabled: true, autoQuery: false });
-  const state = subscriptionQuotaState(
-    t,
-    quota,
-    loading,
-    i18n.language,
-    display,
-  );
-  return (
-    <AccountQuotaColumn
-      login={login}
-      // 没订阅 Kimi Code 的号，额度接口返回空对象：查成功但一档都没有
-      state={
-        !state && quota?.success
-          ? { kind: "note", text: t("kimi.oauth.noSubscription") }
-          : state
-      }
-      queriedAt={quota?.queriedAt ?? null}
-      loading={loading}
-      onRefresh={() => void refetch()}
-    />
-  );
-}
 
 /** Antigravity 账号的剩余额度（agy_account_quota(accountId)，不用先切号） */
 export function AgyAccountQuota({

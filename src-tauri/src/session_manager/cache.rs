@@ -11,7 +11,7 @@ use std::path::Path;
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use std::time::SystemTime;
 
-use super::content::{SourceLocation, ValidatedSource, GROK_CHAT_HISTORY};
+use super::content::{SourceLocation, ValidatedSource};
 use super::model::{EventKind, SessionBlock, SessionMessage, ToolStatus, TurnIndex};
 
 /// 最多缓存的会话数
@@ -119,12 +119,6 @@ pub fn source_fingerprint(source: &ValidatedSource) -> io::Result<Fingerprint> {
         return Ok(fp);
     };
     match source.provider_id.as_str() {
-        "grokbuild" => {
-            let history = path.with_file_name(GROK_CHAT_HISTORY);
-            if let Ok(meta) = fs::metadata(&history) {
-                fp.merge(Fingerprint::of_metadata(&meta));
-            }
-        }
         "opencode" if path.is_dir() => merge_opencode_parts(path, &mut fp),
         _ => {}
     }
@@ -506,40 +500,6 @@ mod tests {
         // 新增 part 文件
         std::fs::write(part_dir.join("prt_2.json"), "{}").unwrap();
         assert_ne!(source_fingerprint(&source).unwrap(), grown);
-    }
-
-    #[test]
-    fn grok_fingerprint_follows_chat_history() {
-        use std::io::Write;
-
-        let dir = tempdir().unwrap();
-        let summary = dir.path().join("summary.json");
-        let history = dir.path().join(GROK_CHAT_HISTORY);
-        std::fs::write(&summary, "{}").unwrap();
-        std::fs::write(&history, "{\"role\":\"user\"}\n").unwrap();
-        let source = |provider: &str| ValidatedSource {
-            provider_id: provider.to_string(),
-            raw: summary.to_string_lossy().into_owned(),
-            location: SourceLocation::Path {
-                path: summary.clone(),
-                root: dir.path().to_path_buf(),
-            },
-        };
-
-        let grok_before = source_fingerprint(&source("grokbuild")).unwrap();
-        let other_before = source_fingerprint(&source("claude")).unwrap();
-        std::fs::OpenOptions::new()
-            .append(true)
-            .open(&history)
-            .unwrap()
-            .write_all(b"{\"role\":\"assistant\"}\n")
-            .unwrap();
-
-        assert_ne!(
-            source_fingerprint(&source("grokbuild")).unwrap(),
-            grok_before
-        );
-        assert_eq!(source_fingerprint(&source("claude")).unwrap(), other_before);
     }
 
     #[test]

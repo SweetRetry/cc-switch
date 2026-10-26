@@ -3,9 +3,8 @@ import type { AppId } from "@/lib/api";
 import type { ProviderCategory } from "@/types";
 import type { ProviderPreset } from "@/config/claudeProviderPresets";
 import type { CodexProviderPreset } from "@/config/codexProviderPresets";
-import type { GeminiProviderPreset } from "@/config/geminiProviderPresets";
+import type { AgyProviderPreset } from "@/config/agyProviderPresets";
 import type { OpenCodeProviderPreset } from "@/config/opencodeProviderPresets";
-import type { ClaudeDesktopProviderPreset } from "@/config/claudeDesktopProviderPresets";
 import { extractBaseUrlForUsageDetection } from "@/config/codingPlanProviders";
 import { extractCodexBaseUrl } from "@/utils/providerConfigUtils";
 
@@ -14,9 +13,8 @@ type PresetEntry = {
   preset:
     | ProviderPreset
     | CodexProviderPreset
-    | GeminiProviderPreset
-    | OpenCodeProviderPreset
-    | ClaudeDesktopProviderPreset;
+    | AgyProviderPreset
+    | OpenCodeProviderPreset;
 };
 
 interface UseApiKeyLinkProps {
@@ -35,7 +33,7 @@ const LINK_CATEGORIES: ReadonlyArray<ProviderCategory | undefined> = [
   "third_party",
 ];
 
-/** 链接指向：这三类优先用 apiKeyUrl（可能带推广参数），其余用官网 */
+/** 链接指向：这三类优先用 apiKeyUrl，其余用官网 */
 function presetLinkUrl(preset: PresetEntry["preset"]): string {
   if (LINK_CATEGORIES.includes(preset.category)) {
     return preset.apiKeyUrl || preset.websiteUrl || "";
@@ -55,15 +53,12 @@ function presetBaseUrl(appId: AppId, preset: PresetEntry["preset"]): string {
     config?: unknown;
     settingsConfig?: Record<string, any>;
   };
-  if (appId === "claude-desktop") {
-    return typeof p.baseUrl === "string" ? p.baseUrl : "";
-  }
   if (appId === "codex") {
     return typeof p.config === "string"
       ? (extractCodexBaseUrl(p.config) ?? "")
       : "";
   }
-  if (appId === "gemini" && typeof p.baseURL === "string") {
+  if (appId === "agy" && typeof p.baseURL === "string") {
     return p.baseURL;
   }
   return extractBaseUrlForUsageDetection(appId, p.settingsConfig) ?? "";
@@ -99,7 +94,7 @@ export function useApiKeyLink({
   }, [selectedPresetId, presetEntries]);
 
   // 没选预设（编辑已有供应商）：供应商不记来源预设，按请求地址反查。
-  // 同一地址的几个预设链接或推广语不一致（如同一家的不同版本）时不猜，退回官网链接。
+  // 同一地址的几个预设链接不一致（如同一家的不同版本）时不猜，退回官网链接。
   const matchedPreset = useMemo(() => {
     if (currentPresetEntry) return undefined;
     const target = normalizeBaseUrl(formBaseUrl);
@@ -112,9 +107,7 @@ export function useApiKeyLink({
     const [first] = matches;
     if (!first || !presetLinkUrl(first)) return undefined;
     const consistent = matches.every(
-      (preset) =>
-        presetLinkUrl(preset) === presetLinkUrl(first) &&
-        preset.partnerPromotionKey === first.partnerPromotionKey,
+      (preset) => presetLinkUrl(preset) === presetLinkUrl(first),
     );
     return consistent ? first : undefined;
   }, [appId, currentPresetEntry, formBaseUrl, presetEntries]);
@@ -127,24 +120,8 @@ export function useApiKeyLink({
     return formWebsiteUrl || "";
   }, [linkPreset, formWebsiteUrl]);
 
-  // 提取合作伙伴信息
-  const isPartner = linkPreset?.isPartner ?? false;
-  const partnerPromotionKey = linkPreset?.partnerPromotionKey;
-
   return {
-    shouldShowApiKeyLink:
-      appId === "claude" ||
-      appId === "claude-desktop" ||
-      appId === "codex" ||
-      appId === "gemini" ||
-      appId === "agy" ||
-      appId === "opencode" ||
-      appId === "openclaw" ||
-      appId === "hermes"
-        ? shouldShowApiKeyLink
-        : false,
+    shouldShowApiKeyLink,
     websiteUrl: getWebsiteUrl,
-    isPartner,
-    partnerPromotionKey,
   };
 }

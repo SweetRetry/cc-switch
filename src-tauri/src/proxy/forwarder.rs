@@ -437,7 +437,7 @@ impl RequestForwarder {
         error: &ProxyError,
     ) -> Option<OpaqueStateRejection> {
         if already_retried
-            || !matches!(app_type, AppType::Codex | AppType::GrokBuild)
+            || !matches!(app_type, AppType::Codex)
             || codex_upstream_format != Some(CodexUpstreamFormat::NativeResponses)
         {
             return None;
@@ -1402,13 +1402,10 @@ impl RequestForwarder {
         // Codex upstream conversion mode — computed early because the [1m]-suffix strip
         // below must be skipped on the Anthropic path (the marker has to survive to
         // catalog matching and to the transform's own strip+beta detection).
-        let mut codex_responses_to_chat = matches!(app_type, AppType::Codex | AppType::GrokBuild)
+        let mut codex_responses_to_chat = matches!(app_type, AppType::Codex)
             && super::providers::should_convert_codex_responses_to_chat(provider, endpoint);
-        let mut codex_responses_to_anthropic =
-            matches!(app_type, AppType::Codex | AppType::GrokBuild)
-                && super::providers::should_convert_codex_responses_to_anthropic(
-                    provider, endpoint,
-                );
+        let mut codex_responses_to_anthropic = matches!(app_type, AppType::Codex)
+            && super::providers::should_convert_codex_responses_to_anthropic(provider, endpoint);
         let mut copilot_endpoint_override: Option<String> = None;
         let codex_official_auth_passthrough = matches!(app_type, AppType::Codex)
             && super::providers::is_codex_official_provider(provider);
@@ -1460,14 +1457,7 @@ impl RequestForwarder {
         // Claude Desktop proxy 模式必须先把 Desktop 可见的 claude-* route
         // 映射成真实上游模型名，并且未知 route 要直接报错，不能使用默认模型兜底。
         // 聚合模型的请求已经解出了上游名，不再查映射表（查不到会报错，按档位回落会发错模型）。
-        let mapped_body = if matches!(app_type, AppType::ClaudeDesktop) {
-            if self.keeps_resolved_model() {
-                crate::claude_desktop_config::normalize_upstream_request(body.clone(), provider)
-            } else {
-                crate::claude_desktop_config::map_proxy_request_model(body.clone(), provider)
-                    .map_err(|e| ProxyError::InvalidRequest(e.to_string()))?
-            }
-        } else if self.keeps_resolved_model() {
+        let mapped_body = if self.keeps_resolved_model() {
             body.clone()
         } else {
             let (mapped_body, _original_model, _mapped_model) =
@@ -1510,9 +1500,7 @@ impl RequestForwarder {
         // Grok Build exposes a stable client-side model profile in config.toml.
         // Route requests to the provider's real upstream model before applying
         // the optional Responses -> Chat/Anthropic bridge.
-        if matches!(app_type, AppType::GrokBuild) {
-            super::providers::apply_codex_upstream_model(provider, &mut mapped_body);
-        }
+        {}
 
         if is_copilot_claude_body {
             mapped_body =
@@ -1659,7 +1647,7 @@ impl RequestForwarder {
             codex_responses_to_anthropic = false;
         }
 
-        let codex_upstream_format = if matches!(app_type, AppType::Codex | AppType::GrokBuild)
+        let codex_upstream_format = if matches!(app_type, AppType::Codex)
             && super::providers::is_codex_responses_endpoint(endpoint)
         {
             Some(if codex_responses_to_anthropic {
@@ -1984,7 +1972,7 @@ impl RequestForwarder {
         // One gate so rebase conflicts stay here plus the isolate file, not
         // scattered across sanitizers. Flatten namespaces first; then apply
         // xAI request rewrites (schema, agent_message, unknown models).
-        if matches!(app_type, AppType::Codex | AppType::GrokBuild)
+        if matches!(app_type, AppType::Codex)
             && !codex_responses_to_chat
             && !codex_responses_to_anthropic
             && super::providers::provider_needs_responses_namespace_flatten(provider)
@@ -2052,7 +2040,7 @@ impl RequestForwarder {
             }
         }
 
-        if matches!(app_type, AppType::Codex | AppType::GrokBuild) {
+        if matches!(app_type, AppType::Codex) {
             self.apply_media_prevention(&mut request_body, provider);
         }
 
@@ -2829,7 +2817,7 @@ impl RequestForwarder {
                     // A response.failed/error before output remains failover-safe.
                     response = self.validate_responses_stream_start(response).await?;
                 }
-            } else if matches!(app_type, AppType::Codex | AppType::GrokBuild)
+            } else if matches!(app_type, AppType::Codex)
                 && !codex_responses_to_chat
                 && !codex_responses_to_anthropic
                 && request_is_streaming
@@ -7488,43 +7476,6 @@ mod tests {
 
         /// 措辞不在清单里的兜底只给 Codex 的原生 Responses 第三方：官方的压缩密文只在错误
         /// 点名时才换，Grok Build 的压缩密文是 xAI 自己的。
-        #[tokio::test]
-        async fn generic_compaction_retry_is_limited_to_codex_third_parties() {
-            let upstream = upstream().await;
-            let third_party = provider(&upstream, "openai_responses");
-            let mut official = third_party.clone();
-            official.id = crate::database::CODEX_OFFICIAL_PROVIDER_ID.to_string();
-            official.category = Some("official".to_string());
-            let request = json!({ "input": [
-                { "type": "compaction", "encrypted_content": "gAAAA-openai" }
-            ] });
-            let unsupported = ProxyError::UpstreamError {
-                status: 400,
-                body: Some("unsupported input item".to_string()),
-            };
-            let forwarder = forwarder(false);
-            let gate = |app_type: AppType, provider: &Provider| {
-                forwarder.opaque_state_retry_rejection(
-                    &app_type,
-                    provider,
-                    Some(CodexUpstreamFormat::NativeResponses),
-                    false,
-                    &request,
-                    &unsupported,
-                )
-            };
-
-            assert_eq!(
-                gate(AppType::Codex, &third_party),
-                Some(OpaqueStateRejection {
-                    reasoning: false,
-                    compaction: true,
-                    item_ids: false,
-                })
-            );
-            assert_eq!(gate(AppType::Codex, &official), None);
-            assert_eq!(gate(AppType::GrokBuild, &third_party), None);
-        }
 
         #[test]
         fn copilot_opaque_retry_uses_actual_transport_not_legacy_static_format() {
@@ -8525,55 +8476,6 @@ mod tests {
             send(&stack_forwarder(), vec![kimi], body)
                 .await
                 .map_err(|e| e.error)
-                .expect("stack mode");
-
-            let requests = up.requests.lock().await;
-            assert_eq!(requests[0]["model"], "kimi-k2");
-            assert_eq!(requests[1]["model"], "kimi-k3");
-        }
-
-        #[tokio::test]
-        async fn claude_desktop_stacked_requests_skip_the_mapping_table() {
-            let up = upstream(vec![ok(), ok()]).await;
-            let mut kimi = provider("kimi", &up);
-            kimi.meta = Some(crate::provider::ProviderMeta {
-                claude_desktop_model_routes: [(
-                    "claude-sonnet-5".to_string(),
-                    crate::provider::ClaudeDesktopModelRoute {
-                        model: "kimi-k2".to_string(),
-                        label_override: None,
-                        supports_1m: None,
-                    },
-                )]
-                .into_iter()
-                .collect(),
-                ..Default::default()
-            });
-            let send_desktop = |fwd: RequestForwarder, model: &'static str| {
-                let kimi = kimi.clone();
-                async move {
-                    let mut body = plain_body();
-                    body["model"] = json!(model);
-                    fwd.forward_with_retry(
-                        &AppType::ClaudeDesktop,
-                        http::Method::POST,
-                        "/v1/messages",
-                        body,
-                        HeaderMap::new(),
-                        Extensions::new(),
-                        vec![kimi],
-                    )
-                    .await
-                    .map_err(|e| e.error)
-                }
-            };
-
-            // 对照：路由请求按映射表换成上游名；聚合请求体里已经是上游名，映射表里没有它也照发。
-            send_desktop(forwarder(1, "kimi"), "claude-sonnet-5")
-                .await
-                .expect("routed");
-            send_desktop(stack_forwarder(), "kimi-k3")
-                .await
                 .expect("stack mode");
 
             let requests = up.requests.lock().await;

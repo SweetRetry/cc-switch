@@ -52,7 +52,6 @@ export const handlers = [
   http.post(`${TAURI_ENDPOINT}/get_skills_migration_result`, () =>
     success(null),
   ),
-  http.post(`${TAURI_ENDPOINT}/list_profiles`, () => success([])),
   http.post(`${TAURI_ENDPOINT}/get_providers`, async ({ request }) => {
     const { app } = await withJson<{ app: AppId }>(request);
     return success(getProviders(app));
@@ -98,16 +97,6 @@ export const handlers = [
   http.post(`${TAURI_ENDPOINT}/set_opencode_default_model`, () =>
     success(null),
   ),
-
-  http.post(`${TAURI_ENDPOINT}/get_openclaw_live_provider_ids`, () =>
-    success(getLiveProviderIds("openclaw")),
-  ),
-
-  http.post(`${TAURI_ENDPOINT}/get_openclaw_default_model`, () =>
-    success({ primary: null, fallback: [] }),
-  ),
-
-  http.post(`${TAURI_ENDPOINT}/scan_openclaw_config_health`, () => success([])),
 
   http.post(`${TAURI_ENDPOINT}/switch_provider`, async ({ request }) => {
     const { id, app } = await withJson<{ id: string; app: AppId }>(request);
@@ -226,15 +215,7 @@ export const handlers = [
     const { apps } = await withJson<{ apps?: AppId[] | null }>(request);
     const targets = apps?.length
       ? apps
-      : [
-          "claude",
-          "codex",
-          "gemini",
-          "grokbuild",
-          "opencode",
-          "hermes",
-          "mcode",
-        ];
+      : ["claude", "codex", "opencode", "pi", "agy"];
     return success(targets.map((app) => ({ app, ok: true })));
   }),
 
@@ -435,8 +416,6 @@ export const handlers = [
     success({
       claude: false,
       codex: false,
-      gemini: false,
-      grokbuild: false,
     }),
   ),
 
@@ -554,43 +533,14 @@ export const handlers = [
     `${TAURI_ENDPOINT}/get_prompt_file_location`,
     async ({ request }) => {
       const { app } = await withJson<{ app: AppId }>(request);
-      const file =
-        app === "claude"
-          ? "CLAUDE.md"
-          : app === "gemini"
-            ? "GEMINI.md"
-            : app === "hermes"
-              ? "SOUL.md"
-              : "AGENTS.md";
+      const file = app === "claude" ? "CLAUDE.md" : "AGENTS.md";
       return success({
         path: `/home/test/.${app}/${file}`,
         displayPath: `~/.${app}/${file}`,
       });
     },
   ),
-  http.post(`${TAURI_ENDPOINT}/get_claude_desktop_status`, () =>
-    success({
-      supported: true,
-      installed: false,
-      configured: false,
-      proxyRunning: false,
-      staleRawModels: false,
-      missingRouteMappings: false,
-      gatewayTokenConfigured: false,
-    }),
-  ),
-  http.post(`${TAURI_ENDPOINT}/get_hermes_memory`, async ({ request }) => {
-    const { kind } = await withJson<{ kind: string }>(request);
-    return success(kind === "user" ? "user profile" : "agent notes");
-  }),
-  http.post(`${TAURI_ENDPOINT}/get_hermes_memory_limits`, () =>
-    success({
-      memory: 2200,
-      user: 1375,
-      memoryEnabled: true,
-      userEnabled: true,
-    }),
-  ),
+
   http.post(`${TAURI_ENDPOINT}/get_custom_icons`, () =>
     success(listCustomIcons()),
   ),

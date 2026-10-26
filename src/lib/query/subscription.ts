@@ -1,23 +1,22 @@
-import { useRef } from "react";
+import { PROVIDER_TYPES } from "@/config/constants";
+import type { ManagedAuthStatus } from "@/lib/api/auth";
+import { subscriptionApi } from "@/lib/api/subscription";
+import type { AppId } from "@/lib/api/types";
+import { resolveManagedAccountId } from "@/lib/authBinding";
+import type { ProviderMeta } from "@/types";
+import type {
+  ClaudeAccountPlan,
+  SubscriptionQuota,
+} from "@/types/subscription";
+import { extractErrorMessage } from "@/utils/errorUtils";
 import {
   useQuery,
   useQueryClient,
   type QueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query";
-import { subscriptionApi } from "@/lib/api/subscription";
-import { kimiOAuthApi } from "@/lib/api/kimiOAuth";
-import type { AppId } from "@/lib/api/types";
-import type { ProviderMeta } from "@/types";
-import type {
-  ClaudeAccountPlan,
-  SubscriptionQuota,
-} from "@/types/subscription";
-import type { ManagedAuthStatus } from "@/lib/api/auth";
-import { resolveManagedAccountId } from "@/lib/authBinding";
-import { PROVIDER_TYPES } from "@/config/constants";
+import { useRef } from "react";
 import { resolveDisplayUsage, type LastGoodSnapshot } from "./queries";
-import { extractErrorMessage } from "@/utils/errorUtils";
 
 const REFETCH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
@@ -100,9 +99,7 @@ export function useSubscriptionQuota(
   const query = useQuery({
     queryKey: subscriptionKeys.quota(appId),
     queryFn: () => subscriptionApi.getQuota(appId),
-    enabled:
-      enabled &&
-      ["claude", "codex", "gemini", "grokbuild", "agy"].includes(appId),
+    enabled: enabled && ["claude", "codex", "agy"].includes(appId),
     refetchInterval,
     refetchIntervalInBackground: Boolean(refetchInterval),
     refetchOnWindowFocus: Boolean(refetchInterval),
@@ -249,32 +246,6 @@ export function useAgyAccountQuota(
  * Kimi 官方账号的剩余额度（按授权中心账号 ID，也就是它的供应商 ID）。
  * 令牌快过期时后端会拿 Kimi 同款文件锁续期；授权中心那一行和官方卡共用同一份缓存。
  */
-export function useKimiAccountQuota(
-  accountId: string,
-  options: UseCodexOauthQuotaOptions = {},
-) {
-  const {
-    enabled = true,
-    autoQuery = false,
-    autoQueryIntervalMinutes = 5,
-  } = options;
-  const refetchInterval =
-    autoQuery && autoQueryIntervalMinutes > 0
-      ? Math.max(autoQueryIntervalMinutes, 1) * 60 * 1000
-      : false;
-  const query = useQuery({
-    queryKey: ["kimi_oauth", "quota", accountId],
-    queryFn: () => kimiOAuthApi.quota(accountId),
-    enabled,
-    refetchInterval,
-    refetchIntervalInBackground: Boolean(refetchInterval),
-    refetchOnWindowFocus: Boolean(refetchInterval),
-    staleTime: REFETCH_INTERVAL,
-    retry: 1,
-  });
-
-  return useQuotaKeepLastGood(query, accountId);
-}
 
 /**
  * 绑了账号的 Claude 官方卡额度（按账号查）：在用的号读默认登录，没在用的读它自己的账号目录。

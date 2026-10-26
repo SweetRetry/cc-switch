@@ -2,36 +2,15 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type { AppId } from "@/lib/api/types";
 
-export type AppType =
-  | "claude"
-  | "claude-desktop"
-  | "codex"
-  | "gemini"
-  | "grokbuild"
-  | "opencode"
-  | "openclaw"
-  | "hermes"
-  | "pi"
-  | "mcode"
-  | "kimi"
-  | "agy"
-  | "omp";
+export type AppType = AppId;
 
 /** Skill 应用启用状态 */
 export interface SkillApps {
   claude: boolean;
-  "claude-desktop"?: boolean;
   codex: boolean;
-  gemini: boolean;
-  grokbuild?: boolean;
   opencode: boolean;
-  openclaw: boolean;
-  hermes: boolean;
   pi: boolean;
-  mcode?: boolean;
-  kimi?: boolean;
   agy?: boolean;
-  omp?: boolean;
 }
 
 /** 已安装的 Skill（v3.10.0+ 统一结构） */
@@ -63,18 +42,6 @@ export interface SkillBackupEntry {
   skill: InstalledSkill;
 }
 
-/** 可发现的 Skill（来自仓库） */
-export interface DiscoverableSkill {
-  key: string;
-  name: string;
-  description: string;
-  directory: string;
-  readmeUrl?: string;
-  repoOwner: string;
-  repoName: string;
-  repoBranch: string;
-}
-
 /** 未管理的 Skill（用于导入） */
 export interface UnmanagedSkill {
   directory: string;
@@ -90,19 +57,6 @@ export interface ImportSkillSelection {
   apps: SkillApps;
 }
 
-/** 技能对象（兼容旧 API） */
-export interface Skill {
-  key: string;
-  name: string;
-  description: string;
-  directory: string;
-  readmeUrl?: string;
-  installed: boolean;
-  repoOwner?: string;
-  repoName?: string;
-  repoBranch?: string;
-}
-
 /** Skill 更新信息 */
 export interface SkillUpdateInfo {
   id: string;
@@ -111,19 +65,13 @@ export interface SkillUpdateInfo {
   remoteHash: string;
 }
 
-/** 没有读到的仓库（发现、检查更新时逐仓库报告） */
+/** 没有读到的仓库（检查更新时逐仓库报告） */
 export interface SkillRepoFailure {
   owner: string;
   name: string;
   branch: string;
   /** 原始错误；下载类错误是结构化 JSON，用 formatSkillError / skillErrorReason 解析 */
   error: string;
-}
-
-/** 发现结果：读到的 Skill + 没读到的仓库 */
-export interface SkillDiscoveryResult {
-  skills: DiscoverableSkill[];
-  failures: SkillRepoFailure[];
 }
 
 /** 检查更新结果：可更新的 Skill + 没读到的仓库 */
@@ -162,25 +110,6 @@ export interface MigrationResult {
   errors: string[];
 }
 
-/** skills.sh 可发现的技能 */
-export interface SkillsShDiscoverableSkill {
-  key: string;
-  name: string;
-  directory: string;
-  repoOwner: string;
-  repoName: string;
-  repoBranch: string;
-  installs: number;
-  readmeUrl?: string;
-}
-
-/** skills.sh 搜索结果 */
-export interface SkillsShSearchResult {
-  skills: SkillsShDiscoverableSkill[];
-  totalCount: number;
-  query: string;
-}
-
 /** 仓库配置 */
 export interface SkillRepo {
   owner: string;
@@ -207,14 +136,6 @@ export const skillsApi = {
   /** 删除 Skill 备份 */
   async deleteBackup(backupId: string): Promise<boolean> {
     return await invoke("delete_skill_backup", { backupId });
-  },
-
-  /** 安装 Skill（统一安装） */
-  async installUnified(
-    skill: DiscoverableSkill,
-    currentApp: AppId,
-  ): Promise<InstalledSkill> {
-    return await invoke("install_skill_unified", { skill, currentApp });
   },
 
   /** 卸载 Skill（统一卸载） */
@@ -247,11 +168,6 @@ export const skillsApi = {
     return await invoke("import_skills_from_apps", { imports });
   },
 
-  /** 发现可安装的 Skills（从仓库获取），附带没读到的仓库 */
-  async discoverAvailable(): Promise<SkillDiscoveryResult> {
-    return await invoke("discover_available_skills");
-  },
-
   /** 检查 Skills 更新，附带没读到的仓库 */
   async checkUpdates(): Promise<SkillUpdateCheckResult> {
     return await invoke("check_skill_updates");
@@ -282,44 +198,6 @@ export const skillsApi = {
   /** 在文件管理器里打开 CC Switch 目录下的 Skills 目录 */
   async openCcSwitchSkillsDir(): Promise<void> {
     await invoke("open_cc_switch_skills_dir");
-  },
-
-  /** 搜索 skills.sh 公共目录 */
-  async searchSkillsSh(
-    query: string,
-    limit: number,
-    offset: number,
-  ): Promise<SkillsShSearchResult> {
-    return await invoke("search_skills_sh", { query, limit, offset });
-  },
-
-  // ========== 兼容旧 API ==========
-
-  /** 获取技能列表（兼容旧 API） */
-  async getAll(app: AppId = "claude"): Promise<Skill[]> {
-    if (app === "claude") {
-      return await invoke("get_skills");
-    }
-    return await invoke("get_skills_for_app", { app });
-  },
-
-  /** 安装技能（兼容旧 API） */
-  async install(directory: string, app: AppId = "claude"): Promise<boolean> {
-    if (app === "claude") {
-      return await invoke("install_skill", { directory });
-    }
-    return await invoke("install_skill_for_app", { app, directory });
-  },
-
-  /** 卸载技能（兼容旧 API） */
-  async uninstall(
-    directory: string,
-    app: AppId = "claude",
-  ): Promise<SkillUninstallResult> {
-    if (app === "claude") {
-      return await invoke("uninstall_skill", { directory });
-    }
-    return await invoke("uninstall_skill_for_app", { app, directory });
   },
 
   // ========== 仓库管理 ==========

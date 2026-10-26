@@ -36,8 +36,6 @@ pub(super) fn candidates(
             tool_display_name(tool)
         ));
     }
-    let has_grok_native = tool == "grok" && installs.iter().any(|i| known_native_install(tool, i));
-    let grok_npm_mode = has_grok_native && grok_updater_uses_npm();
     Ok(installs
         .into_iter()
         .map(|install| {
@@ -45,14 +43,7 @@ pub(super) fn candidates(
                 Ok(plan) => (Some(plan), None),
                 Err(reason) => (None, Some(reason)),
             };
-            // `grok update` in npm mode reinstalls the global package next to the native one.
-            let reinstalled_by_updater = grok_npm_mode
-                && plan.as_ref().is_some_and(|plan| !plan.native)
-                && install
-                    .real
-                    .to_string_lossy()
-                    .replace('\\', "/")
-                    .contains("/node_modules/");
+            let reinstalled_by_updater = false;
             ToolUninstallCandidate {
                 install,
                 plan,
@@ -61,19 +52,6 @@ pub(super) fn candidates(
             }
         })
         .collect())
-}
-
-fn grok_updater_uses_npm() -> bool {
-    std::fs::read_to_string(crate::grok_config::get_grok_config_path())
-        .ok()
-        .and_then(|text| text.parse::<toml::Table>().ok())
-        .is_some_and(|config| {
-            config
-                .get("cli")
-                .and_then(|cli| cli.get("installer"))
-                .and_then(toml::Value::as_str)
-                == Some("npm")
-        })
 }
 
 fn plan_for_install(tool: &str, inst: &ToolInstallation) -> Result<ToolUninstallPlan, String> {
@@ -116,20 +94,7 @@ fn plan_and_removals(
             tool_display_name(tool), inst.path
         ));
     };
-    let command = if tool == "openclaw" {
-        // The official CLI removes only the Gateway service with this scope.
-        // Stop on failure; config, sessions and workspaces must remain untouched.
-        #[cfg(target_os = "windows")]
-        let next = "call ";
-        #[cfg(not(target_os = "windows"))]
-        let next = "";
-        format!(
-            "{} uninstall --service --yes --non-interactive && {next}{command}",
-            quote(&inst.path)
-        )
-    } else {
-        command
-    };
+    let command = { command };
     let plan = ToolUninstallPlan {
         tool: tool.into(),
         path: inst.path.clone(),
@@ -218,7 +183,7 @@ fn brew_uninstall_command(tool: &str, real: &str) -> Result<Option<String>, Stri
                     ("/Caskroom/", "claude-code@latest"),
                 ],
                 "codex" => &[("/Caskroom/", "codex")],
-                "gemini" => &[("/Cellar/", "gemini-cli")],
+
                 "opencode" => &[("/Cellar/", "opencode")],
                 "agy" => &[("/Caskroom/", "antigravity-cli")],
                 _ => &[],
@@ -250,11 +215,7 @@ fn package_uninstall_command(
     {
         return Ok(Some(command));
     }
-    if tool == "hermes" {
-        // The official installer uses a uv venv, often without pip. Let the selected
-        // CLI remove its own installation; omitting --full retains config and data.
-        return Ok(Some(format!("{} uninstall --yes", quote(&inst.path))));
-    }
+    {}
     Ok(node_package_uninstall_command(tool, inst))
 }
 
@@ -341,17 +302,7 @@ fn node_package_uninstall_command(tool: &str, inst: &ToolInstallation) -> Option
     ) {
         return None;
     }
-    if tool == "mcode"
-        && (mcode_receipt_install_root(&inst.path, McodeLayout::NATIVE).is_some()
-            || mcode_script_install_root(
-                &inst.path,
-                &inst.real.to_string_lossy(),
-                McodeLayout::NATIVE,
-            )
-            .is_some())
-    {
-        return None;
-    }
+    {}
     let prefix = npm_prefix(tool, inst)?;
     let npm = manager_next_to(&inst.path, "npm").or_else(|| {
         resolve_path_default(
@@ -409,7 +360,7 @@ fn known_native_install(tool: &str, inst: &ToolInstallation) -> bool {
                         "bin/codex" | "bin/codex.exe" | "codex" | "codex.exe"
                     )
             }),
-        "grok" => grok_native_root(&inst.real).is_some(),
+
         // The current curl installer (including Git Bash on Windows) uses this
         // directory. Do not invent OPENCODE_INSTALL_DIR / XDG_BIN_DIR layouts.
         "opencode" => {
@@ -422,95 +373,17 @@ fn known_native_install(tool: &str, inst: &ToolInstallation) -> bool {
             normalized.ends_with("/.local/bin/agy") || normalized.ends_with("/agy/bin/agy.exe")
         }
         // Official install.sh (`~/.local/bin`) / install.ps1 (`%LOCALAPPDATA%\omp`) targets.
-        "omp" => normalized.ends_with("/.local/bin/omp") || normalized.ends_with("/omp/omp.exe"),
         _ => false,
     }
 }
-
-const GROK_PLATFORMS: [&str; 6] = [
-    "macos-aarch64",
-    "macos-x86_64",
-    "linux-aarch64",
-    "linux-x86_64",
-    "windows-aarch64.exe",
-    "windows-x86_64.exe",
-];
 
 /// Names the official Grok installer writes: `bin/grok`, `bin/grok-<version>` (0.2.112+),
 /// `downloads/grok-<platform>` and `downloads/grok-<version>-<platform>`.
-fn is_grok_binary_name(dir: &str, name: &str) -> bool {
-    let name = name.to_ascii_lowercase();
-    let Some(rest) = name.strip_prefix("grok-") else {
-        return dir == "bin" && matches!(name.as_str(), "grok" | "grok.exe");
-    };
-    match dir {
-        "bin" => is_grok_version(rest.strip_suffix(".exe").unwrap_or(rest)),
-        "downloads" => GROK_PLATFORMS.iter().any(|platform| {
-            rest == *platform
-                || rest
-                    .strip_suffix(platform)
-                    .and_then(|version| version.strip_suffix('-'))
-                    .is_some_and(is_grok_version)
-        }),
-        _ => false,
-    }
-}
-
-fn is_grok_version(version: &str) -> bool {
-    version.starts_with(|c: char| c.is_ascii_digit())
-        && version
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '+'))
-}
 
 /// The `.grok` directory owning an installer binary, or None for any other file.
-fn grok_native_root(real: &Path) -> Option<PathBuf> {
-    let name = real.file_name()?.to_str()?;
-    let dir = real.parent()?;
-    let kind = dir.file_name()?.to_str()?.to_ascii_lowercase();
-    let root = dir.parent()?;
-    (root.file_name()?.eq_ignore_ascii_case(".grok") && is_grok_binary_name(&kind, name))
-        .then(|| root.to_path_buf())
-}
 
 /// The Grok installer keeps every version it fetched plus `grok` / `agent` links to one of
 /// them. Removing only the current binary would leave the others and a working `agent`.
-fn grok_installer_files(root: &Path) -> Vec<PathBuf> {
-    let mut launchers = Vec::new();
-    let mut binaries = Vec::new();
-    for kind in ["bin", "downloads"] {
-        let Ok(entries) = std::fs::read_dir(root.join(kind)) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let Ok(metadata) = std::fs::symlink_metadata(&path) else {
-                continue;
-            };
-            let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
-            if metadata.file_type().is_symlink() {
-                // Only installer launchers that still point at one of its binaries.
-                let launcher = kind == "bin"
-                    && matches!(name.as_str(), "grok" | "grok.exe" | "agent" | "agent.exe");
-                if launcher
-                    && std::fs::canonicalize(&path)
-                        .is_ok_and(|target| grok_native_root(&target).as_deref() == Some(root))
-                {
-                    launchers.push(path);
-                }
-            } else if metadata.is_file()
-                && is_grok_binary_name(kind, &name)
-                && is_native_executable(&path)
-            {
-                binaries.push(path);
-            }
-        }
-    }
-    launchers.sort();
-    binaries.sort();
-    launchers.extend(binaries);
-    launchers
-}
 
 /// Files removed for a native install: the selected launcher, other launcher symlinks to
 /// the same binary in the search directories, the binary, and for Grok the rest of the
@@ -527,11 +400,7 @@ fn native_removal_paths(tool: &str, inst: &ToolInstallation) -> Vec<PathBuf> {
         }
     }
     paths.push(inst.real.clone());
-    if tool == "grok" {
-        if let Some(root) = grok_native_root(&inst.real) {
-            paths.extend(grok_installer_files(&root));
-        }
-    }
+    {}
     let mut seen = std::collections::HashSet::new();
     paths.retain(|path| seen.insert(path.clone()));
     paths
@@ -749,46 +618,6 @@ fn parse_wsl_installation(stdout: &str) -> Result<(String, String), String> {
     Ok((path.into(), real.into()))
 }
 
-#[cfg(any(target_os = "windows", test))]
-fn wsl_uninstall_command(tool: &str, path: &str, real: &str) -> Result<String, String> {
-    if real.contains("/Cellar/") || real.contains("/Caskroom/") {
-        // WSL support is limited to verified npm prefixes and Hermes' own uninstaller.
-        // A formula's libexec/node_modules must not fall through to npm.
-        return Err("Use Homebrew to uninstall this WSL application.".into());
-    }
-    let removal = if tool == "hermes" {
-        format!("{} uninstall --yes", shell_single_quote(path))
-    } else {
-        let package = npm_package_for(tool)
-            .ok_or("Use the original installer to uninstall this WSL application.")?;
-        let (prefix, _) = real
-            .split_once(&format!("/lib/node_modules/{package}/"))
-            .filter(|(prefix, _)| !prefix.is_empty() && path == format!("{prefix}/bin/{tool}"))
-            .ok_or(
-                "Use the original installer or package manager to uninstall this WSL application.",
-            )?;
-        format!(
-            "npm uninstall -g --prefix {} {package}",
-            shell_single_quote(prefix)
-        )
-    };
-    let removal = if tool == "openclaw" {
-        format!(
-            "{} uninstall --service --yes --non-interactive && {removal}",
-            shell_single_quote(path)
-        )
-    } else {
-        removal
-    };
-    // The outer shell may be fish. All POSIX syntax stays inside an explicit sh.
-    // Recheck the target just before running; do not accept a dangling shim as success.
-    let script = format!(
-        "entry={} && [ \"$(command -v {tool})\" = \"$entry\" ] && [ \"$(readlink -f -- \"$entry\")\" = {} ] && {removal} && {{ {{ [ ! -e \"$entry\" ] && [ ! -L \"$entry\" ]; }} || {{ echo 'Application is still installed' >&2; exit 1; }}; }}",
-        shell_single_quote(path), shell_single_quote(real)
-    );
-    Ok(format!("sh -c {}", shell_single_quote(&script)))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -980,20 +809,6 @@ mod tests {
     }
 
     #[test]
-    fn omp_installer_binary_is_a_known_native_install() {
-        let temp = tempfile::tempdir().unwrap();
-        let bin = temp.path().join(".local/bin");
-        std::fs::create_dir_all(&bin).unwrap();
-        let binary = bin.join("omp");
-        std::fs::write(&binary, [0xcf, 0xfa, 0xed, 0xfe]).unwrap();
-        assert!(known_native_install("omp", &installation(&binary)));
-        // A same-named script elsewhere is never claimed.
-        let other = temp.path().join("omp");
-        std::fs::write(&other, "#!/usr/bin/env bun\n").unwrap();
-        assert!(!known_native_install("omp", &installation(&other)));
-    }
-
-    #[test]
     fn nearby_npm_package_does_not_claim_an_unrelated_executable() {
         let temp = tempfile::tempdir().unwrap();
         let package = temp.path().join("node_modules/@openai/codex");
@@ -1064,173 +879,6 @@ mod tests {
             ..inst
         };
         assert!(npm_prefix_for_layout("codex", &unrelated, false).is_none());
-    }
-
-    #[test]
-    fn source_badges_and_sibling_managers_do_not_prove_package_ownership() {
-        for (tool, manager) in [
-            ("codex", "volta"),
-            ("opencode", "pnpm"),
-            ("openclaw", "bun"),
-        ] {
-            let temp = tempfile::tempdir().unwrap();
-            let entry = temp.path().join(format!("{tool}.cmd"));
-            std::fs::write(&entry, "unrelated launcher").unwrap();
-            for suffix in ["", ".cmd", ".exe"] {
-                std::fs::write(temp.path().join(format!("{manager}{suffix}")), "manager").unwrap();
-            }
-            let inst = ToolInstallation {
-                source: manager.into(),
-                ..installation(&entry)
-            };
-            assert!(plan_for_install(tool, &inst).is_err());
-            assert!(entry.exists());
-        }
-    }
-
-    #[test]
-    fn minimax_installer_receipt_does_not_imply_a_native_or_global_npm_install() {
-        let temp = tempfile::tempdir().unwrap();
-        let root = temp.path().join("custom minimax");
-        std::fs::create_dir_all(&root).unwrap();
-        std::fs::write(
-            root.join("install.json"),
-            serde_json::json!({
-                "product": "minimax-code", "updateOwner": "npm-prefix", "prefix": root,
-            })
-            .to_string(),
-        )
-        .unwrap();
-        #[cfg(target_os = "windows")]
-        let entry = root.join("mcode.cmd");
-        #[cfg(not(target_os = "windows"))]
-        let entry = root.join("bin/mcode");
-        std::fs::create_dir_all(entry.parent().unwrap()).unwrap();
-        for contents in ["#!/bin/sh\nexec release/mcode", "MZ"] {
-            std::fs::write(&entry, contents).unwrap();
-            assert!(plan_for_install("mcode", &installation(&entry)).is_err());
-        }
-    }
-
-    #[test]
-    fn openclaw_removes_only_the_service_before_its_npm_package() {
-        let temp = tempfile::tempdir().unwrap();
-        #[cfg(target_os = "windows")]
-        let modules = temp.path().join("node_modules");
-        #[cfg(not(target_os = "windows"))]
-        let modules = temp.path().join("lib/node_modules");
-        let package = modules.join("openclaw");
-        std::fs::create_dir_all(&package).unwrap();
-        std::fs::write(package.join("package.json"), r#"{"name":"openclaw"}"#).unwrap();
-        let executable = package.join("openclaw.mjs");
-        std::fs::write(&executable, "launcher").unwrap();
-        #[cfg(target_os = "windows")]
-        let entry = temp.path().join("openclaw.cmd");
-        #[cfg(not(target_os = "windows"))]
-        let entry = temp.path().join("bin/openclaw");
-        std::fs::create_dir_all(entry.parent().unwrap()).unwrap();
-        std::fs::write(&entry, "node node_modules/openclaw/openclaw.mjs").unwrap();
-        let inst = ToolInstallation {
-            real: if cfg!(target_os = "windows") {
-                std::fs::canonicalize(&entry).unwrap()
-            } else {
-                std::fs::canonicalize(executable).unwrap()
-            },
-            ..installation(&entry)
-        };
-        write_fixture_npm(&entry);
-        let plan = plan_for_install("openclaw", &inst).unwrap();
-        assert!(plan.command.starts_with(&format!(
-            "{} uninstall --service --yes --non-interactive && ",
-            quote(&inst.path)
-        )));
-        assert!(plan.command.contains("uninstall -g --prefix"));
-        for flag in ["--all", "--state", "--workspace", "--app"] {
-            assert!(!plan.command.contains(flag));
-        }
-        assert!(
-            entry.exists(),
-            "planning must not execute the service uninstaller"
-        );
-    }
-
-    #[cfg(target_os = "windows")]
-    #[test]
-    fn windows_service_failure_blocks_package_removal_and_success_continues() {
-        let temp = tempfile::tempdir().unwrap();
-        let root = temp.path().join("prefix with spaces");
-        let package = root.join("node_modules/openclaw");
-        std::fs::create_dir_all(&package).unwrap();
-        std::fs::write(package.join("package.json"), r#"{"name":"openclaw"}"#).unwrap();
-        let entry = root.join("openclaw.cmd");
-        let marker = root.join("npm-ran.txt");
-        let npm = root.join("npm.cmd");
-        std::fs::write(
-            &npm,
-            format!(
-                "@echo off\r\necho removed>\"{}\"\r\nexit /b 0\r\n",
-                marker.display()
-            ),
-        )
-        .unwrap();
-        for exit_code in [23, 0] {
-            // The package reference models an npm .cmd shim without running a real CLI.
-            std::fs::write(&entry, format!("@echo off\r\nrem node_modules/openclaw/openclaw.mjs\r\nexit /b {exit_code}\r\n")).unwrap();
-            let plan = plan_for_install("openclaw", &installation(&entry)).unwrap();
-            let result = run_package_uninstall(&plan.command);
-            assert_eq!(result.is_ok(), exit_code == 0);
-            assert_eq!(marker.exists(), exit_code == 0);
-        }
-    }
-
-    #[test]
-    fn wsl_uninstall_checks_the_selected_linux_prefix() {
-        let command = wsl_uninstall_command(
-            "codex",
-            "/usr/local/bin/codex",
-            "/usr/local/lib/node_modules/@openai/codex/bin/codex.js",
-        )
-        .unwrap();
-        assert!(command.starts_with("sh -c '"));
-        assert!(command.contains("command -v codex"));
-        assert!(command.contains("/lib/node_modules/@openai/codex/"));
-        assert!(command.contains("npm uninstall -g --prefix"));
-        assert!(!command.contains("call "));
-        assert!(command.contains("[ ! -L"));
-        assert!(wsl_uninstall_command(
-            "codex",
-            "/usr/local/bin/codex",
-            "/usr/local/Cellar/mise/1/bin/mise"
-        )
-        .is_err());
-        let hermes = wsl_uninstall_command(
-            "hermes",
-            "/home/me/.local/bin/hermes",
-            "/home/me/hermes/venv/bin/hermes",
-        )
-        .unwrap();
-        assert!(hermes.contains("uninstall --yes"));
-        assert!(!hermes.contains("pip"));
-        assert!(!hermes.contains("--full"));
-        for (path, real) in [
-            (
-                "/home/me/project/node_modules/.bin/codex",
-                "/home/me/project/node_modules/@openai/codex/bin/codex.js",
-            ),
-            (
-                "/home/me/.local/bin/codex",
-                "/home/me/release/lib/node_modules/@openai/codex/bin/codex.js",
-            ),
-        ] {
-            assert!(wsl_uninstall_command("codex", path, real).is_err());
-        }
-        let openclaw = wsl_uninstall_command(
-            "openclaw",
-            "/usr/local/bin/openclaw",
-            "/usr/local/lib/node_modules/openclaw/openclaw.mjs",
-        )
-        .unwrap();
-        assert!(openclaw.contains("uninstall --service --yes --non-interactive && npm uninstall"));
     }
 
     /// The auto-mode probe must land on the same installation as the version check
@@ -1395,116 +1043,6 @@ mod tests {
     }
 
     #[test]
-    fn brew_uninstall_rejects_unrelated_packages_and_shims() {
-        for (tool, real) in [
-            ("codex", "/opt/homebrew/Cellar/mise/1/bin/mise"),
-            ("claude", "/opt/homebrew/Cellar/volta/1/bin/volta-shim"),
-            ("grok", "/opt/homebrew/Cellar/grok/1/bin/grok"),
-            ("claude", "/opt/homebrew/Cellar/claude-code/1/bin/claude"),
-            ("codex", "/opt/homebrew/Cellar/codex/1/bin/codex"),
-            ("codex", "/opt/homebrew/Caskroom/unrelated/1/bin/codex"),
-            ("gemini", "/opt/homebrew/Caskroom/gemini-cli/1/gemini"),
-        ] {
-            let inst = ToolInstallation {
-                path: format!("/Users/me/.local/share/mise/shims/{tool}"),
-                real: real.into(),
-                version: None,
-                runnable: false,
-                error: None,
-                exited_with_error: false,
-                source: "homebrew".into(),
-                is_path_default: true,
-            };
-            assert!(plan_for_install(tool, &inst).is_err(), "{tool}: {real}");
-        }
-    }
-
-    #[test]
-    fn brew_uninstall_allows_only_the_matching_formula_or_cask() {
-        let temp = tempfile::tempdir().unwrap();
-        let prefix = temp.path().to_string_lossy().replace('\\', "/");
-        let brew = format!("{prefix}/bin/brew");
-        std::fs::create_dir_all(temp.path().join("bin")).unwrap();
-        std::fs::write(&brew, "fixture brew").unwrap();
-
-        for (tool, location, token, flag) in [
-            ("claude", "Caskroom", "claude-code", "--cask"),
-            ("claude", "Caskroom", "claude-code@latest", "--cask"),
-            ("codex", "Caskroom", "codex", "--cask"),
-            ("gemini", "Cellar", "gemini-cli", "--formula"),
-            ("opencode", "Cellar", "opencode", "--formula"),
-            ("agy", "Caskroom", "antigravity-cli", "--cask"),
-        ] {
-            let real = format!("{prefix}/{location}/{token}/1/bin/{tool}");
-            let command = brew_uninstall_command(tool, &real).unwrap().unwrap();
-            assert_eq!(
-                command,
-                format!("{} uninstall {flag} {}", quote(&brew), quote(token))
-            );
-        }
-        let inst = ToolInstallation {
-            path: format!("{prefix}/bin/gemini"),
-            real: format!("{prefix}/Cellar/gemini-cli/1/libexec/lib/node_modules/@google/gemini-cli/dist/index.js").into(),
-            version: None,
-            runnable: true,
-            error: None,
-            exited_with_error: false,
-            source: "homebrew".into(),
-            is_path_default: true,
-        };
-        let plan = plan_for_install("gemini", &inst).unwrap();
-        assert!(plan.command.contains("uninstall --formula"));
-        assert!(!plan.command.contains("npm"));
-        std::fs::remove_file(&brew).unwrap();
-        assert!(
-            plan_for_install("gemini", &inst).is_err(),
-            "do not preview a missing brew executable"
-        );
-    }
-
-    #[test]
-    fn hermes_plan_uses_the_selected_cli_without_python_or_pip() {
-        let temp = tempfile::tempdir().unwrap();
-        let bin = temp.path().join(".local/bin");
-        std::fs::create_dir_all(&bin).unwrap();
-        let entry = bin.join("hermes");
-        std::fs::write(&entry, "hermes launcher").unwrap();
-        let inst = installation(&entry);
-        let plan = plan_for_install("hermes", &inst).unwrap();
-        assert_eq!(
-            plan.command,
-            format!("{} uninstall --yes", quote(&inst.path))
-        );
-        assert_eq!(plan.path, inst.path);
-        assert_eq!(plan.real_path, inst.real.to_string_lossy());
-        assert!(entry.exists(), "preparing a plan must be read-only");
-        std::fs::write(bin.join("python"), "unrelated Python").unwrap();
-        assert_eq!(plan_for_install("hermes", &inst).unwrap(), plan);
-    }
-
-    #[test]
-    fn confirmation_rejects_a_changed_target_or_command() {
-        let temp = tempfile::tempdir().unwrap();
-        let entry = temp.path().join("hermes");
-        std::fs::write(&entry, "launcher").unwrap();
-        let plan = plan_for_install("hermes", &installation(&entry)).unwrap();
-        assert!(validate_confirmed_plan(&plan, &plan).is_ok());
-        let mut changed = plan.clone();
-        changed.path.push_str("-other");
-        assert!(validate_confirmed_plan(&changed, &plan).is_err());
-        changed = plan.clone();
-        changed.real_path.push_str("-other");
-        assert!(validate_confirmed_plan(&changed, &plan).is_err());
-        changed = plan.clone();
-        changed.command.push_str(" --full");
-        assert!(validate_confirmed_plan(&changed, &plan).is_err());
-        changed = plan.clone();
-        changed.wsl_distro = Some("Ubuntu".into());
-        assert!(validate_confirmed_plan(&changed, &plan).is_err());
-        assert!(entry.exists());
-    }
-
-    #[test]
     fn claude_native_plan_rejects_a_user_wrapper() {
         let temp = tempfile::tempdir().unwrap();
         let bin = temp.path().join(".local/bin");
@@ -1519,46 +1057,6 @@ mod tests {
                 .unwrap()
                 .native
         );
-    }
-
-    #[test]
-    fn native_layout_requires_the_real_target_to_belong_to_the_installer() {
-        let temp = tempfile::tempdir().unwrap();
-        let executable = temp.path().join("unrelated.exe");
-        std::fs::write(&executable, "MZ").unwrap();
-        for (tool, launcher) in [
-            ("grok", ".grok/bin/grok"),
-            ("codex", "Programs/OpenAI/Codex/bin/codex.exe"),
-        ] {
-            let inst = ToolInstallation {
-                path: temp.path().join(launcher).to_string_lossy().into_owned(),
-                ..installation(&executable)
-            };
-            assert!(!known_native_install(tool, &inst));
-        }
-        for (tool, binary) in [
-            ("grok", ".grok/downloads/grok-linux-x86_64"),
-            ("grok", ".grok/downloads/grok-1.0.3-macos-aarch64"),
-            ("grok", ".grok/bin/grok-1.0.50"),
-            ("grok", ".grok/bin/grok-1.1.0-beta.1.exe"),
-            (
-                "codex",
-                ".codex/packages/standalone/releases/0.157.0-linux/bin/codex",
-            ),
-            (
-                "codex",
-                ".codex/packages/standalone/releases/0.150.0-linux/codex",
-            ),
-            ("opencode", ".opencode/bin/opencode"),
-            ("agy", ".local/bin/agy"),
-            ("agy", "AppData/Local/agy/bin/agy.exe"),
-        ] {
-            let path = temp.path().join(binary);
-            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-            std::fs::write(&path, b"\x7fELF").unwrap();
-            assert!(known_native_install(tool, &installation(&path)));
-        }
-        assert!(executable.exists());
     }
 
     #[cfg(unix)]
@@ -1611,92 +1109,5 @@ mod tests {
         inst.real = temp.path().join("another.exe");
         assert!(remove_native_files(&inst, std::slice::from_ref(&executable)).is_err());
         assert!(executable.exists());
-    }
-
-    #[test]
-    fn grok_binary_names_follow_the_installer_layout() {
-        for (dir, name) in [
-            ("bin", "grok"),
-            ("bin", "grok.exe"),
-            ("bin", "grok-1.0.50"),
-            ("downloads", "grok-macos-aarch64"),
-            ("downloads", "grok-1.0.3-linux-x86_64"),
-            ("downloads", "grok-1.0.3-windows-x86_64.exe"),
-        ] {
-            assert!(is_grok_binary_name(dir, name), "{dir}/{name}");
-        }
-        for (dir, name) in [
-            ("bin", "agent"),
-            ("bin", "grok-latest"),
-            ("bin", "grok-macos-aarch64"),
-            ("downloads", "grok-1.0.3"),
-            ("downloads", "grok-1.0.3-freebsd-x86_64"),
-            ("downloads", "grok"),
-            ("lib", "grok-1.0.50"),
-        ] {
-            assert!(!is_grok_binary_name(dir, name), "{dir}/{name}");
-        }
-        let temp = tempfile::tempdir().unwrap();
-        let other = temp.path().join("tools/bin/grok-1.0.50");
-        assert!(grok_native_root(&other).is_none());
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn grok_native_removal_covers_every_installer_binary_and_launcher() {
-        use std::os::unix::fs::symlink;
-        let temp = tempfile::tempdir().unwrap();
-        let root = std::fs::canonicalize(temp.path()).unwrap().join(".grok");
-        let bin = root.join("bin");
-        let downloads = root.join("downloads");
-        std::fs::create_dir_all(&bin).unwrap();
-        std::fs::create_dir_all(&downloads).unwrap();
-        let current = bin.join("grok-1.0.50");
-        let previous = bin.join("grok-1.0.46");
-        let fetched = downloads.join("grok-1.0.3-macos-aarch64");
-        let legacy = downloads.join("grok-macos-aarch64");
-        for binary in [&current, &previous, &fetched, &legacy] {
-            std::fs::write(binary, [0xcf, 0xfa, 0xed, 0xfe]).unwrap();
-        }
-        let config = root.join("config.toml");
-        let session = root.join("sessions/one.json");
-        std::fs::create_dir_all(session.parent().unwrap()).unwrap();
-        std::fs::write(&config, "[cli]\ninstaller = \"internal\"\n").unwrap();
-        std::fs::write(&session, "{}").unwrap();
-        let notes = bin.join("grok-notes.txt");
-        std::fs::write(&notes, "user file").unwrap();
-        let unrelated = temp.path().join("elsewhere");
-        std::fs::write(&unrelated, [0x7f, b'E', b'L', b'F']).unwrap();
-        symlink("grok-1.0.50", bin.join("grok")).unwrap();
-        symlink("../downloads/grok-1.0.3-macos-aarch64", bin.join("agent")).unwrap();
-        let foreign_agent = root.join("bin/agent.exe");
-        symlink(&unrelated, &foreign_agent).unwrap();
-
-        let inst = ToolInstallation {
-            path: bin.join("grok").to_string_lossy().into_owned(),
-            ..installation(&current)
-        };
-        assert!(known_native_install("grok", &inst));
-        let (plan, removals) = plan_and_removals("grok", &inst).unwrap();
-        assert!(plan.native);
-        assert_eq!(removals.first(), Some(&bin.join("grok")));
-        for path in [&current, &previous, &fetched, &legacy, &bin.join("agent")] {
-            assert!(removals.contains(path), "{}", path.display());
-            assert!(plan.command.contains(&*path.to_string_lossy()));
-        }
-        for kept in [&config, &session, &notes, &unrelated, &foreign_agent] {
-            assert!(!removals.contains(kept), "{}", kept.display());
-        }
-
-        remove_native_files(&inst, &removals).unwrap();
-        assert!(std::fs::symlink_metadata(bin.join("grok")).is_err());
-        assert!(std::fs::symlink_metadata(bin.join("agent")).is_err());
-        for path in [&current, &previous, &fetched, &legacy] {
-            assert!(!path.exists());
-        }
-        for kept in [&config, &session, &notes, &unrelated] {
-            assert!(kept.exists());
-        }
-        assert!(std::fs::symlink_metadata(&foreign_agent).is_ok());
     }
 }

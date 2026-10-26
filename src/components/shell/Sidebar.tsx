@@ -1,4 +1,4 @@
-import { useRef, type ComponentType } from "react";
+import type { ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { getVersion } from "@tauri-apps/api/app";
@@ -6,15 +6,12 @@ import {
   ArrowLeft,
   BookOpen,
   ChartColumn,
-  ChevronsLeft,
-  ChevronsRight,
   Database,
   Folder,
   Globe,
   History,
   Info,
   KeyRound,
-  Layers,
   LayoutGrid,
   Route,
   Server,
@@ -28,7 +25,6 @@ import type { GlobalPage, SettingsSection, View } from "@/lib/navigation";
 import { isAppPage } from "@/lib/navigation";
 import { SkillsIcon } from "@/components/BrandIcons";
 import { useUpdate } from "@/contexts/UpdateContext";
-import { sidebarWidth, useSidebarCollapsed } from "@/hooks/useSidebarCollapsed";
 import { useMoneyFormat } from "@/hooks/useMoneyFormat";
 import { useSettingsQuery } from "@/lib/query";
 import {
@@ -47,8 +43,6 @@ import { cn } from "@/lib/utils";
 import ccswitchLogo from "@/assets/icons/logo.svg";
 import { APP_DISPLAY_NAME, AppGlyph } from "./AppGlyph";
 
-const NO_DRAG = { WebkitAppRegion: "no-drag" } as React.CSSProperties;
-
 type IconComponent = ComponentType<{ className?: string }>;
 
 interface SidebarProps {
@@ -64,29 +58,19 @@ interface SidebarProps {
   appsUpdateAvailable?: boolean;
 }
 
-type DirectoryProps = SidebarProps & { collapsed: boolean };
-
 /**
  * 主导航（v7）：顶条 44 → 应用列表（唯一滚动的区域）→ 全局 6 项（贴底）→ 底栏「应用 · 设置」。
- * 进入设置后整条侧栏换成设置目录。收起时是 72px 的图标轨；
- * 展开 / 收起时宽度一步到位，边缘的滑动由盖板的 transform 动画画出（见 useSidebarCollapsed），文字不换行、被裁掉而不是挤成两行。
- * 收起时各行只剩图标，名字由 HoverTip 从右侧报；展开时文字可见，不再挂提示。
+ * 侧栏始终以 200px 宽度显示，进入设置后整条侧栏换成设置目录。
  */
 export function Sidebar(props: SidebarProps) {
   const { t } = useTranslation();
-  const navRef = useRef<HTMLElement>(null);
-  const { collapsed, toggle } = useSidebarCollapsed(navRef);
   const { view } = props;
   const inSettings = view === "settings";
 
   return (
     <nav
-      ref={navRef}
       aria-label={t("nav.mainLabel")}
-      className={cn(
-        "relative flex h-full shrink-0 flex-col overflow-hidden whitespace-nowrap border-e border-border bg-sidebar text-body text-fg-1",
-      )}
-      style={{ width: sidebarWidth(collapsed) }}
+      className="relative flex h-full w-[200px] shrink-0 flex-col overflow-hidden whitespace-nowrap border-e border-border bg-sidebar text-body text-fg-1"
     >
       <a
         href="#main-content"
@@ -94,43 +78,19 @@ export function Sidebar(props: SidebarProps) {
       >
         {t("nav.skipToContent")}
       </a>
-      <SidebarTopBar collapsed={collapsed} onToggle={toggle} />
+      <SidebarTopBar />
       {inSettings ? (
-        <SettingsDirectory {...props} collapsed={collapsed} />
+        <SettingsDirectory {...props} />
       ) : (
-        <MainDirectory {...props} collapsed={collapsed} />
+        <MainDirectory {...props} />
       )}
     </nav>
   );
 }
 
-function SidebarTopBar({
-  collapsed,
-  onToggle,
-}: {
-  collapsed: boolean;
-  onToggle: () => void;
-}) {
-  const { t } = useTranslation();
-  const tipSide = collapsed ? "right" : "left";
-  const label = collapsed ? t("nav.expandSidebar") : t("nav.collapseSidebar");
-  const Icon = collapsed ? ChevronsRight : ChevronsLeft;
-  const toggleButton = (
-    <HoverTip content={label} side={tipSide} disableHoverableContent>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-label={label}
-        style={NO_DRAG}
-        className="flex h-7 w-7 items-center justify-center rounded-control text-fg-2 transition-[background-color,color,scale] hover:bg-subtle hover:text-fg-1 active:scale-[0.96]"
-      >
-        <Icon className="h-4 w-4" strokeWidth={1.5} />
-      </button>
-    </HoverTip>
-  );
-
-  // macOS 展开：顶条只放红绿灯；下面一行贴近红绿灯放 logo + 名字，收起箭头放在这一行最右边
-  if (!collapsed && isMac()) {
+function SidebarTopBar() {
+  // macOS 顶条只放红绿灯；下面一行贴近红绿灯放 logo + 名字
+  if (isMac()) {
     return (
       <>
         <div
@@ -138,7 +98,7 @@ function SidebarTopBar({
           {...DRAG_REGION_ATTR}
           style={DRAG_REGION_STYLE as React.CSSProperties}
         />
-        {/* 品牌区与导航之间不画分隔线：靠侧栏底色和留白分开，免得和右侧页头下边框近似平行却差 11px */}
+        {/* 品牌区与导航通过侧栏底色和留白分开 */}
         <div
           className="-mt-[18px] mb-2 flex h-9 shrink-0 items-center gap-2 pe-2 ps-4"
           {...DRAG_REGION_ATTR}
@@ -153,24 +113,6 @@ function SidebarTopBar({
           <span className="pointer-events-none me-auto min-w-0 truncate text-strong font-semibold text-fg-1">
             CC Switch
           </span>
-          {toggleButton}
-        </div>
-      </>
-    );
-  }
-
-  // macOS 的红绿灯占着顶条左边约 70px：图标轨只有 72 宽，按钮挪到顶条下面一行
-  if (collapsed && isMac()) {
-    return (
-      <>
-        <div
-          className="h-11 shrink-0"
-          {...DRAG_REGION_ATTR}
-          style={DRAG_REGION_STYLE as React.CSSProperties}
-        />
-        {/* 往上贴近红绿灯，和展开时品牌行同高（中心 y≈44） */}
-        <div className="-mt-4 flex h-8 shrink-0 items-center justify-center">
-          {toggleButton}
         </div>
       </>
     );
@@ -178,29 +120,22 @@ function SidebarTopBar({
 
   return (
     <div
-      className={cn(
-        "flex h-11 shrink-0 items-center gap-0.5 px-2",
-        collapsed ? "justify-center" : "justify-end",
-      )}
+      className="flex h-11 shrink-0 items-center gap-0.5 px-2"
       {...DRAG_REGION_ATTR}
       style={DRAG_REGION_STYLE as React.CSSProperties}
     >
-      {!collapsed && !isMac() && (
-        // 左上角品牌（Windows / Linux）：图标 + 名字。macOS 左上角留给红绿灯，不放。
-        // 图片不接收指针事件，拖它也是在拖窗口
-        <span className="pointer-events-none me-auto flex min-w-0 items-center gap-2 ps-1.5">
-          <img
-            src={ccswitchLogo}
-            alt=""
-            draggable={false}
-            className="h-[22px] w-[22px] shrink-0"
-          />
-          <span className="truncate text-strong font-semibold text-fg-1">
-            CC Switch
-          </span>
+      {/* 图片不接收指针事件，拖它也是在拖窗口 */}
+      <span className="pointer-events-none me-auto flex min-w-0 items-center gap-2 ps-1.5">
+        <img
+          src={ccswitchLogo}
+          alt=""
+          draggable={false}
+          className="h-[22px] w-[22px] shrink-0"
+        />
+        <span className="truncate text-strong font-semibold text-fg-1">
+          CC Switch
         </span>
-      )}
-      {toggleButton}
+      </span>
     </div>
   );
 }
@@ -208,14 +143,13 @@ function SidebarTopBar({
 // ─── 主目录 ────────────────────────────────────────────────────────────────
 
 function MainDirectory({
-  collapsed,
   activeApp,
   view,
   visibleApps,
   onSelectApp,
   onSelectPage,
   appsUpdateAvailable = false,
-}: DirectoryProps) {
+}: SidebarProps) {
   const { t, i18n } = useTranslation();
   const { moneyShort } = useMoneyFormat();
   const { data: settings } = useSettingsQuery();
@@ -292,18 +226,11 @@ function MainDirectory({
     },
   ];
 
-  const isGlobalSelected = (page: GlobalPage) =>
-    view === page || (page === "skills" && view === "skillsDiscovery");
+  const isGlobalSelected = (page: GlobalPage) => view === page;
 
   return (
     <>
-      <div
-        className={cn(
-          "flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden pb-2 pt-0.5",
-          // 图标轨只有 72 宽，放不下滚动条
-          collapsed && "no-scrollbar",
-        )}
-      >
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden pb-2 pt-0.5">
         <div
           role="group"
           aria-label={t("nav.appsGroup")}
@@ -313,7 +240,6 @@ function MainDirectory({
             <AppNavItem
               key={app}
               app={app}
-              collapsed={collapsed}
               selected={onAppPage && activeApp === app}
               status={appStatus(app)}
               onSelect={() => onSelectApp(app)}
@@ -322,18 +248,12 @@ function MainDirectory({
         </div>
       </div>
 
-      <div
-        className={cn(
-          "h-px shrink-0 bg-border",
-          collapsed ? "mx-[18px] my-1.5" : "mx-4 mb-1.5 mt-0.5",
-        )}
-      />
+      <div className="mx-4 mb-1.5 mt-0.5 h-px shrink-0 bg-border" />
 
       <div className="flex shrink-0 flex-col">
         {globals.map((item) => (
           <NavItem
             key={item.page}
-            collapsed={collapsed}
             selected={isGlobalSelected(item.page)}
             icon={item.icon}
             label={item.label}
@@ -346,23 +266,11 @@ function MainDirectory({
       </div>
 
       {/* 和上面那条分隔线同样缩进、上下各留 6px，选中的最后一项不会贴着线 */}
-      <div
-        className={cn(
-          "my-1.5 h-px shrink-0 bg-border",
-          collapsed ? "mx-[18px]" : "mx-4",
-        )}
-      />
+      <div className="mx-4 my-1.5 h-px shrink-0 bg-border" />
 
-      <div
-        className={cn(
-          "flex shrink-0 pb-2",
-          // 收起时竖排，和上面全局项一样无间隙
-          collapsed ? "flex-col" : "gap-1 px-2",
-        )}
-      >
+      <div className="flex shrink-0 gap-1 px-2 pb-2">
         <NavItem
-          collapsed={collapsed}
-          compact={!collapsed}
+          compact
           selected={view === "apps"}
           icon={LayoutGrid}
           label={t("nav.apps")}
@@ -373,8 +281,7 @@ function MainDirectory({
           onClick={() => onSelectPage("apps")}
         />
         <NavItem
-          collapsed={collapsed}
-          compact={!collapsed}
+          compact
           selected={false}
           icon={Settings}
           label={t("nav.settings")}
@@ -409,13 +316,11 @@ function modeTag(
 
 function AppNavItem({
   app,
-  collapsed,
   selected,
   status,
   onSelect,
 }: {
   app: AppId;
-  collapsed: boolean;
   selected: boolean;
   status: AppNavStatus;
   onSelect: () => void;
@@ -423,58 +328,7 @@ function AppNavItem({
   const { t } = useTranslation();
   const name = APP_DISPLAY_NAME[app];
   const tag = modeTag(status, t);
-  const modeName =
-    status.mode === "route"
-      ? t("nav.mode.route")
-      : status.mode === "stack"
-        ? t("nav.mode.stack")
-        : null;
-  const tip = status.alert
-    ? `${name} · ${t("nav.needsAttention")}`
-    : modeName
-      ? `${name} · ${modeName}`
-      : name;
   const badgeBg = selected ? "bg-selected" : "bg-sidebar";
-
-  if (collapsed) {
-    const marker = status.alert
-      ? { className: "bg-danger text-action-fg", icon: AlertGlyph }
-      : status.mode === "stack"
-        ? { className: "bg-stack-solid text-stack-on", icon: Layers }
-        : status.mode === "route"
-          ? { className: "bg-route-solid text-route-on", icon: Route }
-          : null;
-    return (
-      <HoverTip content={tip} side="right" disableHoverableContent>
-        <button
-          type="button"
-          onClick={onSelect}
-          aria-label={tip}
-          aria-current={selected ? "page" : undefined}
-          className={cn(
-            "mx-auto flex h-8 w-12 shrink-0 items-center justify-center rounded-control transition-colors hover:bg-subtle",
-            selected && "bg-selected hover:bg-selected",
-          )}
-        >
-          <span className="relative flex">
-            <AppGlyph app={app} size={20} badgeClassName={badgeBg} />
-            {marker && (
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "absolute -end-[7px] -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2",
-                  selected ? "border-selected" : "border-sidebar",
-                  marker.className,
-                )}
-              >
-                <marker.icon className="h-2 w-2" strokeWidth={3} />
-              </span>
-            )}
-          </span>
-        </button>
-      </HoverTip>
-    );
-  }
 
   return (
     <button
@@ -512,24 +366,7 @@ function AppNavItem({
   );
 }
 
-function AlertGlyph({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={3.5}
-      strokeLinecap="round"
-      className={className}
-    >
-      <path d="M12 4v10" />
-      <path d="M12 20h.01" />
-    </svg>
-  );
-}
-
 function NavItem({
-  collapsed,
   compact = false,
   selected,
   icon: Icon,
@@ -543,7 +380,6 @@ function NavItem({
   endDot = false,
   onClick,
 }: {
-  collapsed: boolean;
   /** 底栏两格并排：宽度由父级平分 */
   compact?: boolean;
   selected: boolean;
@@ -575,10 +411,10 @@ function NavItem({
   ]
     .filter(Boolean)
     .join(" · ");
-  const glyph = (size: number) => (
+  const glyph = (
     <span aria-hidden="true" className="relative flex shrink-0 text-fg-2">
-      <Icon className={size === 20 ? "h-5 w-5" : "h-[18px] w-[18px]"} />
-      {dot && (collapsed || !endDot) && (
+      <Icon className="h-[18px] w-[18px]" />
+      {dot && !endDot && (
         <span
           className={cn(
             "absolute -end-1 -top-[3px] h-2.5 w-2.5 rounded-full border-2",
@@ -587,43 +423,10 @@ function NavItem({
           )}
         />
       )}
-      {collapsed && alert && (
-        <span
-          className={cn(
-            "absolute -end-[7px] -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 bg-danger text-action-fg",
-            ring,
-          )}
-        >
-          <AlertGlyph className="h-2 w-2" />
-        </span>
-      )}
     </span>
   );
 
-  if (collapsed) {
-    return (
-      <HoverTip
-        content={title ?? accessibleName}
-        side="right"
-        disableHoverableContent
-      >
-        <button
-          type="button"
-          onClick={onClick}
-          aria-label={title ?? accessibleName}
-          aria-current={selected ? "page" : undefined}
-          className={cn(
-            "mx-auto flex h-8 w-12 shrink-0 items-center justify-center rounded-control transition-colors hover:bg-subtle",
-            selected && "bg-selected hover:bg-selected",
-          )}
-        >
-          {glyph(20)}
-        </button>
-      </HoverTip>
-    );
-  }
-
-  // 展开时名字可见；只有 title 比名字多说了点什么（如「有可用更新」），
+  // 名字可见；只有 title 比名字多说了点什么（如「有可用更新」），
   // 或行尾只写了数（完整说法在 trailingLabel）时才挂提示
   const hoverContent =
     title && title !== label
@@ -648,7 +451,7 @@ function NavItem({
           selected && "bg-selected font-medium hover:bg-selected",
         )}
       >
-        {glyph(18)}
+        {glyph}
         {trailingLines.length === 0 ? (
           <span className="min-w-0 flex-1 truncate">{label}</span>
         ) : (
@@ -702,11 +505,10 @@ const SETTINGS_ITEMS: { section: SettingsSection; icon: IconComponent }[] = [
 ];
 
 function SettingsDirectory({
-  collapsed,
   settingsSection,
   onSelectSettingsSection,
   onExitSettings,
-}: DirectoryProps) {
+}: SidebarProps) {
   const { t } = useTranslation();
   const { hasUpdate } = useUpdate();
   const { data: version } = useQuery({
@@ -717,38 +519,25 @@ function SettingsDirectory({
 
   return (
     <>
-      {collapsed ? (
-        <NavItem
-          collapsed
-          selected={false}
-          icon={ArrowLeft}
-          label={t("nav.back")}
-          onClick={onExitSettings}
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={onExitSettings}
-          className="mx-2 flex h-7 w-[184px] shrink-0 items-center gap-2 rounded-control px-2 text-start text-fg-2 transition-colors hover:bg-subtle hover:text-fg-1"
-        >
-          <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-          {t("nav.back")}
-        </button>
-      )}
-      {!collapsed && (
-        <div className="mt-3 px-4 pb-1 text-badge text-fg-3">
-          {t("nav.settings")}
-        </div>
-      )}
+      <button
+        type="button"
+        onClick={onExitSettings}
+        className="mx-2 flex h-7 w-[184px] shrink-0 items-center gap-2 rounded-control px-2 text-start text-fg-2 transition-colors hover:bg-subtle hover:text-fg-1"
+      >
+        <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+        {t("nav.back")}
+      </button>
+      <div className="mt-3 px-4 pb-1 text-badge text-fg-3">
+        {t("nav.settings")}
+      </div>
       <div
         role="group"
         aria-label={t("nav.settings")}
-        className={cn("flex min-h-0 flex-1 flex-col", collapsed && "mt-2")}
+        className="flex min-h-0 flex-1 flex-col"
       >
         {SETTINGS_ITEMS.map(({ section, icon }) => (
           <NavItem
             key={section}
-            collapsed={collapsed}
             selected={settingsSection === section}
             icon={icon}
             label={t(`settings.sections.${section}`)}
@@ -764,7 +553,7 @@ function SettingsDirectory({
           />
         ))}
       </div>
-      {!collapsed && version && (
+      {version && (
         <div className="shrink-0 px-4 pb-4 text-caption text-fg-3">
           CC Switch v{version}
         </div>

@@ -3,7 +3,7 @@
 //! 提供 Skills 和 Skill Repos 的 CRUD 操作。
 //!
 //! v3.10.0+ 统一管理架构：
-//! - Skills 使用统一的 id 主键，支持四应用启用标志
+//! - Skills 使用统一的 id 主键，支持 Claude Code、Codex、OpenCode 和 Antigravity 启用标志，Pi 从目录推导状态
 //! - 实际文件存储在 ~/.cc-switch/skills/，同步到各应用目录
 
 use crate::app_config::{InstalledSkill, SkillApps};
@@ -22,8 +22,8 @@ impl Database {
         let mut stmt = conn
             .prepare(
                 "SELECT id, name, description, directory, repo_owner, repo_name, repo_branch,
-                        readme_url, enabled_claude, enabled_codex, enabled_gemini, enabled_grokbuild,
-                        enabled_opencode, enabled_hermes, installed_at, content_hash, updated_at, enabled_mcode, enabled_agy, enabled_kimi
+                        readme_url, enabled_claude, enabled_codex, enabled_opencode,
+                        installed_at, content_hash, updated_at, enabled_agy
                  FROM skills ORDER BY name ASC",
             )
             .map_err(|e| AppError::Database(e.to_string()))?;
@@ -42,19 +42,16 @@ impl Database {
                     apps: SkillApps {
                         claude: row.get(8)?,
                         codex: row.get(9)?,
-                        gemini: row.get(10)?,
-                        grokbuild: row.get(11)?,
-                        opencode: row.get(12)?,
-                        hermes: row.get(13)?,
+
+                        opencode: row.get(10)?,
+
                         pi: false,
-                        omp: false,
-                        mcode: row.get(17)?,
-                        agy: row.get(18)?,
-                        kimi: row.get(19)?,
+
+                        agy: row.get(14)?,
                     },
-                    installed_at: row.get(14)?,
-                    content_hash: row.get(15)?,
-                    updated_at: row.get::<_, i64>(16).unwrap_or(0),
+                    installed_at: row.get(11)?,
+                    content_hash: row.get(12)?,
+                    updated_at: row.get::<_, i64>(13).unwrap_or(0),
                 })
             })
             .map_err(|e| AppError::Database(e.to_string()))?;
@@ -73,8 +70,8 @@ impl Database {
         let mut stmt = conn
             .prepare(
                 "SELECT id, name, description, directory, repo_owner, repo_name, repo_branch,
-                        readme_url, enabled_claude, enabled_codex, enabled_gemini, enabled_grokbuild,
-                        enabled_opencode, enabled_hermes, installed_at, content_hash, updated_at, enabled_mcode, enabled_agy, enabled_kimi
+                        readme_url, enabled_claude, enabled_codex, enabled_opencode,
+                        installed_at, content_hash, updated_at, enabled_agy
                  FROM skills WHERE id = ?1",
             )
             .map_err(|e| AppError::Database(e.to_string()))?;
@@ -92,19 +89,16 @@ impl Database {
                 apps: SkillApps {
                     claude: row.get(8)?,
                     codex: row.get(9)?,
-                    gemini: row.get(10)?,
-                    grokbuild: row.get(11)?,
-                    opencode: row.get(12)?,
-                    hermes: row.get(13)?,
+
+                    opencode: row.get(10)?,
+
                     pi: false,
-                    omp: false,
-                    mcode: row.get(17)?,
-                    agy: row.get(18)?,
-                    kimi: row.get(19)?,
+
+                    agy: row.get(14)?,
                 },
-                installed_at: row.get(14)?,
-                content_hash: row.get(15)?,
-                updated_at: row.get::<_, i64>(16).unwrap_or(0),
+                installed_at: row.get(11)?,
+                content_hash: row.get(12)?,
+                updated_at: row.get::<_, i64>(13).unwrap_or(0),
             })
         });
 
@@ -121,9 +115,9 @@ impl Database {
         conn.execute(
             "INSERT OR REPLACE INTO skills
              (id, name, description, directory, repo_owner, repo_name, repo_branch,
-              readme_url, enabled_claude, enabled_codex, enabled_gemini, enabled_grokbuild, enabled_opencode, enabled_hermes,
-              installed_at, content_hash, updated_at, enabled_mcode, enabled_agy, enabled_kimi)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+              readme_url, enabled_claude, enabled_codex, enabled_opencode,
+              installed_at, content_hash, updated_at, enabled_agy)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             params![
                 skill.id,
                 skill.name,
@@ -135,16 +129,11 @@ impl Database {
                 skill.readme_url,
                 skill.apps.claude,
                 skill.apps.codex,
-                skill.apps.gemini,
-                skill.apps.grokbuild,
                 skill.apps.opencode,
-                skill.apps.hermes,
                 skill.installed_at,
                 skill.content_hash,
                 skill.updated_at,
-                skill.apps.mcode,
                 skill.apps.agy,
-                skill.apps.kimi,
             ],
         )
         .map_err(|e| AppError::Database(e.to_string()))?;
@@ -213,8 +202,8 @@ impl Database {
         let conn = lock_conn!(self.conn);
         let affected = conn
             .execute(
-                "UPDATE skills SET enabled_claude = ?1, enabled_codex = ?2, enabled_gemini = ?3, enabled_grokbuild = ?4, enabled_opencode = ?5, enabled_hermes = ?6, enabled_mcode = ?8, enabled_agy = ?9, enabled_kimi = ?10 WHERE id = ?7",
-                params![apps.claude, apps.codex, apps.gemini, apps.grokbuild, apps.opencode, apps.hermes, id, apps.mcode, apps.agy, apps.kimi],
+                "UPDATE skills SET enabled_claude = ?1, enabled_codex = ?2, enabled_opencode = ?3, enabled_agy = ?4 WHERE id = ?5",
+                params![apps.claude, apps.codex, apps.opencode, apps.agy, id],
             )
             .map_err(|e| AppError::Database(e.to_string()))?;
         Ok(affected > 0)
@@ -383,35 +372,5 @@ mod tests {
             .get_installed_skill(&candidate.id)
             .expect("query skill")
             .is_none());
-    }
-
-    #[test]
-    fn update_skill_metadata_does_not_touch_reinstalled_generation() {
-        let db = Database::memory().expect("memory db");
-        let stale_update = skill(
-            "owner/repo:skill",
-            "stale-update",
-            SkillApps::only(&AppType::Claude),
-        );
-
-        let mut reinstalled = skill(
-            &stale_update.id,
-            "reinstalled",
-            SkillApps::only(&AppType::Gemini),
-        );
-        reinstalled.installed_at = stale_update.installed_at + 1;
-        db.save_skill(&reinstalled).expect("seed reinstalled skill");
-
-        assert!(!db
-            .update_skill_metadata(&stale_update)
-            .expect("stale generation update is not an error"));
-
-        let stored = db
-            .get_installed_skill(&reinstalled.id)
-            .expect("query skill")
-            .expect("reinstalled generation remains");
-        assert_eq!(stored.name, reinstalled.name);
-        assert_eq!(stored.installed_at, reinstalled.installed_at);
-        assert_eq!(stored.apps, reinstalled.apps);
     }
 }
