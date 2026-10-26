@@ -11,21 +11,17 @@ import {
 } from "@/components/providers/forms/presetStep";
 import { APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
 import { Button } from "@/components/ui/button";
-import { UniversalProviderPanel } from "@/components/universal";
-import { UniversalProviderFormModal } from "@/components/universal/UniversalProviderFormModal";
 import { agyProviderPresets } from "@/config/agyProviderPresets";
 import { isPiFamilyApp, usesEditorView } from "@/config/appConfig";
 import { providerPresets } from "@/config/claudeProviderPresets";
 import { codexProviderPresets } from "@/config/codexProviderPresets";
-import type { UniversalProviderPreset } from "@/config/universalProviderPresets";
 import type { AppId } from "@/lib/api";
-import { providersApi, universalProvidersApi } from "@/lib/api";
+import { providersApi } from "@/lib/api";
 import type {
   EditorConflictPolicy,
   ProviderEditorSave,
 } from "@/lib/api/providers";
-import { toast } from "@/lib/toast";
-import type { CustomEndpoint, Provider, UniversalProvider } from "@/types";
+import type { CustomEndpoint, Provider } from "@/types";
 import { extractCodexBaseUrl } from "@/utils/providerConfigUtils";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -50,12 +46,9 @@ export function AddProviderDialog({
   onSubmit,
 }: AddProviderDialogProps) {
   const { t } = useTranslation();
-  // OpenCode and OpenClaw don't support universal providers
-  const showUniversalTab = appId !== "opencode" && appId !== "pi";
   // 两步：先选预设，再填写（每次打开都从第 1 步开始）
   const [step, setStep] = useState<"pick" | "form">("pick");
   const [pickerHost, setPickerHost] = useState<HTMLDivElement | null>(null);
-  const [manageUniversalOpen, setManageUniversalOpen] = useState(false);
   useEffect(() => {
     if (open) setStep("pick");
   }, [open, appId]);
@@ -70,9 +63,6 @@ export function AddProviderDialog({
     () => ({ appId, step, setStep, host: pickerHost, registerSelector }),
     [appId, step, pickerHost, registerSelector],
   );
-  const [universalFormOpen, setUniversalFormOpen] = useState(false);
-  const [selectedUniversalPreset, setSelectedUniversalPreset] =
-    useState<UniversalProviderPreset | null>(null);
   const [isFormSubmitting, setIsFormSubmitting] = useState(false);
   const [accountLogin, setAccountLogin] = useState(false);
 
@@ -166,54 +156,6 @@ export function AddProviderDialog({
     },
     [formReadyToken],
   );
-
-  const handleUniversalProviderSave = useCallback(
-    async (provider: UniversalProvider) => {
-      try {
-        await universalProvidersApi.upsert(provider);
-      } catch (error) {
-        console.error(
-          "[AddProviderDialog] Failed to save universal provider",
-          error,
-        );
-        toast.error(
-          t("universalProvider.addFailed", {
-            defaultValue: "统一供应商添加失败",
-          }),
-        );
-        return;
-      }
-
-      try {
-        await universalProvidersApi.sync(provider.id);
-        toast.success(
-          t("universalProvider.addedAndSynced", {
-            defaultValue: "统一供应商已添加并同步",
-          }),
-        );
-      } catch (error) {
-        console.error(
-          "[AddProviderDialog] Provider saved but sync failed",
-          error,
-        );
-        toast.warning(
-          t("universalProvider.addedButSyncFailed", {
-            defaultValue: "统一供应商已添加，但同步失败",
-          }),
-        );
-      }
-
-      setUniversalFormOpen(false);
-      setSelectedUniversalPreset(null);
-      onOpenChange(false);
-    },
-    [t, onOpenChange],
-  );
-
-  const handleUniversalFormClose = useCallback(() => {
-    setUniversalFormOpen(false);
-    setSelectedUniversalPreset(null);
-  }, []);
 
   const handleSubmit = useCallback(
     async (values: ProviderFormValues) => {
@@ -424,17 +366,6 @@ export function AddProviderDialog({
         appId === "claude" ? (claudeLiveBase ?? undefined) : undefined
       }
       onEditorBaseChange={projectsDraft ? handleDraftEditorBase : undefined}
-      onUniversalPresetSelect={
-        showUniversalTab
-          ? (preset) => {
-              setSelectedUniversalPreset(preset);
-              setUniversalFormOpen(true);
-            }
-          : undefined
-      }
-      onManageUniversalProviders={
-        showUniversalTab ? () => setManageUniversalOpen(true) : undefined
-      }
     />
   );
 
@@ -473,25 +404,6 @@ export function AddProviderDialog({
           )}
         </div>
       </PresetStepContext.Provider>
-
-      {showUniversalTab && (
-        <UniversalProviderFormModal
-          isOpen={universalFormOpen}
-          onClose={handleUniversalFormClose}
-          onSave={handleUniversalProviderSave}
-          initialPreset={selectedUniversalPreset}
-        />
-      )}
-
-      {showUniversalTab && (
-        <FullScreenPanel
-          isOpen={manageUniversalOpen}
-          title={t("universalProvider.manage")}
-          onClose={() => setManageUniversalOpen(false)}
-        >
-          <UniversalProviderPanel />
-        </FullScreenPanel>
-      )}
 
       {conflictDialog}
     </FullScreenPanel>

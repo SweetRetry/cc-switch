@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
-import { HelpTip } from "@/components/ui/help-tip";
 import { Notice, NoticeSlot } from "@/components/ui/notice";
 import {
   DropdownMenu,
@@ -844,9 +843,6 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
       title="Skills"
       titleExtra={
         <>
-          <HelpTip title={t("skillsPage.helpTitle")}>
-            {t("skillsPage.help")}
-          </HelpTip>
           {/* 已安装数量只写在页签上；页头只留可点的「N 个可更新」 */}
           {loadOk && nUpdates > 0 && (
             <span className="ms-2 flex items-center whitespace-nowrap text-body">

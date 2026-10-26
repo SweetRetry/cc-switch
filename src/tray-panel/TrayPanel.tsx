@@ -378,16 +378,39 @@ function SubPanel({
   texts: PanelTexts;
   onAction: (id: string) => void;
 }) {
-  // 额度说明已经写在主面板的应用行下面
-  const rows = app.rows.filter((row) => !row.id.endsWith(":quota"));
+  const openPage = app.rows.find((row) => row.id === `nav:app:${app.app}`);
+  // 额度在主面板显示，打开页面的入口放在标题右侧。
+  const rows = app.rows.filter(
+    (row) => !row.id.endsWith(":quota") && row !== openPage,
+  );
+  while (rows.at(-1)?.kind === "separator") rows.pop();
 
   return (
     <>
-      <div className="shrink-0 px-4 pb-2 pt-3">
-        <div className="truncate text-[14px] font-semibold">{app.name}</div>
-        <div className="truncate text-xs text-muted-foreground">
-          {texts.switchProvider}
+      <div className="flex shrink-0 items-center gap-2 px-4 pb-2 pt-3">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[14px] font-semibold">{app.name}</div>
+          <div className="truncate text-xs text-muted-foreground">
+            {texts.switchProvider}
+          </div>
         </div>
+        {openPage && (
+          <button
+            type="button"
+            data-nav="sub"
+            title={openPage.text}
+            aria-label={openPage.text}
+            disabled={!openPage.enabled}
+            onClick={() => onAction(openPage.id)}
+            className={cn(
+              "flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground",
+              FOCUS_RING,
+              openPage.enabled ? ROW_HOVER : "cursor-default opacity-55",
+            )}
+          >
+            <ExternalLink className="h-4 w-4" />
+          </button>
+        )}
       </div>
       <div className="tp-scroll min-h-0 flex-1 px-1.5 pb-1.5">
         {rows.map((row, index) => (

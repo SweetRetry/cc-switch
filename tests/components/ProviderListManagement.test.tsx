@@ -26,7 +26,7 @@ vi.mock("@/components/providers/ProviderDetail", () => ({
 
 describe("Provider list management", () => {
   it.each([{ ctrlKey: true }, { metaKey: true }])(
-    "selects a provider from the list to edit it and leaves the find shortcut available (%o)",
+    "edits a provider from its own row and leaves the find shortcut available (%o)",
     (shortcut) => {
       const alpha: Provider = {
         id: "alpha",
@@ -60,8 +60,7 @@ describe("Provider list management", () => {
       fireEvent(window, event);
       expect(event.defaultPrevented).toBe(false);
       expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /^Alpha/ })).toBeVisible();
-      fireEvent.click(screen.getByRole("button", { name: /^Beta/ }));
+      expect(screen.getByRole("button", { name: "Edit Alpha" })).toBeVisible();
       fireEvent.click(screen.getByRole("button", { name: "Edit Beta" }));
       expect(onEdit).toHaveBeenCalledWith(beta);
     },
@@ -95,8 +94,8 @@ describe("Provider list management", () => {
     ]);
     fireEvent.click(radios[1]);
     expect(onSwitch).toHaveBeenCalledWith(beta);
-    // 点名字只是查看详情，不切换
-    fireEvent.click(screen.getByRole("button", { name: /^Alpha/ }));
+    // 点行内容（编辑等）不会切换
+    fireEvent.click(screen.getByRole("button", { name: "Edit Alpha" }));
     expect(onSwitch).toHaveBeenCalledTimes(1);
   });
 });

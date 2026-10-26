@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
 import { AppGlyph, APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
-import { HelpTip } from "@/components/ui/help-tip";
 import { PageTabs } from "@/components/ui/page-tabs";
 import { Button } from "@/components/ui/button";
 import { HoverTip } from "@/components/ui/hover-tip";
@@ -957,9 +956,6 @@ export function UsageDashboard({
       <AppPageHeader
         icon={<ChartColumn className="h-5 w-5" strokeWidth={1.5} />}
         title={t("nav.usage")}
-        titleExtra={
-          <HelpTip title={t("nav.usage")}>{t("usage.subtitle")}</HelpTip>
-        }
         actions={headerActions}
       />
       {filterRow}

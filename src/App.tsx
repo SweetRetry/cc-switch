@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "@/lib/toast";
 import { invoke } from "@tauri-apps/api/core";
 import { useQueryClient } from "@tanstack/react-query";
-import { MoreHorizontal, Plus } from "lucide-react";
+import { ChartColumn, Plus } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Provider, VisibleApps } from "@/types";
 import { KNOWN_APP_TYPES, type AppTypeFilter } from "@/types/usage";
@@ -35,7 +35,6 @@ import {
   extractErrorMessage,
   translatePiProviderMutationError,
 } from "@/utils/errorUtils";
-import { isTextEditableTarget } from "@/utils/domUtils";
 import { deepClone } from "@/utils/deepClone";
 import { isLinux, isWindows } from "@/lib/platform";
 import {
@@ -50,7 +49,6 @@ import {
   type View,
 } from "@/lib/navigation";
 import { Sidebar } from "@/components/shell/Sidebar";
-import { useUpdate } from "@/contexts/UpdateContext";
 import { NewLayoutDialog } from "@/components/shell/NewLayoutDialog";
 import {
   AppPageHeader,
@@ -85,14 +83,6 @@ import { DeepLinkImportDialog } from "@/components/DeepLinkImportDialog";
 import { FirstRunNoticeDialog } from "@/components/FirstRunNoticeDialog";
 import { WhatsNewNotice } from "@/components/WhatsNewDialog";
 import { Button } from "@/components/ui/button";
-import { HoverTip } from "@/components/ui/hover-tip";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   useDisableCurrentOmo,
   useDisableCurrentOmoSlim,
@@ -123,16 +113,10 @@ const getInitialApp = (): AppId => {
 function App() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { hasUpdate } = useUpdate();
 
   const [activeApp, setActiveApp] = useState<AppId>(getInitialApp);
   const sharedFeatureApp = sharedFeatureAppOf(activeApp);
   const [currentView, setCurrentView] = useState<View>(readStoredView);
-  const [settingsSection, setSettingsSection] =
-    useState<SettingsSection>("general");
-  const [appConfigScrollTarget, setAppConfigScrollTarget] = useState<AppId>();
-  // 进设置前停留的页面：设置目录里的「← 返回」回到这里
-  const settingsReturnViewRef = useRef<View>("providers");
   const [promptsApp, setPromptsApp] = useState<AppId>(() =>
     PROMPT_APP_IDS.includes(sharedFeatureApp) ? sharedFeatureApp : "claude",
   );
@@ -353,15 +337,6 @@ function App() {
       unsubscribe?.();
     };
   }, [queryClient]);
-
-  useTauriEvent("universal-provider-synced", async () => {
-    await queryClient.invalidateQueries({ queryKey: ["providers"] });
-    try {
-      await providersApi.updateTrayMenu();
-    } catch (error) {
-      console.error("[App] Failed to update tray menu", error);
-    }
-  });
 
   useTauriEvent<SyncStatusUpdatedPayload | null | undefined>(
     "webdav-sync-status-updated",
@@ -679,23 +654,11 @@ function App() {
     return true;
   };
 
-  const openSettings = (
-    section: SettingsSection = "general",
-    appConfigTarget?: AppId,
-  ) => {
+  const openSettings = (section: SettingsSection = "general") => {
     if (managementBusyRef.current) return;
-    if (confirmLeave(() => openSettings(section, appConfigTarget))) return;
+    if (confirmLeave(() => openSettings(section))) return;
     closeProviderPanels();
-    if (currentViewRef.current !== "settings") {
-      settingsReturnViewRef.current = currentViewRef.current;
-    }
-    setSettingsSection(section);
-    setAppConfigScrollTarget(appConfigTarget);
-    setCurrentView("settings");
-  };
-
-  const exitSettings = () => {
-    setCurrentView(settingsReturnViewRef.current);
+    setCurrentView(section === "data" ? "data" : "settings");
   };
 
   const selectApp = (app: AppId) => {
@@ -743,11 +706,6 @@ function App() {
 
   // 侧栏、⌘K 进用量统计看全部应用；只有应用页 ⋯ 进来时带应用筛选
   const openPageFromNav = (page: GlobalPage | "settings") => {
-    // 「设置」上的绿点说的是 CC Switch 有新版本，点进去直接到「关于」里的更新按钮
-    if (page === "settings" && hasUpdate) {
-      openSettings("about");
-      return;
-    }
     if (page === "usage") setUsageAppFilter("all");
     openPage(page);
   };
@@ -763,17 +721,6 @@ function App() {
         event.preventDefault();
         openSettingsRef.current("general");
         return;
-      }
-
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      if (document.body.style.overflow === "hidden") return;
-      if (managementBusyRef.current) return;
-      if (isTextEditableTarget(event.target)) return;
-
-      const view = currentViewRef.current;
-      if (view === "settings") {
-        event.preventDefault();
-        setCurrentView(settingsReturnViewRef.current);
       }
     };
 
@@ -1038,24 +985,6 @@ function App() {
     }
   };
 
-  const handleHideActiveApp = async () => {
-    const visibleCount = Object.values(visibleApps).filter(Boolean).length;
-    if (visibleCount <= 1) return;
-    try {
-      const current = await settingsApi.get();
-      await settingsApi.save({
-        ...current,
-        visibleApps: { ...visibleApps, [activeApp]: false },
-      });
-      await queryClient.invalidateQueries({ queryKey: ["settings"] });
-    } catch (error) {
-      toast.error(
-        t("settings.saveFailedGeneric", { defaultValue: "保存失败，请重试" }),
-        { description: extractErrorMessage(error) || undefined },
-      );
-    }
-  };
-
   // ─── 应用页 ─────────────────────────────────────────────────────────────
 
   // 应用页 ⋯ →「查看此应用的用量」：带上这个应用的筛选（Claude Desktop 的流量并在 Claude 里）
@@ -1067,48 +996,18 @@ function App() {
   };
   const activeUsageApp = usageAppOf(activeApp);
 
-  const appMenu = (
-    <DropdownMenu>
-      <HoverTip content={t("common.more")}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="quiet"
-            size="icon-compact"
-            className="h-8 w-8"
-            aria-label={t("appPage.moreActions", {
-              name: APP_DISPLAY_NAME[activeApp],
-            })}
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-      </HoverTip>
-      <DropdownMenuContent align="end" className="min-w-[180px]">
-        {activeUsageApp && (
-          <DropdownMenuItem
-            onSelect={() => {
-              setUsageAppFilter(activeUsageApp);
-              openPage("usage");
-            }}
-          >
-            {t("appPage.viewUsage")}
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuItem onSelect={() => openSettings("appConfig", activeApp)}>
-          {t("appPage.configDirectory")}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => openPage("apps")}>
-          {t("appPage.installAndUpgrade")}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          disabled={Object.values(visibleApps).filter(Boolean).length <= 1}
-          onSelect={() => void handleHideActiveApp()}
-        >
-          {t("appPage.hideFromSidebar")}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+  const usageButton = activeUsageApp && (
+    <Button
+      variant="quiet"
+      size="sm"
+      onClick={() => {
+        setUsageAppFilter(activeUsageApp);
+        openPage("usage");
+      }}
+    >
+      <ChartColumn className="h-4 w-4" />
+      {t("appPage.viewUsage")}
+    </Button>
   );
 
   const renderAppPageHeader = () => (
@@ -1116,22 +1015,15 @@ function App() {
       variant="app"
       icon={<AppGlyph app={activeApp} size={20} badgeClassName="bg-app" />}
       title={APP_DISPLAY_NAME[activeApp]}
+      // 页头内容与下面居中的列表（max-w-5xl）共用左右轴线：图标对齐单选圆点，按钮右缘对齐行尾的「⋯」
+      className="ps-[max(2.25rem,calc((100%_-_64rem)/2_+_0.75rem))] pe-[max(2rem,calc((100%_-_64rem)/2_+_0.5rem))]"
       actions={
         <>
-          {currentView === "providers" && (
-            <HoverTip content={t("provider.addProvider")}>
-              <Button
-                variant="quiet"
-                size="icon-compact"
-                className="h-8 w-8"
-                aria-label={t("provider.addProvider")}
-                onClick={() => openAddProvider()}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </HoverTip>
-          )}
-          {appMenu}
+          {usageButton}
+          <Button variant="solid" size="sm" onClick={() => openAddProvider()}>
+            <Plus className="h-4 w-4" />
+            {t("common.add")}
+          </Button>
         </>
       }
     />
@@ -1235,13 +1127,11 @@ function App() {
   };
 
   const renderContent = () => {
-    if (currentView === "settings") {
+    if (currentView === "settings" || currentView === "data") {
       return (
         <SettingsPage
-          section={settingsSection}
-          appConfigScrollTarget={appConfigScrollTarget}
+          page={currentView}
           onImportSuccess={handleImportSuccess}
-          onOpenApps={() => setCurrentView("apps")}
         />
       );
     }
@@ -1257,14 +1147,8 @@ function App() {
           activeApp={activeApp}
           view={currentView}
           visibleApps={visibleApps}
-          settingsSection={settingsSection}
           onSelectApp={selectApp}
           onSelectPage={openPageFromNav}
-          onSelectSettingsSection={(section) => {
-            setAppConfigScrollTarget(undefined);
-            setSettingsSection(section);
-          }}
-          onExitSettings={exitSettings}
           appsUpdateAvailable={
             checkToolUpdatesOnStartup && toolUpdatesAvailable
           }

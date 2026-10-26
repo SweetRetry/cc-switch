@@ -4,7 +4,7 @@
 //! 小尺寸 PNG，以 `data:image/png;base64,…` 的形式写进来，随行数据一起同步、复制。
 //! 原始文件（SVG、带 EXIF 的 JPEG 等）不进库。保存时用 [`validate_icon`] 完整解码一遍；
 //! SQL 导入和云同步不经过保存，由 [`strip_invalid_custom_icons`] 在暂存库里清理
-//! （`providers` 表、settings 里的统一供应商 JSON 和「我的图标」库都要清）。
+//! （`providers` 表和「我的图标」库都要清）。
 //! 「我的图标」是用户上传过的图片，存在 settings 的 `custom_icons` 键下，供选择器复用。
 //! 前端渲染时另有一道同样的长度、宽高检查兜底（`src/utils/customIcon.ts`）。
 
@@ -90,9 +90,8 @@ fn is_valid_custom_icon(icon: &str) -> bool {
 /// SQL 导入、云同步在替换主库前调用：把暂存库里不合格的自定义图标清空（退回首字母），
 /// 其余数据原样保留，不让一个坏图标挡住整份备份。返回清掉的个数。
 ///
-/// 图标存在三处：`providers.icon` 列、settings 表 `universal_providers` 键下的 JSON
-/// （统一供应商，同步到应用时会原样复制给子供应商），以及 `custom_icons` 键下的图标库
-/// （选中后原样写进供应商）。三处都要清。
+/// 图标存在两处：`providers.icon` 列，以及 `custom_icons` 键下的图标库
+/// （选中后原样写进供应商）。两处都要清。
 pub fn strip_invalid_custom_icons(conn: &Connection) -> Result<usize, AppError> {
     let db_err = |e: rusqlite::Error| AppError::Database(e.to_string());
 
@@ -120,7 +119,6 @@ pub fn strip_invalid_custom_icons(conn: &Connection) -> Result<usize, AppError> 
         stripped += 1;
     }
 
-    stripped += strip_invalid_universal_icons(conn)?;
     stripped += strip_invalid_library_icons(conn)?;
 
     if stripped > 0 {
@@ -129,53 +127,7 @@ pub fn strip_invalid_custom_icons(conn: &Connection) -> Result<usize, AppError> 
     Ok(stripped)
 }
 
-/// 按 JSON 原样改写，不经过 `UniversalProvider` 结构体：较新版本写进来的未知字段要保留。
-/// JSON 解析不了就不动，交给读取它的地方报错。
-fn strip_invalid_universal_icons(conn: &Connection) -> Result<usize, AppError> {
-    let db_err = |e: rusqlite::Error| AppError::Database(e.to_string());
-    let raw: Option<String> = conn
-        .query_row(
-            "SELECT value FROM settings WHERE key = 'universal_providers'",
-            [],
-            |row| row.get(0),
-        )
-        .optional()
-        .map_err(db_err)?;
-    let Some(raw) = raw else {
-        return Ok(0);
-    };
-    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(&raw) else {
-        return Ok(0);
-    };
-    let Some(providers) = value.as_object_mut() else {
-        return Ok(0);
-    };
-    let mut stripped = 0;
-    for provider in providers.values_mut() {
-        let Some(provider) = provider.as_object_mut() else {
-            continue;
-        };
-        let invalid = provider
-            .get("icon")
-            .and_then(|icon| icon.as_str())
-            .is_some_and(|icon| is_custom_icon(icon) && !is_valid_custom_icon(icon));
-        if invalid {
-            provider.remove("icon");
-            provider.remove("iconColor");
-            stripped += 1;
-        }
-    }
-    if stripped > 0 {
-        conn.execute(
-            "UPDATE settings SET value = ?1 WHERE key = 'universal_providers'",
-            params![value.to_string()],
-        )
-        .map_err(db_err)?;
-    }
-    Ok(stripped)
-}
-
-/// 图标库里 `data` 不是合格自定义图标的条目整条删掉。和统一供应商一样按 JSON 改写，
+/// 图标库里 `data` 不是合格自定义图标的条目整条删掉。按 JSON 改写，
 /// 保留其余条目的未知字段；数组解析不了就不动（读取时按空库处理）。
 fn strip_invalid_library_icons(conn: &Connection) -> Result<usize, AppError> {
     let db_err = |e: rusqlite::Error| AppError::Database(e.to_string());
@@ -444,44 +396,6 @@ mod tests {
         assert_eq!(icon_of("good"), Some(good.clone()));
         assert_eq!(icon_of("long"), None);
         assert_eq!(icon_of("builtin"), Some("claude".to_string()));
-    }
-
-    #[test]
-    fn strips_invalid_icons_from_universal_providers_and_keeps_other_fields() {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch(
-            "CREATE TABLE providers (id TEXT, app_type TEXT, icon TEXT, icon_color TEXT);
-             CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);",
-        )
-        .unwrap();
-        let good = data_uri(&encode_png(96, 96));
-        let header_only = data_uri(&encode_png(96, 96)[..33]);
-        let universal = serde_json::json!({
-            "u1": { "id": "u1", "name": "Bad", "icon": header_only, "iconColor": "#fff", "futureField": 1 },
-            "u2": { "id": "u2", "name": "Good", "icon": good },
-            "u3": { "id": "u3", "name": "Builtin", "icon": "claude" },
-        });
-        conn.execute(
-            "INSERT INTO settings VALUES ('universal_providers', ?1)",
-            params![universal.to_string()],
-        )
-        .unwrap();
-
-        assert_eq!(strip_invalid_custom_icons(&conn).unwrap(), 1);
-
-        let raw: String = conn
-            .query_row(
-                "SELECT value FROM settings WHERE key = 'universal_providers'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        let after: serde_json::Value = serde_json::from_str(&raw).unwrap();
-        assert!(after["u1"].get("icon").is_none());
-        assert!(after["u1"].get("iconColor").is_none());
-        assert_eq!(after["u1"]["futureField"], 1);
-        assert_eq!(after["u2"]["icon"], good);
-        assert_eq!(after["u3"]["icon"], "claude");
     }
 
     #[test]

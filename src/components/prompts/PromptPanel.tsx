@@ -1,13 +1,15 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Copy, RefreshCw } from "lucide-react";
+import { Copy, FolderOpen, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HoverTip } from "@/components/ui/hover-tip";
 import { promptsApi, settingsApi, type AppId } from "@/lib/api";
 import { promptKeys, usePromptFileLocationQuery } from "@/lib/query/prompts";
 import { toast } from "@/lib/toast";
 import { extractErrorMessage } from "@/utils/errorUtils";
 import { PromptPageFrame } from "./PromptPageFrame";
+import PromptMarkdown from "./PromptMarkdown";
 import { copyText, formatSize, promptFileName, utf8Bytes } from "./promptUtils";
 
 export interface PromptPanelProps {
@@ -40,6 +42,8 @@ export default function PromptPanel({
   const content = file.data;
   const failed = file.isError || location.isError;
   const loading = file.isPending || location.isPending;
+  // 文件不存在或为空：内容相关的操作一律不能点
+  const hasContent = content != null && content !== "";
 
   useEffect(() => {
     onInteractionBlockedChange?.(false);
@@ -56,60 +60,57 @@ export default function PromptPanel({
     void location.refetch();
   };
 
+  const openFolder = () => {
+    void settingsApi.openConfigFolder(appId).catch((error: unknown) => {
+      toast.error(t("prompts.openFolderFailed"), {
+        description: extractErrorMessage(error),
+      });
+    });
+  };
+
   return (
     <PromptPageFrame
       app={appId}
       apps={apps}
       onAppChange={onAppChange}
-      help={{ title: t("prompts.viewerTitle"), text: t("prompts.viewerHelp") }}
+      headerActions={
+        <Button
+          variant="quiet"
+          size="regular"
+          disabled={file.isFetching || location.isFetching}
+          onClick={refresh}
+        >
+          <RefreshCw className="h-4 w-4" aria-hidden="true" />
+          {t("common.refresh")}
+        </Button>
+      }
       actions={
         <>
-          <Button
-            variant="neutral"
-            size="regular"
-            disabled={loading || failed || content == null || content === ""}
-            onClick={() => void copy(content ?? "", t("prompts.contentCopied"))}
-          >
-            <Copy className="h-4 w-4" aria-hidden="true" />
-            {t("prompts.copyContent")}
-          </Button>
-          <Button
-            variant="neutral"
-            size="regular"
-            disabled={file.isFetching || location.isFetching}
-            onClick={refresh}
-          >
-            <RefreshCw className="h-4 w-4" aria-hidden="true" />
-            {t("common.refresh")}
-          </Button>
+          <HoverTip content={t("prompts.copyContent")}>
+            <Button
+              variant="quiet"
+              size="icon-compact"
+              aria-label={t("prompts.copyContent")}
+              disabled={!hasContent}
+              onClick={() =>
+                void copy(content ?? "", t("prompts.contentCopied"))
+              }
+            >
+              <Copy className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </HoverTip>
+          <HoverTip content={t("prompts.openFolder")}>
+            <Button
+              variant="quiet"
+              size="icon-compact"
+              aria-label={t("prompts.openFolder")}
+              onClick={openFolder}
+            >
+              <FolderOpen className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </HoverTip>
         </>
       }
-      moreItems={[
-        {
-          key: "open-folder",
-          label: t("prompts.openFolder"),
-          onSelect: () => {
-            void settingsApi.openConfigFolder(appId).catch((error: unknown) => {
-              toast.error(t("prompts.openFolderFailed"), {
-                description: extractErrorMessage(error),
-              });
-            });
-          },
-        },
-        {
-          key: "copy-path",
-          label: t("prompts.copyFilePath"),
-          reason: location.data ? undefined : t("prompts.pathUnavailable"),
-          onSelect: () => {
-            if (location.data) {
-              void copy(
-                location.data.path,
-                t("prompts.copiedPath", { path: location.data.path }),
-              );
-            }
-          },
-        },
-      ]}
       target={{
         label: t("prompts.targetFile"),
         path,
@@ -119,45 +120,45 @@ export default function PromptPanel({
             : undefined,
       }}
     >
-      {failed ? (
-        <div
-          role="alert"
-          className="flex flex-1 flex-col items-center justify-center gap-3 text-body text-fg-2"
-        >
-          <p>{t("prompts.loadFailed")}</p>
-          <p className="max-w-xl break-words text-caption">
-            {extractErrorMessage(file.error ?? location.error)}
-          </p>
-          <Button variant="neutral" size="regular" onClick={refresh}>
-            {t("common.refresh")}
-          </Button>
-        </div>
-      ) : loading ? (
-        <div
-          role="status"
-          className="flex flex-1 items-center justify-center text-body text-fg-2"
-        >
-          {t("prompts.loading")}
-        </div>
-      ) : content == null || content === "" ? (
-        <div
-          role="status"
-          className="flex flex-1 flex-col items-center justify-center gap-2 text-body text-fg-2"
-        >
-          <p>
-            {t(content === null ? "prompts.fileMissing" : "prompts.fileEmpty")}
-          </p>
-          <code className="break-all font-mono text-caption">{path}</code>
-        </div>
-      ) : (
-        <textarea
-          readOnly
-          aria-label={t("prompts.fileContent")}
-          value={content}
-          spellCheck={false}
-          className="min-h-0 w-full flex-1 resize-none rounded-panel border border-border bg-surface px-4 py-3 font-mono text-caption leading-6 text-fg-1 focus:outline-none focus:ring-2 focus:ring-border"
-        />
-      )}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {failed ? (
+          <div
+            role="alert"
+            className="flex flex-1 flex-col items-center justify-center gap-3 text-body text-fg-2"
+          >
+            <p>{t("prompts.loadFailed")}</p>
+            <p className="max-w-xl break-words text-caption">
+              {extractErrorMessage(file.error ?? location.error)}
+            </p>
+            <Button variant="neutral" size="regular" onClick={refresh}>
+              {t("common.refresh")}
+            </Button>
+          </div>
+        ) : loading ? (
+          <div
+            role="status"
+            className="flex flex-1 items-center justify-center text-body text-fg-2"
+          >
+            {t("prompts.loading")}
+          </div>
+        ) : !hasContent ? (
+          <div
+            role="status"
+            className="flex flex-1 flex-col items-center justify-center gap-2 text-body text-fg-2"
+          >
+            <p>
+              {t(
+                content === null ? "prompts.fileMissing" : "prompts.fileEmpty",
+              )}
+            </p>
+            <code className="break-all font-mono text-caption">{path}</code>
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto pb-5 pt-2">
+            <PromptMarkdown content={content} />
+          </div>
+        )}
+      </div>
     </PromptPageFrame>
   );
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PromptPanel from "@/components/prompts/PromptPanel";
@@ -60,16 +60,16 @@ describe("prompt file viewer", () => {
     const library = vi.spyOn(promptsApi, "getPrompts");
     const user = userEvent.setup();
     renderViewer();
-    expect(await screen.findByRole("textbox")).toHaveValue(
-      "# Claude\nUse concise answers.\n",
-    );
-    expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+    expect(
+      await screen.findByRole("heading", { name: "Claude", level: 1 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Use concise answers.")).toBeInTheDocument();
     expect(screen.getByText("~/.claude/CLAUDE.md")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /prompts.appLabel/ }));
-    await user.click(screen.getByRole("button", { name: "Codex" }));
-    await waitFor(() =>
-      expect(screen.getByRole("textbox")).toHaveValue("# Codex\nRun tests.\n"),
-    );
+    await user.click(screen.getByRole("tab", { name: "Codex" }));
+    expect(
+      await screen.findByRole("heading", { name: "Codex", level: 1 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Run tests.")).toBeInTheDocument();
     expect(screen.getByText("~/.codex/AGENTS.md")).toBeInTheDocument();
     expect(library).not.toHaveBeenCalled();
     expect(
@@ -87,14 +87,16 @@ describe("prompt file viewer", () => {
       .spyOn(navigator.clipboard, "writeText")
       .mockResolvedValue();
     renderViewer();
-    expect(await screen.findByRole("textbox")).toHaveValue("original\n");
+    expect(await screen.findByText("original")).toBeInTheDocument();
     read.mockResolvedValue("# Edited externally\n\nKeep spacing.\n");
     await user.click(screen.getByRole("button", { name: "common.refresh" }));
-    await waitFor(() =>
-      expect(screen.getByRole("textbox")).toHaveValue(
-        "# Edited externally\n\nKeep spacing.\n",
-      ),
-    );
+    expect(
+      await screen.findByRole("heading", {
+        name: "Edited externally",
+        level: 1,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Keep spacing.")).toBeInTheDocument();
     await user.click(
       screen.getByRole("button", { name: "prompts.copyContent" }),
     );
@@ -144,6 +146,6 @@ describe("prompt file viewer", () => {
     await user.click(
       screen.getAllByRole("button", { name: "common.refresh" })[0],
     );
-    expect(await screen.findByRole("textbox")).toHaveValue("Recovered prompt");
+    expect(await screen.findByText("Recovered prompt")).toBeInTheDocument();
   });
 });

@@ -134,8 +134,6 @@ describe("Turkish locale", () => {
       "grokBuild.rawConfig",
       "codexConfig.configToml",
       "providerPreset.plan.aksk",
-      "mcp.envPlaceholder",
-      "mcp.wizard.envPlaceholder",
       "skills.searchSource.skillssh",
     ];
 

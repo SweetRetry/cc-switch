@@ -1169,21 +1169,6 @@ mod tests {
                         ('p2', 'claude', 'Provider Two', '{}', '{}', 'claude')",
                 [&too_long],
             )?;
-            let universal = serde_json::json!({
-                "u1": {
-                    "id": "u1",
-                    "name": "Universal",
-                    "providerType": "custom",
-                    "apps": {},
-                    "baseUrl": "https://api.example.com",
-                    "apiKey": "sk-test",
-                    "icon": too_long,
-                },
-            });
-            conn.execute(
-                "INSERT OR REPLACE INTO settings (key, value) VALUES ('universal_providers', ?1)",
-                [universal.to_string()],
-            )?;
         }
         let exported = source.export_sql_string()?;
 
@@ -1200,12 +1185,6 @@ mod tests {
         };
         assert_eq!(icon_of("p1")?, None);
         assert_eq!(icon_of("p2")?, Some("claude".to_string()));
-        drop(conn);
-        let universal = target
-            .get_universal_provider("u1")?
-            .expect("universal provider survives the import");
-        assert_eq!(universal.name, "Universal");
-        assert_eq!(universal.icon, None);
         Ok(())
     }
 

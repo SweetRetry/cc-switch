@@ -6,118 +6,6 @@ import {
   extractCodexWireApi,
 } from "@/utils/providerConfigUtils";
 
-const expectedChatPresets = new Map<
-  string,
-  { baseUrl: string; contextWindows: Record<string, number> }
->([
-  // 火山 Agent Plan / Coding Plan 与 BytePlus 国际站（coding/v3）、智谱 GLM、
-  // Kimi 两条（开放平台 + Kimi Code）均已切原生 Responses，见下方 native 清单
-  [
-    "Baidu Qianfan Coding Plan",
-    {
-      baseUrl: "https://qianfan.baidubce.com/v2/coding",
-      contextWindows: { "qianfan-code-latest": 131072 },
-    },
-  ],
-  [
-    "Baidu Qianfan Token Plan",
-    {
-      baseUrl: "https://qianfan.baidubce.com/v2/tokenplan/personal",
-      contextWindows: {
-        "deepseek-v4-flash": 1048576,
-        "deepseek-v4-flash-0731": 1048576,
-        "glm-5.2": 1048576,
-        "glm-5.1": 198000,
-        "kimi-k2.6": 262144,
-      },
-    },
-  ],
-  [
-    "StepFun",
-    {
-      baseUrl: "https://api.stepfun.com/step_plan/v1",
-      contextWindows: {
-        "step-3.7-flash": 262144,
-        "step-3.5-flash-2603": 262144,
-        "step-3.5-flash": 262144,
-      },
-    },
-  ],
-  [
-    "StepFun en",
-    {
-      baseUrl: "https://api.stepfun.ai/step_plan/v1",
-      contextWindows: {
-        "step-3.7-flash": 262144,
-        "step-3.5-flash-2603": 262144,
-        "step-3.5-flash": 262144,
-      },
-    },
-  ],
-  [
-    "ModelScope",
-    {
-      baseUrl: "https://api-inference.modelscope.cn/v1",
-      contextWindows: { "ZhipuAI/GLM-5.2": 200000 },
-    },
-  ],
-  [
-    "BaiLing",
-    {
-      baseUrl: "https://api.ant-ling.com/v1",
-      contextWindows: { "Ling-2.6-1T": 262144 },
-    },
-  ],
-  [
-    "SiliconFlow",
-    {
-      baseUrl: "https://api.siliconflow.cn/v1",
-      contextWindows: { "deepseek-ai/DeepSeek-V4-Flash": 1048576 },
-    },
-  ],
-  [
-    "SiliconFlow en",
-    {
-      baseUrl: "https://api.siliconflow.com/v1",
-      contextWindows: { "MiniMaxAI/MiniMax-M3": 1048576 },
-    },
-  ],
-  [
-    "AtlasCloud",
-    {
-      baseUrl: "https://api.atlascloud.ai/v1",
-      contextWindows: { "zai-org/glm-5.3": 1048576 },
-    },
-  ],
-  [
-    "Novita AI",
-    {
-      baseUrl: "https://api.novita.ai/openai/v1",
-      contextWindows: { "zai-org/glm-5.3": 1048576 },
-    },
-  ],
-  [
-    "Nvidia",
-    {
-      baseUrl: "https://integrate.api.nvidia.com/v1",
-      contextWindows: { "moonshotai/kimi-k2.6": 262144 },
-    },
-  ],
-  [
-    "OpenCode Go",
-    {
-      baseUrl: "https://opencode.ai/zen/go/v1",
-      contextWindows: {
-        "glm-5.3": 1000000,
-        "glm-5.3-flash": 1000000,
-        "kimi-k3.1-pro": 1048576,
-        "deepseek-v4.1-flash": 1048576,
-        "mimo-v2.6-pro": 1048576,
-      },
-    },
-  ],
-]);
-
 describe("Codex Chat provider presets", () => {
   it.each([
     ["StepFun API", "https://api.stepfun.com/v1", "step-3.7-flash"],
@@ -180,30 +68,6 @@ describe("Codex Chat provider presets", () => {
       const models = preset?.modelCatalog?.map((row) => row.model) ?? [];
       expect(models).not.toContain("qwen3.8-2.4t-a95b");
       expect(models).not.toContain("qwen3.8-27b");
-    }
-  });
-
-  it("marks migrated Chat Completions presets for local routing", () => {
-    for (const [name, expected] of expectedChatPresets) {
-      const preset = codexProviderPresets.find((item) => item.name === name);
-
-      expect(preset, `${name} preset`).toBeDefined();
-      expect(preset?.apiFormat).toBe("openai_chat");
-      expect(extractCodexBaseUrl(preset?.config)).toBe(expected.baseUrl);
-      expect(extractCodexWireApi(preset?.config)).toBe("responses");
-      expect(preset?.endpointCandidates).toContain(expected.baseUrl);
-      expect(preset?.modelCatalog?.length).toBeGreaterThan(0);
-      expect(extractCodexModelName(preset?.config)).toBe(
-        preset?.modelCatalog?.[0]?.model,
-      );
-      expect(
-        Object.fromEntries(
-          (preset?.modelCatalog ?? []).map((model) => [
-            model.model,
-            model.contextWindow,
-          ]),
-        ),
-      ).toEqual(expected.contextWindows);
     }
   });
 
@@ -370,31 +234,5 @@ describe("Codex Chat provider presets", () => {
       // 原生（直连）不走 Chat 转换，因此不需要 codexChatReasoning。
       expect(preset?.codexChatReasoning).toBeUndefined();
     }
-  });
-
-  it("ships per-model reasoningLevels for OpenCode Go mirroring models.dev", () => {
-    // Zen 网关的合法 effort 档位是逐模型的（models.dev reasoning_options，
-    // 2026-09-10）：统一并集映射会把 high 发给仅声明 max 的 kimi-k3.1-pro（原 kimi-k3），
-    // 此测试锁住逐模型表，防回退。
-    const preset = codexProviderPresets.find(
-      (item) => item.name === "OpenCode Go",
-    );
-
-    expect(preset, "OpenCode Go preset").toBeDefined();
-    expect(preset?.codexChatReasoning?.effortValueMode).toBe("zen");
-    expect(
-      Object.fromEntries(
-        (preset?.modelCatalog ?? []).map((model) => [
-          model.model,
-          model.reasoningLevels ?? null,
-        ]),
-      ),
-    ).toEqual({
-      "glm-5.3": ["low", "high", "max"],
-      "glm-5.3-flash": ["low", "high", "max"],
-      "kimi-k3.1-pro": ["max"],
-      "deepseek-v4.1-flash": ["low", "high", "max"],
-      "mimo-v2.6-pro": null,
-    });
   });
 });

@@ -1619,12 +1619,6 @@ pub fn run() {
             commands::list_tool_installations,
             // Provider terminal
             commands::open_provider_terminal,
-            // Universal Provider management
-            commands::get_universal_providers,
-            commands::get_universal_provider,
-            commands::upsert_universal_provider,
-            commands::delete_universal_provider,
-            commands::sync_universal_provider,
             // Custom icon library
             commands::get_custom_icons,
             commands::add_custom_icon,

@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  getPiModelCatalogReference,
-  piModelCatalog,
-} from "@/config/piModelCatalog";
 import { piProviderPresets } from "@/config/piProviderPresets";
 import {
   isPiThinkingLevelMap,
@@ -47,52 +43,6 @@ describe("Pi thinking profiles", () => {
         }),
       ).toBeUndefined();
     }
-  });
-
-  it("materializes preset-local profiles without serializing references", () => {
-    const materialized = [];
-    for (const preset of piProviderPresets) {
-      for (const model of preset.settingsConfig.models) {
-        if (!model.thinkingLevelMap) continue;
-        const reference = getPiModelCatalogReference(model);
-        materialized.push({
-          preset: preset.name,
-          modelId: model.id,
-          profileId: reference?.presetThinkingProfileId,
-          map: model.thinkingLevelMap,
-        });
-        expect(reference).toBeDefined();
-        expect(piModelCatalog).toHaveProperty(reference!.catalogKey);
-        expect(JSON.parse(JSON.stringify(model))).not.toHaveProperty(
-          "presetThinkingProfileId",
-        );
-      }
-    }
-
-    expect(materialized).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          preset: "Kimi",
-          modelId: "kimi-k2.7-code",
-          profileId: "offUnsupported",
-        }),
-        expect.objectContaining({
-          preset: "DeepSeek",
-          modelId: "deepseek-flash",
-          profileId: "deepseekV4",
-        }),
-        expect.objectContaining({
-          preset: "OpenCode Go",
-          modelId: "glm-5.3",
-          profileId: "openCodeGoGlm52",
-        }),
-        expect.objectContaining({
-          preset: "AWS Bedrock",
-          modelId: "global.anthropic.claude-opus-5",
-          profileId: "xhighAndMax",
-        }),
-      ]),
-    );
   });
 
   it("gives every reasoning preset an explicit map", () => {

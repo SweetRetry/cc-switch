@@ -14,10 +14,6 @@ import type { OpenCodeProviderPreset } from "@/config/opencodeProviderPresets";
 import type { PiProviderPreset } from "@/config/piProviderPresets";
 import type { ProviderCategory } from "@/types";
 import type { AppId } from "@/lib/api";
-import {
-  universalProviderPresets,
-  type UniversalProviderPreset,
-} from "@/config/universalProviderPresets";
 import { cn } from "@/lib/utils";
 import { usePresetStep } from "./presetStep";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -111,7 +107,7 @@ export function getVisiblePresetRows(
   return sortPresetRowsByName(found, t);
 }
 
-type PickerCategory = "all" | PresetGroup | "universal";
+type PickerCategory = "all" | PresetGroup;
 
 interface ProviderPresetSelectorProps {
   selectedPresetId: string | null;
@@ -119,8 +115,6 @@ interface ProviderPresetSelectorProps {
   /** 旧的分类名表，保留给调用方；v7 的分类由预设字段推算 */
   presetCategoryLabels?: Record<string, string>;
   onPresetChange: (value: string) => void;
-  onUniversalPresetSelect?: (preset: UniversalProviderPreset) => void;
-  onManageUniversalProviders?: () => void;
   category?: ProviderCategory;
   barAction?: React.ReactNode;
 }
@@ -133,8 +127,6 @@ export function ProviderPresetSelector({
   selectedPresetId,
   presetEntries,
   onPresetChange,
-  onUniversalPresetSelect,
-  onManageUniversalProviders,
   barAction,
 }: Readonly<ProviderPresetSelectorProps>) {
   const step = usePresetStep();
@@ -148,13 +140,7 @@ export function ProviderPresetSelector({
 
   if (step?.step === "pick" && step.host) {
     return createPortal(
-      <PresetPicker
-        appId={step.appId}
-        entries={presetEntries}
-        onPick={pick}
-        onUniversalPresetSelect={onUniversalPresetSelect}
-        onManageUniversalProviders={onManageUniversalProviders}
-      />,
+      <PresetPicker appId={step.appId} entries={presetEntries} onPick={pick} />,
       step.host,
     );
   }
@@ -174,8 +160,6 @@ export function ProviderPresetSelector({
             entries={presetEntries}
             onPick={onPresetChange}
             selectedPresetId={selectedPresetId}
-            onUniversalPresetSelect={onUniversalPresetSelect}
-            onManageUniversalProviders={onManageUniversalProviders}
           />
         </div>
         {entry && versions.length > 1 && (
@@ -510,8 +494,6 @@ interface PresetPickerProps {
   entries: PresetEntry[];
   selectedPresetId?: string | null;
   onPick: (id: string) => void;
-  onUniversalPresetSelect?: (preset: UniversalProviderPreset) => void;
-  onManageUniversalProviders?: () => void;
 }
 
 function PresetPicker({
@@ -519,8 +501,6 @@ function PresetPicker({
   entries,
   selectedPresetId,
   onPick,
-  onUniversalPresetSelect,
-  onManageUniversalProviders,
 }: PresetPickerProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
@@ -559,18 +539,7 @@ function PresetPicker({
     () => getVisiblePresetRows(entries, { query, t }),
     [entries, query, t],
   );
-  const matchingUniversal = useMemo(
-    () =>
-      onUniversalPresetSelect
-        ? universalProviderPresets.filter((preset) =>
-            preset.name.toLowerCase().includes(query.trim().toLowerCase()),
-          )
-        : [],
-    [onUniversalPresetSelect, query],
-  );
-
   const countFor = (key: PickerCategory) => {
-    if (key === "universal") return matchingUniversal.length;
     // 「自定义配置」固定在第一行，不计入数量
     if (key === "all") return matching.length;
     return matching.filter((item) => presetRowGroup(item.row) === key).length;
@@ -579,9 +548,7 @@ function PresetPicker({
   const shown =
     category === "all"
       ? matching
-      : category === "universal"
-        ? []
-        : matching.filter((item) => presetRowGroup(item.row) === category);
+      : matching.filter((item) => presetRowGroup(item.row) === category);
 
   const navItems: PickerCategory[] = [
     "all",
@@ -614,10 +581,7 @@ function PresetPicker({
     );
   };
 
-  const nothing =
-    searching &&
-    matching.length === 0 &&
-    (category !== "universal" || matchingUniversal.length === 0);
+  const nothing = searching && matching.length === 0;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -673,21 +637,6 @@ function PresetPicker({
               onClick={() => setCategory(key)}
             />
           ))}
-          {onUniversalPresetSelect && (
-            <>
-              <div className="my-2 border-t border-border" />
-              <div className="px-2 pb-1 text-badge text-fg-3">
-                {t("providerPreset.crossApp")}
-              </div>
-              <CategoryButton
-                label={t("providerPreset.group.universal")}
-                count={countFor("universal")}
-                active={category === "universal"}
-                dim={searching && countFor("universal") === 0}
-                onClick={() => setCategory("universal")}
-              />
-            </>
-          )}
         </div>
 
         <div className="min-w-0 flex-1 overflow-y-auto">
@@ -714,34 +663,6 @@ function PresetPicker({
               >
                 {t("providerPreset.useCustom")}
               </Button>
-            </div>
-          ) : category === "universal" ? (
-            <div className="grid grid-cols-2 gap-2">
-              {matchingUniversal.map((preset) => (
-                <PresetRow
-                  key={`universal-${preset.providerType}`}
-                  icon={
-                    <ProviderIconBox
-                      icon={preset.icon}
-                      name={preset.name}
-                      className="bg-surface"
-                      iconClassName="shrink-0 text-fg-1"
-                    />
-                  }
-                  name={preset.name}
-                  detail={t("providerPreset.universalDetail")}
-                  onClick={() => onUniversalPresetSelect?.(preset)}
-                />
-              ))}
-              {onManageUniversalProviders && (
-                <button
-                  type="button"
-                  onClick={onManageUniversalProviders}
-                  className="col-span-2 justify-self-start text-caption text-fg-1 underline underline-offset-2 hover:text-fg-2"
-                >
-                  {t("providerPreset.manageUniversal")}
-                </button>
-              )}
             </div>
           ) : category === "all" ? (
             // 「全部」按左侧分类分段，段内按名称；自定义配置固定在最上面

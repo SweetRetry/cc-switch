@@ -1,30 +1,22 @@
 import type { ComponentType } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
-import { getVersion } from "@tauri-apps/api/app";
 import {
-  ArrowLeft,
   BookOpen,
   ChartColumn,
   Database,
-  Folder,
-  Info,
   LayoutGrid,
   Server,
   Settings,
-  SlidersHorizontal,
 } from "lucide-react";
 import type { AppId } from "@/lib/api";
 import type { VisibleApps } from "@/types";
 import { orderAppIds } from "@/config/appConfig";
-import type { GlobalPage, SettingsSection, View } from "@/lib/navigation";
+import type { GlobalPage, View } from "@/lib/navigation";
 import { isAppPage } from "@/lib/navigation";
 import { SkillsIcon } from "@/components/BrandIcons";
 import { useUpdate } from "@/contexts/UpdateContext";
 import { useMoneyFormat } from "@/hooks/useMoneyFormat";
-import { useProvidersQuery, useSettingsQuery } from "@/lib/query";
-import { usePiCurrentState } from "@/lib/query/pi";
-import { providersApi } from "@/lib/api/providers";
+import { useSettingsQuery } from "@/lib/query";
 import {
   fmtInt,
   formatHitRatePercent,
@@ -47,28 +39,22 @@ interface SidebarProps {
   activeApp: AppId;
   view: View;
   visibleApps: VisibleApps;
-  settingsSection: SettingsSection;
   onSelectApp: (app: AppId) => void;
   onSelectPage: (page: GlobalPage | "settings") => void;
-  onSelectSettingsSection: (section: SettingsSection) => void;
-  onExitSettings: () => void;
   /** 打开了「启动时检查应用更新」并且查到了新版本 */
   appsUpdateAvailable?: boolean;
 }
 
 /**
- * 主导航（v7）：顶条 44 → 应用列表（唯一滚动的区域）→ 全局 6 项（贴底）→ 底栏「应用 · 设置」。
- * 侧栏始终以 200px 宽度显示，进入设置后整条侧栏换成设置目录。
+ * 主导航：应用列表滚动，全局页贴底；所有页面共享同一条 224px 侧栏。
  */
 export function Sidebar(props: SidebarProps) {
   const { t } = useTranslation();
-  const { view } = props;
-  const inSettings = view === "settings";
 
   return (
     <nav
       aria-label={t("nav.mainLabel")}
-      className="relative flex h-full w-[200px] shrink-0 flex-col overflow-hidden whitespace-nowrap border-e border-border bg-sidebar text-body text-fg-1"
+      className="relative flex h-full w-56 shrink-0 flex-col overflow-hidden whitespace-nowrap border-e border-border bg-sidebar text-body text-fg-1"
     >
       <a
         href="#main-content"
@@ -77,11 +63,7 @@ export function Sidebar(props: SidebarProps) {
         {t("nav.skipToContent")}
       </a>
       <SidebarTopBar />
-      {inSettings ? (
-        <SettingsDirectory {...props} />
-      ) : (
-        <MainDirectory {...props} />
-      )}
+      <MainDirectory {...props} />
     </nav>
   );
 }
@@ -98,7 +80,7 @@ function SidebarTopBar() {
         />
         {/* 品牌区与导航通过侧栏底色和留白分开 */}
         <div
-          className="-mt-[18px] mb-2 flex h-9 shrink-0 items-center gap-2 pe-2 ps-4"
+          className="-mt-[18px] mb-2 flex h-9 shrink-0 items-center gap-2 pe-2 ps-5"
           {...DRAG_REGION_ATTR}
           style={DRAG_REGION_STYLE as React.CSSProperties}
         >
@@ -106,7 +88,7 @@ function SidebarTopBar() {
             src={ccswitchLogo}
             alt=""
             draggable={false}
-            className="pointer-events-none h-5 w-5 shrink-0"
+            className="pointer-events-none h-6 w-6 shrink-0"
           />
           <span className="pointer-events-none me-auto min-w-0 truncate text-strong font-semibold text-fg-1">
             CC Switch
@@ -149,7 +131,7 @@ function MainDirectory({
   appsUpdateAvailable = false,
 }: SidebarProps) {
   const { t, i18n } = useTranslation();
-  const { moneyShort } = useMoneyFormat();
+  const { money } = useMoneyFormat();
   const { data: settings } = useSettingsQuery();
   const { hasUpdate } = useUpdate();
   const { todayCost, todayTokens, todayRequests, todayHitRate } =
@@ -167,7 +149,7 @@ function MainDirectory({
   const todayValue = (item: SidebarTodayItem): string | null => {
     switch (item) {
       case "cost":
-        return todayCost > 0 ? moneyShort(todayCost) : null;
+        return todayCost > 0 ? money(todayCost, 2) : null;
       case "tokens":
         return todayTokens > 0
           ? formatTokensCompact(todayTokens, locale)
@@ -185,11 +167,7 @@ function MainDirectory({
   const todayValues = resolveSidebarToday(settings?.usageDisplay)
     .map(todayValue)
     .filter((part): part is string => part != null);
-  const todayText =
-    todayValues.length > 0
-      ? t("nav.today", { value: todayValues.join(" · ") })
-      : undefined;
-  const todayTrailing = todayValues.length > 1 ? todayValues : todayText;
+  const todayTrailing = todayValues.length > 0 ? todayValues : undefined;
 
   const globals: {
     page: GlobalPage;
@@ -198,29 +176,67 @@ function MainDirectory({
     trailing?: string | string[];
     trailingLabel?: string;
     alert?: string;
+    /** 在「共享配置」组里；其余贴底 */
+    shared?: boolean;
   }[] = [
-    { page: "mcp", label: "MCP", icon: Server },
-    { page: "skills", label: "Skills", icon: SkillsIcon },
-    { page: "prompts", label: t("nav.prompts"), icon: BookOpen },
+    { page: "mcp", label: "MCP", icon: Server, shared: true },
+    { page: "skills", label: "Skills", icon: SkillsIcon, shared: true },
+    { page: "prompts", label: t("nav.prompts"), icon: BookOpen, shared: true },
     {
       page: "usage",
       label: t("nav.usage"),
       icon: ChartColumn,
       trailing: todayTrailing,
-      trailingLabel: todayText,
     },
   ];
 
   const isGlobalSelected = (page: GlobalPage) => view === page;
+
+  const renderGlobal = (item: (typeof globals)[number]) => (
+    <NavItem
+      key={item.page}
+      selected={isGlobalSelected(item.page)}
+      icon={item.icon}
+      label={item.label}
+      trailing={item.trailing}
+      trailingLabel={item.trailingLabel}
+      alert={item.alert}
+      onClick={() => onSelectPage(item.page)}
+    />
+  );
+  const appsTitle = appsUpdateAvailable
+    ? t("nav.appsHasUpdate")
+    : t("nav.appsTitle");
 
   return (
     <>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden pb-2 pt-0.5">
         <div
           role="group"
-          aria-label={t("nav.appsGroup")}
-          className="flex shrink-0 flex-col"
+          aria-label={t("nav.providersGroup")}
+          className="flex shrink-0 flex-col gap-1"
         >
+          <div className="mx-3 flex h-8 items-center justify-between ps-2">
+            <GroupLabel>{t("nav.providersGroup")}</GroupLabel>
+            {/* 应用页管的是这一组：安装、升级、哪些应用显示在这里 */}
+            <HoverTip content={appsTitle} side="right" disableHoverableContent>
+              <button
+                type="button"
+                onClick={() => onSelectPage("apps")}
+                aria-label={t("nav.apps")}
+                aria-current={view === "apps" ? "page" : undefined}
+                className={cn(
+                  "relative flex h-6 w-6 items-center justify-center rounded-control text-fg-3 transition-colors hover:bg-subtle hover:text-fg-1",
+                  view === "apps" && "bg-selected text-fg-1",
+                )}
+              >
+                <LayoutGrid className="h-4 w-4" />
+                {appsUpdateAvailable && (
+                  <span className="absolute end-0.5 top-0.5 h-2 w-2 rounded-full bg-fg-1" />
+                )}
+              </button>
+            </HoverTip>
+          </div>
           {apps.map((app) => (
             <AppNavItem
               key={app}
@@ -230,35 +246,28 @@ function MainDirectory({
             />
           ))}
         </div>
+        <div
+          role="group"
+          aria-label={t("nav.sharedGroup")}
+          className="mt-6 flex shrink-0 flex-col gap-1"
+        >
+          <div className="mx-3 flex h-8 items-center ps-2">
+            <GroupLabel>{t("nav.sharedGroup")}</GroupLabel>
+          </div>
+          {globals.filter((item) => item.shared).map(renderGlobal)}
+        </div>
       </div>
 
-      <div className="mx-4 mb-1.5 mt-0.5 h-px shrink-0 bg-border" />
-
-      <div className="flex shrink-0 flex-col pb-2">
-        {globals.map((item) => (
-          <NavItem
-            key={item.page}
-            selected={isGlobalSelected(item.page)}
-            icon={item.icon}
-            label={item.label}
-            trailing={item.trailing}
-            trailingLabel={item.trailingLabel}
-            alert={item.alert}
-            onClick={() => onSelectPage(item.page)}
-          />
-        ))}
+      <div className="flex shrink-0 flex-col gap-1 border-t border-border pb-3 pt-3">
+        {globals.filter((item) => !item.shared).map(renderGlobal)}
         <NavItem
-          selected={view === "apps"}
-          icon={LayoutGrid}
-          label={t("nav.apps")}
-          title={
-            appsUpdateAvailable ? t("nav.appsHasUpdate") : t("nav.appsTitle")
-          }
-          dot={appsUpdateAvailable}
-          onClick={() => onSelectPage("apps")}
+          selected={view === "data"}
+          icon={Database}
+          label={t("settings.sections.data")}
+          onClick={() => onSelectPage("data")}
         />
         <NavItem
-          selected={false}
+          selected={view === "settings"}
           icon={Settings}
           label={t("nav.settings")}
           title={hasUpdate ? t("nav.settingsHasUpdate") : t("nav.settings")}
@@ -271,6 +280,10 @@ function MainDirectory({
   );
 }
 
+function GroupLabel({ children }: { children: React.ReactNode }) {
+  return <span className="text-caption text-fg-3">{children}</span>;
+}
+
 function AppNavItem({
   app,
   selected,
@@ -280,9 +293,7 @@ function AppNavItem({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const name = APP_DISPLAY_NAME[app];
   const badgeBg = selected ? "bg-selected" : "bg-sidebar";
-  const subtitle = useAppNavSubtitle(app);
 
   return (
     <button
@@ -290,55 +301,14 @@ function AppNavItem({
       onClick={onSelect}
       aria-current={selected ? "page" : undefined}
       className={cn(
-        "mx-2 flex w-[184px] shrink-0 items-start gap-2 rounded-control px-2 py-1 text-start transition-colors hover:bg-subtle",
-        selected && "bg-selected hover:bg-selected",
+        "mx-3 flex h-10 shrink-0 items-center gap-3 rounded-control px-2 text-start transition-colors hover:bg-subtle",
+        selected && "bg-selected font-medium hover:bg-selected",
       )}
     >
-      <span className="mt-0.5 flex shrink-0">
-        <AppGlyph app={app} size={16} badgeClassName={badgeBg} />
-      </span>
-      <span className="grid min-w-0 flex-1">
-        <span className={cn("truncate", selected && "font-medium")}>
-          {name}
-        </span>
-        <span className="min-h-[1lh] truncate text-caption text-fg-3">
-          {subtitle}
-        </span>
-      </span>
+      <AppGlyph app={app} size={20} badgeClassName={badgeBg} />
+      <span className="min-w-0 flex-1 truncate">{APP_DISPLAY_NAME[app]}</span>
     </button>
   );
-}
-
-/** 应用行的副标题：直连应用写当前供应商，共存式写启用了几家，Antigravity 写有几家。 */
-function useAppNavSubtitle(app: AppId): string | undefined {
-  const { t } = useTranslation();
-  const { data } = useProvidersQuery(app);
-  const { data: opencodeLiveIds } = useQuery({
-    queryKey: ["opencodeLiveProviderIds"],
-    queryFn: () => providersApi.getOpenCodeLiveProviderIds(),
-    enabled: app === "opencode",
-  });
-  const { data: piState } = usePiCurrentState(app === "pi", "pi");
-  if (!data) return undefined;
-  switch (app) {
-    case "claude":
-    case "codex":
-      return (
-        data.providers[data.currentProviderId]?.name ?? t("nav.noProvider")
-      );
-    case "opencode":
-      return opencodeLiveIds
-        ? t("nav.enabledCount", { count: opencodeLiveIds.length })
-        : undefined;
-    case "pi":
-      return piState
-        ? t("nav.enabledCount", { count: piState.enabledProviderIds.length })
-        : undefined;
-    case "agy":
-      return t("nav.providerCount", {
-        count: Object.keys(data.providers).length,
-      });
-  }
 }
 
 function NavItem({
@@ -351,7 +321,6 @@ function NavItem({
   alert,
   dot = false,
   dotTone = "neutral",
-  endDot = false,
   onClick,
 }: {
   selected: boolean;
@@ -368,8 +337,6 @@ function NavItem({
   dot?: boolean;
   /** 工具更新用中性色（很多人不想追新）；CC Switch 自己的更新用绿色，和工具更新分开 */
   dotTone?: "neutral" | "success";
-  /** 圆点放在行尾（设置目录里的「关于」），而不是图标角上 */
-  endDot?: boolean;
   onClick: () => void;
 }) {
   const ring = selected ? "border-selected" : "border-sidebar";
@@ -385,8 +352,8 @@ function NavItem({
     .join(" · ");
   const glyph = (
     <span aria-hidden="true" className="relative flex shrink-0 text-fg-2">
-      <Icon className="h-[18px] w-[18px]" />
-      {dot && !endDot && (
+      <Icon className="h-5 w-5" />
+      {dot && (
         <span
           className={cn(
             "absolute -end-1 -top-[3px] h-2.5 w-2.5 rounded-full border-2",
@@ -414,8 +381,8 @@ function NavItem({
         aria-label={trailingLabel ? accessibleName : undefined}
         aria-current={selected ? "page" : undefined}
         className={cn(
-          "flex h-7 shrink-0 items-center gap-2 rounded-control px-2 text-start transition-colors hover:bg-subtle",
-          "mx-2 w-[184px]",
+          "flex h-9 shrink-0 items-center gap-3 rounded-control px-2 text-start transition-colors hover:bg-subtle",
+          "mx-3",
           selected && "bg-selected font-medium hover:bg-selected",
         )}
       >
@@ -450,81 +417,8 @@ function NavItem({
             className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger"
           />
         )}
-        {dot && endDot && (
-          <span
-            aria-hidden="true"
-            className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dotFill)}
-          />
-        )}
       </button>
     </HoverTip>
-  );
-}
-
-// ─── 设置目录 ──────────────────────────────────────────────────────────────
-
-const SETTINGS_ITEMS: { section: SettingsSection; icon: IconComponent }[] = [
-  { section: "general", icon: SlidersHorizontal },
-  { section: "appConfig", icon: Folder },
-  { section: "data", icon: Database },
-  { section: "about", icon: Info },
-];
-
-function SettingsDirectory({
-  settingsSection,
-  onSelectSettingsSection,
-  onExitSettings,
-}: SidebarProps) {
-  const { t } = useTranslation();
-  const { hasUpdate } = useUpdate();
-  const { data: version } = useQuery({
-    queryKey: ["app-version"],
-    queryFn: () => getVersion(),
-    staleTime: Infinity,
-  });
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={onExitSettings}
-        className="mx-2 flex h-7 w-[184px] shrink-0 items-center gap-2 rounded-control px-2 text-start text-fg-2 transition-colors hover:bg-subtle hover:text-fg-1"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-        {t("nav.back")}
-      </button>
-      <div className="mt-3 px-4 pb-1 text-badge text-fg-3">
-        {t("nav.settings")}
-      </div>
-      <div
-        role="group"
-        aria-label={t("nav.settings")}
-        className="flex min-h-0 flex-1 flex-col"
-      >
-        {SETTINGS_ITEMS.map(({ section, icon }) => (
-          <NavItem
-            key={section}
-            selected={settingsSection === section}
-            icon={icon}
-            label={t(`settings.sections.${section}`)}
-            dot={section === "about" && hasUpdate}
-            dotTone="success"
-            endDot
-            title={
-              section === "about" && hasUpdate
-                ? t("nav.settingsHasUpdate")
-                : undefined
-            }
-            onClick={() => onSelectSettingsSection(section)}
-          />
-        ))}
-      </div>
-      {version && (
-        <div className="shrink-0 px-4 pb-4 text-caption text-fg-3">
-          CC Switch v{version}
-        </div>
-      )}
-    </>
   );
 }
 

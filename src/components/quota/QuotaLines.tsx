@@ -228,7 +228,14 @@ export function QuotaLines({
   // 拆开布局时刷新区不止一块，悬停改用状态记（见下）
   const [hovered, setHovered] = useState(false);
   const ResultIcon = refresh.phase === "failed" ? X : Check;
-  const rows = cardRows(lines, max);
+  // 短的在上、长的在下：右对齐的几行从上到下越来越宽，右缘整齐，也让「重置剩余 1 次」这类短行不挤在长行下面
+  const rows = cardRows(lines, max)
+    .map((row) => ({
+      row,
+      width: row.map((line) => line.text).join("").length,
+    }))
+    .sort((a, b) => a.width - b.width)
+    .map(({ row }) => row);
   if (rows.length === 0) return null;
 
   const title = [
