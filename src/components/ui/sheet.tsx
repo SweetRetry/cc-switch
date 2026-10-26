@@ -25,6 +25,8 @@ interface SheetContentProps
    * 误点一下就把草稿丢掉。只给没有草稿可丢的抽屉（只读详情、即点即存的开关）打开。
    */
   dismissOnOutsideClick?: boolean;
+  /** 从全屏二级页（z-60）里打开的抽屉：遮罩和面板都抬到它上面 */
+  elevated?: boolean;
 }
 
 const SheetContent = React.forwardRef<
@@ -39,18 +41,25 @@ const SheetContent = React.forwardRef<
       closeLabel,
       style,
       dismissOnOutsideClick = false,
+      elevated = false,
       onInteractOutside,
       ...props
     },
     ref,
   ) => (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-overlay data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+      <DialogPrimitive.Overlay
+        className={cn(
+          "fixed inset-0 z-50 bg-overlay data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+          elevated && "z-[70]",
+        )}
+      />
       <DialogPrimitive.Content
         ref={ref}
         style={{ width, ...style }}
         className={cn(
           "fixed inset-y-0 end-0 z-50 flex max-w-[100vw] flex-col overflow-hidden rounded-s-dialog border-s border-border bg-surface text-fg-1 shadow-v7-lg outline-none duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right-4 data-[state=open]:slide-in-from-right-4",
+          elevated && "z-[70]",
           className,
         )}
         onInteractOutside={(event) => {

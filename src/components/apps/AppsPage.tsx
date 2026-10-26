@@ -21,7 +21,6 @@ import { isUpdateAvailable } from "@/lib/version";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { HelpTip } from "@/components/ui/help-tip";
 import { HoverTip } from "@/components/ui/hover-tip";
 import {
   Dialog,
@@ -100,24 +99,12 @@ function isToolPresent(
 const APP_ROW_GRID =
   "grid grid-cols-[minmax(0,1fr)_168px_var(--apps-actions-width,0px)_56px_28px] items-center gap-x-4";
 
-function formatCheckedAt(timestamp: number, locale: string): string {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const time = date.toLocaleTimeString(locale, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return date.toDateString() === now.toDateString()
-    ? time
-    : `${date.toLocaleDateString(locale, { month: "numeric", day: "numeric" })} ${time}`;
-}
-
 /**
  * 「应用」页（v7）：每个应用一行 = 安装状态 / 版本 + 安装 / 升级 + 在侧栏显示的开关 + 「⋯」菜单（卸载）。
  * 隐藏一个应用只影响界面（侧栏、MCP / Skills 的列、提示词和会话的下拉），配置照常同步。
  */
 export function AppsPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const tools = useToolManagement();
   const { settings, updateSettings, autoSaveSettings } = useSettings();
   const tableRef = useRef<HTMLDivElement>(null);
@@ -241,12 +228,6 @@ export function AppsPage() {
     ? settledUpdatableCount.current
     : tools.updatableToolNames.length;
 
-  const lastChecked = tools.lastCheckedAt
-    ? t("appsPage.lastChecked", {
-        time: formatCheckedAt(tools.lastCheckedAt, i18n.language),
-      })
-    : t("appsPage.neverChecked");
-
   const renderRow = (row: Row) => (
     <ToolRow
       key={row.tool}
@@ -269,16 +250,8 @@ export function AppsPage() {
       <AppPageHeader
         icon={<LayoutGrid className="h-5 w-5" strokeWidth={1.5} />}
         title={t("nav.apps")}
-        titleExtra={
-          <HelpTip title={t("appsPage.helpTitle")}>
-            {t("appsPage.helpBody")}
-          </HelpTip>
-        }
         actions={
           <>
-            <span className="whitespace-nowrap text-caption text-fg-3">
-              {lastChecked}
-            </span>
             {(updatableCount > 0 || tools.batchAction) && (
               <Button
                 variant="neutral"
@@ -397,12 +370,7 @@ export function AppsPage() {
                 {t("settings.toolUpdate")}
               </Button>
             </div>
-            <span className="flex items-center justify-end gap-0.5">
-              {t("appsPage.columnVisible")}
-              <HelpTip title={t("appsPage.columnVisible")} align="end">
-                {t("appsPage.visibleHelp")}
-              </HelpTip>
-            </span>
+            <span className="text-end">{t("appsPage.columnVisible")}</span>
             <span />
           </div>
 
@@ -573,9 +541,10 @@ function ToolRow({
   // 「诊断安装冲突」的结果优先（升级后会重新诊断），否则用打开页面时探测到的安装分布
   const installs = tools.toolDiagnostics[tool] ?? report?.installs;
 
+  // 已有旧数据（缓存）就先展示，后台重查不顶掉它；只有从未探测过的工具才转圈。
   const isVersionLoading =
-    Boolean(tools.loadingTools[tool]) ||
-    (tools.isLoadingTools && !tools.toolVersionByName.has(tool));
+    !tools.toolVersionByName.has(tool) &&
+    (Boolean(tools.loadingTools[tool]) || tools.isLoadingTools);
   const isOutdated = isUpdateAvailable(info?.version, info?.latest_version);
   const nodeGap = isOutdated ? info?.update_blocked_by_node : null;
   const broken = Boolean(info?.installed_but_broken);
@@ -623,9 +592,7 @@ function ToolRow({
       <AlertTriangle className="h-3.5 w-3.5" />
       {t("appsPage.notRunnable")}
     </span>
-  ) : (
-    <span className="text-caption text-fg-2">{t("common.notInstalled")}</span>
-  );
+  ) : null;
 
   const actionButton = action ? (
     <Button
@@ -777,8 +744,8 @@ function ToolRow({
         </>
       }
       meta={meta}
-      version={version}
-      action={actionButton}
+      version={version ?? (action === "install" ? actionButton : null)}
+      action={action === "install" ? null : actionButton}
       visibility={visibility}
       menu={
         (canUninstall || busyAction === "uninstall") && (

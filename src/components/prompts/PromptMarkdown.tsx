@@ -3,7 +3,10 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import { settingsApi } from "@/lib/api";
 
 /** 链接一律用系统浏览器打开：点开网页不该把整个应用导航走。 */
-function openExternally(event: React.MouseEvent<HTMLAnchorElement>, href?: string) {
+function openExternally(
+  event: React.MouseEvent<HTMLAnchorElement>,
+  href?: string,
+) {
   event.preventDefault();
   if (!href) return;
   void settingsApi.openExternal(href).catch(() => undefined);

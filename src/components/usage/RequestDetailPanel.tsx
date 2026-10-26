@@ -373,6 +373,8 @@ export function RequestDetailPanel({
         width={420}
         closeLabel={t("common.close")}
         dismissOnOutsideClick
+        // 日志在全屏二级页里，抽屉要盖在它上面
+        elevated
         // 不放副标题：时间、应用、供应商就是「基本信息」前三行
         aria-describedby={undefined}
       >

@@ -22,6 +22,8 @@ interface ProviderStatsTableProps {
   providerName?: string;
   model?: string;
   refreshIntervalMs: number;
+  /** 点一行：去看这个供应商的请求日志 */
+  onSelectProvider?: (providerName: string) => void;
 }
 
 export function ProviderStatsTable({
@@ -30,6 +32,7 @@ export function ProviderStatsTable({
   providerName,
   model,
   refreshIntervalMs,
+  onSelectProvider,
 }: ProviderStatsTableProps) {
   const { t, i18n } = useTranslation();
   const { money, moneyTitle } = useMoneyFormat();
@@ -100,7 +103,16 @@ export function ProviderStatsTable({
                 return (
                   <tr
                     key={JSON.stringify([stat.appType, stat.providerId])}
-                    className={usageTable.row}
+                    className={
+                      onSelectProvider
+                        ? usageTable.rowInteractive
+                        : usageTable.row
+                    }
+                    onClick={
+                      onSelectProvider
+                        ? () => onSelectProvider(stat.providerName)
+                        : undefined
+                    }
                   >
                     <td className={usageTable.td}>
                       <span title={usageProviderTitle(provider)}>

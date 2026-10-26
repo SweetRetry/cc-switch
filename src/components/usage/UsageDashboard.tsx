@@ -96,9 +96,9 @@ const normalizeRefreshInterval = (value: number | undefined) =>
 
 const STATUS_CODE_OPTIONS = [200, 400, 401, 429, 500] as const;
 
-// 页签只放数据视图；显示和定价设置在「用量设置」抽屉里
-type UsageTab = "logs" | "providers" | "models";
-const TABS: UsageTab[] = ["logs", "providers", "models"];
+// 页签只放聚合统计；请求日志是明细，在二级页里；显示和定价设置在「用量设置」抽屉里
+type UsageTab = "providers" | "models";
+const TABS: UsageTab[] = ["providers", "models"];
 /** 记住的时间范围只认预设：自定义的起止日期过几天就不是用户想看的了，选自定义时不改记下的预设 */
 const REMEMBERED_RANGE_PRESETS: UsageRangePreset[] = [
   "today",
@@ -282,13 +282,13 @@ export function UsageDashboard({
   const [tab, setTab] = useRememberedChoice<UsageTab>(
     USAGE_CHOICE_KEYS.tab,
     TABS,
-    "logs",
+    "providers",
   );
   // 指标条选中的指标，也是趋势图 / 热力图画的指标
   const [metric, setMetric] = useRememberedChoice<UsageMetric>(
     USAGE_CHOICE_KEYS.trendMetric,
     USAGE_METRICS,
-    "tokens",
+    "cost",
   );
   // 请求日志每页几条：记在本机；页签计数的查询也用它，和表格合并成一次请求
   const [logPageSizeChoice, setLogPageSizeChoice] =
@@ -303,6 +303,8 @@ export function UsageDashboard({
   const [refreshIntervalMs, setRefreshIntervalMs] = useState(() =>
     normalizeRefreshInterval(savedRefreshIntervalMs),
   );
+  // 请求日志二级页：和定价一样是 FullScreenPanel，侧栏留着
+  const [logsOpen, setLogsOpen] = useState(false);
   const [detailRequestId, setDetailRequestId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showRebuildConfirm, setShowRebuildConfirm] = useState(false);
@@ -710,7 +712,12 @@ export function UsageDashboard({
   // 三个页签都查（只查当前页签时，没点过的页签一直没有数字）；换筛选时沿用上一份
   // 数据直到新数到达，三个数字原地更新，不会先整体消失再冒出来把页签栏挤得抖一下
   const logCount = useRequestLogs({
-    filters: { appType: scopedAppType, providerName, model, statusCode },
+    filters: {
+      appType: scopedAppType,
+      providerName,
+      model,
+      statusCode: logsOpen ? statusCode : undefined,
+    },
     range,
     page: 0,
     pageSize: logPageSize,
@@ -727,12 +734,10 @@ export function UsageDashboard({
     refetch,
   );
   const tabCount: Record<UsageTab, number | undefined> = {
-    logs: logCount.data?.total,
     providers: providerCount.data?.length,
     models: modelCount.data?.length,
   };
   const tabLabel: Record<UsageTab, string> = {
-    logs: t("usage.requestLogs"),
     providers: t("usage.tabs.providers"),
     models: t("usage.tabs.models"),
   };
@@ -743,64 +748,93 @@ export function UsageDashboard({
 
   // 工具栏两类入口：左边「筛选」（漏斗图标 + 当前条件，生效时实心底）改的是看哪些行；
   // 竖线右边「显示的列」（纯图标）改的是表怎么显示，是存下来的偏好
-  const tabTrailing =
-    tab === "logs" ? (
-      <div className="flex items-center gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="quiet"
-              size="compact"
-              className={cn(
-                "gap-1.5 pe-1.5 ps-2 text-caption",
-                statusCode == null
-                  ? "text-fg-2"
-                  : "bg-subtle font-medium text-fg-1",
-              )}
-              aria-label={`${t("usage.statusCode")}: ${statusLabel}`}
-            >
-              <ListFilter aria-hidden="true" className="h-3.5 w-3.5" />
-              {statusCode == null
-                ? t("usage.statusCode")
-                : `${t("usage.statusCode")} · ${statusCode}`}
-              <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className={cn(menuContentClass, "min-w-[160px]")}
+  const logToolbar = (
+    <div className="flex items-center gap-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="quiet"
+            size="compact"
+            className={cn(
+              "gap-1.5 pe-1.5 ps-2 text-caption",
+              statusCode == null
+                ? "text-fg-2"
+                : "bg-subtle font-medium text-fg-1",
+            )}
+            aria-label={`${t("usage.statusCode")}: ${statusLabel}`}
           >
+            <ListFilter aria-hidden="true" className="h-3.5 w-3.5" />
+            {statusCode == null
+              ? t("usage.statusCode")
+              : `${t("usage.statusCode")} · ${statusCode}`}
+            <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className={cn(menuContentClass, "min-w-[160px]")}
+        >
+          <DropdownMenuItem
+            className={menuItemClass}
+            onSelect={() => setStatusCode(undefined)}
+          >
+            <MenuCheck checked={statusCode == null} />
+            {t("usage.statusFilter.all")}
+          </DropdownMenuItem>
+          {STATUS_CODE_OPTIONS.map((code) => (
             <DropdownMenuItem
+              key={code}
               className={menuItemClass}
-              onSelect={() => setStatusCode(undefined)}
+              onSelect={() => setStatusCode(code)}
             >
-              <MenuCheck checked={statusCode == null} />
-              {t("usage.statusFilter.all")}
+              <MenuCheck checked={statusCode === code} />
+              <span className="tabular-nums">{code}</span>
             </DropdownMenuItem>
-            {STATUS_CODE_OPTIONS.map((code) => (
-              <DropdownMenuItem
-                key={code}
-                className={menuItemClass}
-                onSelect={() => setStatusCode(code)}
-              >
-                <MenuCheck checked={statusCode === code} />
-                <span className="tabular-nums">{code}</span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {onUsageDisplayChange && (
-          <>
-            <span aria-hidden="true" className="h-4 w-px bg-border" />
-            <RequestLogColumnsMenu
-              value={usageDisplay}
-              onChange={onUsageDisplayChange}
-            />
-          </>
-        )}
-      </div>
-    ) : null;
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {onUsageDisplayChange && (
+        <>
+          <span aria-hidden="true" className="h-4 w-px bg-border" />
+          <RequestLogColumnsMenu
+            value={usageDisplay}
+            onChange={onUsageDisplayChange}
+          />
+        </>
+      )}
+    </div>
+  );
+
+  // 统计卡右上角：请求日志的入口，位置就是原来日志页签所在处
+  const logsEntry = (
+    <Button
+      type="button"
+      variant="quiet"
+      size="compact"
+      className="gap-1.5 text-caption text-fg-2"
+      onClick={() => setLogsOpen(true)}
+    >
+      {t("usage.openRequestLogs")}
+      {logCount.data?.total != null && (
+        <span className="tabular-nums text-fg-3">
+          {fmtInt(logCount.data.total, locale)}
+        </span>
+      )}
+      <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
+    </Button>
+  );
+
+  // 点统计行：带着这一行的筛选进请求日志
+  const openLogsForProvider = (name: string) => {
+    setProviderName(name);
+    setModel(undefined);
+    setLogsOpen(true);
+  };
+  const openLogsForModel = (name: string) => {
+    setModel(name);
+    setLogsOpen(true);
+  };
 
   const detailPanel = (
     <section
@@ -827,30 +861,13 @@ export function UsageDashboard({
         onValueChange={setTab}
         idPrefix="usage-tab"
         controls="usage-tabpanel"
-        trailing={tabTrailing}
+        trailing={logsEntry}
       />
       <div
         role="tabpanel"
         id="usage-tabpanel"
         aria-labelledby={`usage-tab-${tab}`}
       >
-        {tab === "logs" && (
-          <RequestLogTable
-            range={range}
-            appType={appType}
-            providerName={providerName}
-            model={model}
-            statusCode={statusCode}
-            refreshIntervalMs={0}
-            onOpenDetail={setDetailRequestId}
-            columns={logColumns}
-            pageSize={logPageSize}
-            pageSizeOptions={LOG_PAGE_SIZE_OPTIONS}
-            onPageSizeChange={(size) =>
-              setLogPageSizeChoice(String(size) as LogPageSize)
-            }
-          />
-        )}
         {tab === "providers" && (
           <ProviderStatsTable
             range={range}
@@ -858,6 +875,7 @@ export function UsageDashboard({
             providerName={providerName}
             model={model}
             refreshIntervalMs={0}
+            onSelectProvider={openLogsForProvider}
           />
         )}
         {tab === "models" && (
@@ -867,10 +885,48 @@ export function UsageDashboard({
             providerName={providerName}
             model={model}
             refreshIntervalMs={0}
+            onSelectModel={openLogsForModel}
           />
         )}
       </div>
     </section>
+  );
+
+  // 请求日志二级页：范围栏照搬，明细表放在下面
+  const logsPage = (
+    <FullScreenPanel
+      isOpen={logsOpen}
+      title={t("usage.requestLogs")}
+      onClose={() => setLogsOpen(false)}
+      contentClassName="space-y-0 px-0 py-0"
+    >
+      {filterRow}
+      <section className="mx-6 mb-6 mt-1 overflow-hidden rounded-panel border border-border bg-surface">
+        <div className="flex h-11 items-center justify-between pe-2 ps-4">
+          <span className="text-body font-medium tabular-nums text-fg-1">
+            {logCount.data?.total != null
+              ? fmtInt(logCount.data.total, locale)
+              : ""}
+          </span>
+          {logToolbar}
+        </div>
+        <RequestLogTable
+          range={range}
+          appType={appType}
+          providerName={providerName}
+          model={model}
+          statusCode={statusCode}
+          refreshIntervalMs={0}
+          onOpenDetail={setDetailRequestId}
+          columns={logColumns}
+          pageSize={logPageSize}
+          pageSizeOptions={LOG_PAGE_SIZE_OPTIONS}
+          onPageSizeChange={(size) =>
+            setLogPageSizeChoice(String(size) as LogPageSize)
+          }
+        />
+      </section>
+    </FullScreenPanel>
   );
 
   // 概览面板：指标条和图表是同一块面，点指标换图表画的指标
@@ -960,6 +1016,7 @@ export function UsageDashboard({
       />
       {filterRow}
       {body}
+      {logsPage}
 
       <RequestDetailPanel
         requestId={detailRequestId}
@@ -975,7 +1032,7 @@ export function UsageDashboard({
         syncedLabel={drawerSyncedLabel}
         syncing={syncingSession}
         onSyncNow={() => void runManualSessionSync()}
-          rebuildingCodex={rebuildingCodex}
+        rebuildingCodex={rebuildingCodex}
         onRebuildCodex={() => setShowRebuildConfirm(true)}
         refreshIntervalMs={refreshIntervalMs}
         refreshIntervalOptions={REFRESH_INTERVAL_OPTIONS_MS}

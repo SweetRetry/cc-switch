@@ -9,9 +9,7 @@ interface UsagePageProps {
 }
 
 /** 侧栏「用量统计」全局页（v7 S6）：从会话日志读取用量。 */
-export function UsagePage({
-  initialAppType,
-}: UsagePageProps = {}) {
+export function UsagePage({ initialAppType }: UsagePageProps = {}) {
   const { settings, autoSaveSettings } = useSettings();
 
   const save = async (updates: Partial<SettingsFormState>) => {

@@ -21,6 +21,8 @@ interface ModelStatsTableProps {
   providerName?: string;
   model?: string;
   refreshIntervalMs: number;
+  /** 点一行：去看这个模型的请求日志 */
+  onSelectModel?: (model: string) => void;
 }
 
 export function ModelStatsTable({
@@ -29,6 +31,7 @@ export function ModelStatsTable({
   providerName,
   model,
   refreshIntervalMs,
+  onSelectModel,
 }: ModelStatsTableProps) {
   const { t, i18n } = useTranslation();
   const { money, moneyTitle } = useMoneyFormat();
@@ -94,7 +97,15 @@ export function ModelStatsTable({
               </tr>
             ) : (
               pagination.pageRows.map((stat) => (
-                <tr key={stat.model} className={usageTable.row}>
+                <tr
+                  key={stat.model}
+                  className={
+                    onSelectModel ? usageTable.rowInteractive : usageTable.row
+                  }
+                  onClick={
+                    onSelectModel ? () => onSelectModel(stat.model) : undefined
+                  }
+                >
                   <td className={cn(usageTable.td, usageTable.mono)}>
                     <span title={stat.model}>{stat.model}</span>
                   </td>

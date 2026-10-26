@@ -213,11 +213,11 @@ function MainDirectory({
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden pb-2 pt-0.5">
         <div
           role="group"
-          aria-label={t("nav.providersGroup")}
+          aria-label={t("nav.appsGroup")}
           className="flex shrink-0 flex-col gap-1"
         >
           <div className="mx-3 flex h-8 items-center justify-between ps-2">
-            <GroupLabel>{t("nav.providersGroup")}</GroupLabel>
+            <GroupLabel>{t("nav.appsGroup")}</GroupLabel>
             {/* 应用页管的是这一组：安装、升级、哪些应用显示在这里 */}
             <HoverTip content={appsTitle} side="right" disableHoverableContent>
               <button
@@ -248,11 +248,11 @@ function MainDirectory({
         </div>
         <div
           role="group"
-          aria-label={t("nav.sharedGroup")}
+          aria-label={t("nav.configGroup")}
           className="mt-6 flex shrink-0 flex-col gap-1"
         >
           <div className="mx-3 flex h-8 items-center ps-2">
-            <GroupLabel>{t("nav.sharedGroup")}</GroupLabel>
+            <GroupLabel>{t("nav.configGroup")}</GroupLabel>
           </div>
           {globals.filter((item) => item.shared).map(renderGlobal)}
         </div>

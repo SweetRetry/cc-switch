@@ -97,8 +97,6 @@
     --direct-on: #ffffff;
     --direct-border: var(--direct-fill);
 
-
-
     --success: #14804a;
     --success-text: #14804a;
     --success-soft: rgba(20, 128, 74, 0.1);
@@ -172,8 +170,6 @@
     --direct-solid: #2f6db3;
     --direct-on: #ffffff;
     --direct-border: color-mix(in srgb, var(--direct-fill) 50%, transparent);
-
-
 
     --success: #30bf71;
     --success-text: #30bf71;
