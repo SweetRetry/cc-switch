@@ -1680,6 +1680,7 @@
     "freshInput": "新增輸入",
     "cacheHitRate": "快取命中率",
     "requestLogs": "請求日誌",
+    "openRequestLogs": "查看請求日誌",
     "providerStats": "Provider 統計",
     "modelStats": "模型統計",
     "time": "時間",
@@ -2760,30 +2761,13 @@
       "open": "儲存與同步",
       "resync": "立即重新同步",
       "resyncing": "正在重新同步…",
-      "resyncHint": "修改只對之後啟用或更新的 Skill 生效。要讓已啟用的 Skill 也換成目前方式，點「立即重新同步」。",
       "resyncDone": "已按目前方式把 Skill 重新同步到各應用",
       "resyncPartial": "{{count}} 個應用沒有同步完整：{{apps}}",
       "resyncSkillItem": "{{directory}}：{{error}}",
-      "locationTitle": "主副本放在",
-      "locationCcSwitch": "CC Switch 目錄",
-      "locationUnified": "通用目錄",
       "openFolder": "打開",
       "openFolderAria": "打開 {{path}}",
-      "unifiedWarning": "Codex、Gemini CLI、OpenCode 等會直接讀這個目錄，各應用的開關對它們不再完全生效。",
-      "move": "移動並切換",
-      "moving": "正在移動…",
-      "moveConfirmTitle": "把 {{count}} 個 Skill 移到 {{path}}？",
-      "moveConfirmBody": "會逐個移動主副本，再讓各應用裡的連結指向新位置。移動完成前請不要退出 CC Switch。",
-      "moveConfirmButton": "移動並切換",
-      "moveDone": "已把 {{count}} 個 Skill 移到 {{path}}",
-      "movePartial": "移動了 {{migrated}} 個 Skill，{{errors}} 個失敗，請查看日誌",
-      "syncTitle": "同步到各應用的方式",
-      "syncAuto": "自動：優先用軟連結，失敗時複製（推薦）",
-      "syncSymlink": "只用軟連結",
-      "syncSymlinkDesc": "Windows 需要開啟開發人員模式",
-      "syncCopy": "只用複製",
-      "syncCopyDesc": "佔用更多空間，更新後會重新複製",
-      "moveHint": "切換位置會把 {{count}} 個 Skill 移動過去。"
+      "fixedBody": "所有 Skill 的主副本都放在這個目錄，各應用程式裡只放指向它的軟連結，不複製。",
+      "resyncHint": "重建各應用程式裡的軟連結，已有的舊副本也會換成軟連結。"
     },
     "updatesIncomplete": "沒有發現更新，但有 {{count}} 個倉庫沒有讀到"
   },
@@ -3237,8 +3221,8 @@
     },
     "needsAttention": "需要處理",
     "back": "返回",
-    "providersGroup": "供應商",
-    "sharedGroup": "共享設定"
+    "appsGroup": "應用",
+    "configGroup": "設定"
   },
   "appsPage": {
     "showInSidebar": "在側欄顯示 {{name}}",
@@ -3402,22 +3386,6 @@
     "clearSearch": "清除搜尋",
     "found": "找到 {{count}} 個",
     "columnAria": "{{app}}：已在 {{on}} / {{total}} 個 {{noun}} 上啟用，批次操作",
-    "pop": {
-      "count": "已在 {{on}} / {{total}} 個 {{noun}} 上啟用",
-      "failCount": "其中 {{count}} 個寫入失敗",
-      "enableRest": "啟用其餘 {{count}} 個",
-      "enableAll": "全部啟用",
-      "disableAll": "全部關閉",
-      "scopeAll": "只作用於目前列表裡的 {{count}} 個",
-      "scopeSearch": "只作用於搜尋出的 {{count}} 個",
-      "scopeFilter": "只作用於篩選出的 {{count}} 個"
-    },
-    "toast": {
-      "enabled": "已在 {{app}} 啟用 {{count}} 個 {{noun}}",
-      "disabled": "已在 {{app}} 關閉 {{count}} 個 {{noun}}",
-      "partialFail": "，其中 {{count}} 個沒有寫入，已在列表裡標出",
-      "undone": "已復原"
-    },
     "undo": "復原",
     "cell": {
       "on": "{{name}} · {{app}}：已啟用",
@@ -3433,7 +3401,7 @@
   "mcpPage": {
     "noun": "MCP",
     "listSeparator": "、",
-    "importFromApps": "從應用匯入",
+    "importFromApps": "匯入",
     "searchPlaceholder": "搜尋名稱、指令或位址",
     "failNoticeTitle": "無法寫入 {{app}} 的設定",
     "failNoticeBody": "{{error}}。修好檔案後點「重試」。",
@@ -3477,65 +3445,30 @@
     }
   },
   "skillsPage": {
-    "noun": "Skill",
-    "add": "新增 Skill",
     "addMenu": {
-      "zip": "從 ZIP 安裝",
-      "import": "匯入本機已有"
+      "zip": "從 ZIP 安裝"
     },
     "moreMenu": {
       "restore": "從備份還原",
-      "repos": "倉庫管理"
+      "enableAll": "全部 Skill 啟用到所有應用程式"
     },
     "searchPlaceholder": "搜尋名稱、目錄、描述或倉庫",
     "lastChecked": "上次檢查：{{when}}",
     "justNow": "剛剛",
     "banner": {
-      "unmanaged": "本機有 {{count}} 個 Skill 不在 CC Switch 管理中。",
-      "reviewImport": "查看並匯入",
-      "ignore": "忽略",
       "close": "關閉提示"
-    },
-    "filter": {
-      "all": "全部",
-      "updates": "可更新",
-      "none": "未在任何應用啟用",
-      "inApp": "在 {{app}} 啟用",
-      "sourceButton": "來源：{{source}}"
     },
     "source": {
       "local": "本機"
     },
-    "bulk": {
-      "selected": "已選 {{count}}",
-      "enableTo": "啟用到",
-      "enableToAria": "把選中的 {{count}} 個 Skill 啟用到",
-      "disable": "停用",
-      "disableAria": "在這個應用裡停用選中的 {{count}} 個 Skill",
-      "uninstall": "解除安裝"
-    },
-    "piColumnTitle": "Pi 按 ~/.pi/agent/skills 裡有沒有這個目錄來判斷",
-    "piHelpTitle": "Pi 怎麼算啟用",
-    "piHelp": "看 ~/.pi/agent/skills 裡有沒有這個目錄。",
-    "pop": {
-      "onlyApp": "只看在 {{app}} 啟用的",
-      "showAll": "顯示全部 Skill"
-    },
-    "selectAria": "選擇 {{name}}",
-    "selectAllAria": "全選目前清單",
     "rowFail": "在 {{app}} 啟用失敗：{{error}}",
     "fixSync": "改同步方式",
-    "rowMoreAria": "{{name}} 的更多操作",
     "copyDir": "複製目錄名稱",
-    "uninstallEllipsis": "解除安裝",
     "listLabel": "已安裝的 Skill",
     "noMatch": "沒有符合「{{query}}」的 Skill",
-    "noFilterMatch": "沒有符合篩選條件的 Skill",
-    "clearFilters": "清除篩選",
     "loadFailed": "讀取已安裝的 Skill 失敗",
     "emptyTitle": "還沒有 Skill",
-    "emptyBody": "從 ZIP 安裝，或匯入本機已有的 Skill。",
-    "importCount": "匯入本機已有（{{count}}）",
+    "emptyBody": "用 `npx skills add` 或 ZIP 安裝。在本應用程式之外安裝的 Skill 會自動出現在這裡。",
     "confirm": {
       "uninstallOne": "解除安裝 {{name}}？",
       "uninstallMany": "解除安裝 {{count}} 個 Skill？",
@@ -3553,10 +3486,7 @@
       "uninstalledMany": "已解除安裝 {{count}} 個 Skill",
       "backupAt": "備份在 {{path}}",
       "copiedDir": "已複製目錄名稱 {{dir}}",
-      "noUpdatesInSelection": "選中的 Skill 沒有可用的更新",
-      "selectionAlreadyOn": "選中的 {{count}} 個 Skill 已經在 {{app}} 啟用",
-      "selectionAlreadyOff": "選中的 {{count}} 個 Skill 都沒有在 {{app}} 啟用",
-      "disabledSelection": "已在 {{app}} 停用 {{count}} 個 {{noun}}"
+      "enableAllDone": "已把 {{count}} 個 Skill 啟用到 {{apps}}"
     },
     "installTo": {
       "prefix": "安裝到：",
@@ -3596,9 +3526,6 @@
       "item": "{{repo}}（{{reason}}）",
       "updatesBody": "這些倉庫裡的 Skill 沒有檢查，更新結果可能不完整。"
     },
-    "headerUpdates": "{{count}} 個可更新",
-    "headerUpdatesShow": "只看可更新的 Skill",
-    "headerUpdatesClear": "顯示全部 Skill",
     "updateAllCount": "全部更新（{{count}} 個）",
     "updatingProgress": "正在更新 {{done}}/{{total}}…"
   },

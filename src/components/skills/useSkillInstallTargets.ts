@@ -4,7 +4,7 @@ import { useToggleSkillApp } from "@/hooks/useSkills";
 
 const DEFAULT_TARGETS: AppId[] = ["claude", "codex"];
 
-/** ZIP 安装和备份恢复默认启用 Claude 与 Codex。 */
+/** 备份恢复默认启用 Claude 与 Codex。 */
 export function useSkillInstallTargets(visibleAppIds: readonly AppId[]) {
   const toggleMutation = useToggleSkillApp();
 

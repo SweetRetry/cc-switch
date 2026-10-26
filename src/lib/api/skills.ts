@@ -80,19 +80,6 @@ export interface SkillUpdateCheckResult {
   failures: SkillRepoFailure[];
 }
 
-/** ZIP 里因目录名已被占用而跳过的 Skill（#3749） */
-export interface ZipSkippedSkill {
-  directory: string;
-  existingId: string;
-  existingName: string;
-}
-
-/** 从 ZIP 安装的结果 */
-export interface ZipInstallResult {
-  installed: InstalledSkill[];
-  skipped: ZipSkippedSkill[];
-}
-
 /** 「立即重新同步」里单个应用的结果 */
 export interface SkillAppSyncOutcome {
   app: AppType;
@@ -101,21 +88,6 @@ export interface SkillAppSyncOutcome {
   error?: string;
   /** 应用同步了，但这些 Skill 失败 */
   failedSkills: Array<{ directory: string; error: string }>;
-}
-
-/** 存储位置迁移结果 */
-export interface MigrationResult {
-  migratedCount: number;
-  skippedCount: number;
-  errors: string[];
-}
-
-/** 仓库配置 */
-export interface SkillRepo {
-  owner: string;
-  name: string;
-  branch: string;
-  enabled: boolean;
 }
 
 // ========== API ==========
@@ -183,52 +155,13 @@ export const skillsApi = {
     return await invoke("update_skill", { id });
   },
 
-  /** 迁移 Skill 存储位置 */
-  async migrateStorage(
-    target: "cc_switch" | "unified",
-  ): Promise<MigrationResult> {
-    return await invoke("migrate_skill_storage", { target });
+  /** Skill 主副本目录（~/.agents/skills） */
+  async getSkillsDir(): Promise<string> {
+    return await invoke("get_skills_dir");
   },
 
-  /** CC Switch 目录下放 Skill 主副本的路径（改过配置目录就是改后的） */
-  async getCcSwitchSkillsDir(): Promise<string> {
-    return await invoke("get_cc_switch_skills_dir");
-  },
-
-  /** 在文件管理器里打开 CC Switch 目录下的 Skills 目录 */
-  async openCcSwitchSkillsDir(): Promise<void> {
-    await invoke("open_cc_switch_skills_dir");
-  },
-
-  // ========== 仓库管理 ==========
-
-  /** 获取仓库列表 */
-  async getRepos(): Promise<SkillRepo[]> {
-    return await invoke("get_skill_repos");
-  },
-
-  /** 添加仓库 */
-  async addRepo(repo: SkillRepo): Promise<boolean> {
-    return await invoke("add_skill_repo", { repo });
-  },
-
-  /** 删除仓库 */
-  async removeRepo(owner: string, name: string): Promise<boolean> {
-    return await invoke("remove_skill_repo", { owner, name });
-  },
-
-  // ========== ZIP 安装 ==========
-
-  /** 打开 ZIP 文件选择对话框 */
-  async openZipFileDialog(): Promise<string | null> {
-    return await invoke("open_zip_file_dialog");
-  },
-
-  /** 从 ZIP 文件安装 Skills */
-  async installFromZip(
-    filePath: string,
-    currentApp: AppId,
-  ): Promise<ZipInstallResult> {
-    return await invoke("install_skills_from_zip", { filePath, currentApp });
+  /** 在文件管理器里打开 Skill 主副本目录 */
+  async openSkillsDir(): Promise<void> {
+    await invoke("open_skills_dir");
   },
 };

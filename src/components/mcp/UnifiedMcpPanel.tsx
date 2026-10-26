@@ -478,7 +478,7 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
             )}
             <Button
               type="button"
-              variant="neutral"
+              variant="solid"
               size="regular"
               disabled={controlsDisabled}
               onClick={() => void handleImport()}
@@ -549,7 +549,7 @@ const UnifiedMcpPanel: React.FC<UnifiedMcpPanelProps> = ({
               <div className="mt-2 flex gap-2">
                 <Button
                   type="button"
-                  variant="neutral"
+                  variant="solid"
                   size="regular"
                   disabled={controlsDisabled}
                   onClick={() => void handleImport()}

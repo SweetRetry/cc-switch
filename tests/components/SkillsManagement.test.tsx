@@ -8,9 +8,6 @@ const data = vi.hoisted(() => ({ installed: [] as InstalledSkill[] }));
 vi.mock("@/components/skills/SkillsStorageSheet", () => ({
   SkillsStorageSheet: () => null,
 }));
-vi.mock("@/components/skills/SkillImportDialog", () => ({
-  SkillImportDialog: () => null,
-}));
 vi.mock("@/components/skills/SkillRestoreDialog", () => ({
   SkillRestoreDialog: () => null,
 }));
@@ -33,13 +30,9 @@ vi.mock("@/hooks/useSkills", () => {
       refetch: vi.fn(),
       isFetching: false,
     }),
-    useSkillRepos: () => ({ data: [] }),
-    useAddSkillRepo: mutation,
-    useRemoveSkillRepo: mutation,
     useBulkToggleSkillApp: mutation,
     useDeleteSkillBackup: mutation,
     useImportSkillsFromApps: mutation,
-    useInstallSkillsFromZip: mutation,
     useRestoreSkillBackup: mutation,
     useToggleSkillApp: mutation,
     useUninstallSkill: mutation,
@@ -61,16 +54,16 @@ beforeEach(() => {
 });
 
 describe("Skills management", () => {
-  it("opens installed Skills directly and offers ZIP and local import", async () => {
+  it("lists installed Skills without an add or import entry", () => {
     render(<UnifiedSkillsPanel />);
     expect(screen.getByText("Alpha Skill")).toBeVisible();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-    await userEvent.click(
-      screen.getByRole("button", { name: "skillsPage.add" }),
-    );
     expect(
-      screen.getAllByRole("menuitem").map((item) => item.textContent),
-    ).toEqual(["skillsPage.addMenu.zip", "skillsPage.addMenu.import"]);
+      screen.queryByRole("button", { name: "skillsPage.addMenu.zip" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "skillsPage.addMenu.import" }),
+    ).not.toBeInTheDocument();
   });
 
   it("clears an installed-Skill search without navigating away", async () => {
@@ -89,15 +82,10 @@ describe("Skills management", () => {
     expect(screen.getByText("Alpha Skill")).toBeVisible();
   });
 
-  it("offers local import when no Skills are installed", () => {
+  it("explains how to add Skills when none are installed", () => {
     data.installed = [];
     render(<UnifiedSkillsPanel />);
     expect(screen.getByText("skillsPage.emptyTitle")).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "skillsPage.addMenu.import" }),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: "skillsPage.goDiscover" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText("skillsPage.emptyBody")).toBeVisible();
   });
 });

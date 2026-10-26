@@ -8,18 +8,18 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { APP_DISPLAY_NAME, AppGlyph } from "@/components/shell/AppGlyph";
-import type { McpAppId } from "@/config/appConfig";
+import type { AppId } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
 export type AppSelectState = "on" | "off" | "fail";
 
-interface AppMultiSelectProps {
+interface AppMultiSelectProps<A extends AppId> {
   /** 服务器 id，只用于无障碍文案 */
   name: string;
-  appIds: readonly McpAppId[];
-  states: Record<McpAppId, AppSelectState>;
+  appIds: readonly A[];
+  states: Record<A, AppSelectState>;
   disabled?: boolean;
-  onToggle: (app: McpAppId) => void;
+  onToggle: (app: A) => void;
   onSetAll: (enabled: boolean) => void;
 }
 
@@ -28,14 +28,14 @@ interface AppMultiSelectProps {
  * 展开后是「全部启用 / 全部关闭」加每个应用一个勾选项，勾选不关菜单。
  * 写入失败的应用在触发器里带警告描边，点它的勾选项重试。
  */
-export function AppMultiSelect({
+export function AppMultiSelect<A extends AppId>({
   name,
   appIds,
   states,
   disabled,
   onToggle,
   onSetAll,
-}: AppMultiSelectProps) {
+}: AppMultiSelectProps<A>) {
   const { t } = useTranslation();
   const shown = appIds.filter((app) => states[app] !== "off");
   const allOn = appIds.every((app) => states[app] === "on");

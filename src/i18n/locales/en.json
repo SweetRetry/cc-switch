@@ -1679,6 +1679,7 @@
     "freshInput": "Fresh Input",
     "cacheHitRate": "Cache Hit Rate",
     "requestLogs": "Request Logs",
+    "openRequestLogs": "View request logs",
     "providerStats": "Provider Stats",
     "modelStats": "Model Stats",
     "time": "Time",
@@ -2759,30 +2760,13 @@
       "open": "Storage and sync",
       "resync": "Resync now",
       "resyncing": "Resyncing…",
-      "resyncHint": "Changes only apply to Skills you enable or update afterwards. To switch Skills that are already enabled, resync now.",
       "resyncDone": "Resynced Skills to every app using the current method",
       "resyncPartial": "{{count}} apps didn't fully sync: {{apps}}",
       "resyncSkillItem": "{{directory}}: {{error}}",
-      "locationTitle": "Keep the master copies in",
-      "locationCcSwitch": "CC Switch folder",
-      "locationUnified": "Shared folder",
       "openFolder": "Open",
       "openFolderAria": "Open {{path}}",
-      "unifiedWarning": "Codex, Gemini CLI, OpenCode and others read this folder directly, so the per-app switches no longer fully apply to them.",
-      "move": "Move and switch",
-      "moving": "Moving…",
-      "moveConfirmTitle": "Move {{count}} Skills to {{path}}?",
-      "moveConfirmBody": "Each master copy is moved, then the links in every app are pointed at the new location. Don't quit CC Switch until the move finishes.",
-      "moveConfirmButton": "Move and switch",
-      "moveDone": "Moved {{count}} Skills to {{path}}",
-      "movePartial": "Moved {{migrated}} Skills, {{errors}} failed. Check the logs for details.",
-      "syncTitle": "How Skills reach each app",
-      "syncAuto": "Automatic: symlink first, copy if that fails (recommended)",
-      "syncSymlink": "Symlink only",
-      "syncSymlinkDesc": "Requires Developer Mode on Windows",
-      "syncCopy": "Copy only",
-      "syncCopyDesc": "Uses more disk space; copied again after each update",
-      "moveHint": "Switching moves {{count}} Skills to the new location."
+      "fixedBody": "Master copies live in one folder. Every app gets a symlink to it, never a copy.",
+      "resyncHint": "Rebuilds the symlinks in every app, including turning old copies into links."
     },
     "updatesIncomplete": "No updates found, but {{count}} repositories couldn't be read"
   },
@@ -3236,8 +3220,8 @@
     },
     "needsAttention": "Needs attention",
     "back": "Back",
-    "providersGroup": "Providers",
-    "sharedGroup": "Shared"
+    "appsGroup": "Apps",
+    "configGroup": "Config"
   },
   "appsPage": {
     "showInSidebar": "Show {{name}} in the sidebar",
@@ -3401,22 +3385,6 @@
     "clearSearch": "Clear search",
     "found": "{{count}} found",
     "columnAria": "{{app}}: enabled for {{on}} of {{total}} {{noun}}, bulk actions",
-    "pop": {
-      "count": "Enabled for {{on}} of {{total}} {{noun}}",
-      "failCount": "{{count}} failed to write",
-      "enableRest": "Enable the other {{count}}",
-      "enableAll": "Enable all",
-      "disableAll": "Turn all off",
-      "scopeAll": "Applies to the {{count}} in this list",
-      "scopeSearch": "Applies only to the {{count}} search results",
-      "scopeFilter": "Applies only to the {{count}} filtered items"
-    },
-    "toast": {
-      "enabled": "Enabled {{count}} {{noun}} in {{app}}",
-      "disabled": "Turned off {{count}} {{noun}} in {{app}}",
-      "partialFail": "; {{count}} could not be written and are marked in the list",
-      "undone": "Undone"
-    },
     "undo": "Undo",
     "cell": {
       "on": "{{name}} · {{app}}: enabled",
@@ -3432,7 +3400,7 @@
   "mcpPage": {
     "noun": "MCP servers",
     "listSeparator": ", ",
-    "importFromApps": "Import from apps",
+    "importFromApps": "Import",
     "searchPlaceholder": "Search name, command or URL",
     "failNoticeTitle": "Couldn't write {{app}}'s config",
     "failNoticeBody": "{{error}}. Fix the file, then click Retry.",
@@ -3476,65 +3444,30 @@
     }
   },
   "skillsPage": {
-    "noun": "Skills",
-    "add": "Add Skill",
     "addMenu": {
-      "zip": "Install from ZIP",
-      "import": "Import from this computer"
+      "zip": "Install from ZIP"
     },
     "moreMenu": {
       "restore": "Restore from backup",
-      "repos": "Manage repositories"
+      "enableAll": "Enable all Skills in every app"
     },
     "searchPlaceholder": "Search name, folder, description or repo",
     "lastChecked": "Last checked: {{when}}",
     "justNow": "just now",
     "banner": {
-      "unmanaged": "{{count}} Skills on this computer aren't managed by CC Switch.",
-      "reviewImport": "Review and import",
-      "ignore": "Ignore",
       "close": "Dismiss"
-    },
-    "filter": {
-      "all": "All",
-      "updates": "Has updates",
-      "none": "Not enabled anywhere",
-      "inApp": "Enabled in {{app}}",
-      "sourceButton": "Source: {{source}}"
     },
     "source": {
       "local": "Local"
     },
-    "bulk": {
-      "selected": "{{count}} selected",
-      "enableTo": "Enable in",
-      "enableToAria": "Enable the {{count}} selected Skills in",
-      "disable": "Turn off in",
-      "disableAria": "Turn off the {{count}} selected Skills in",
-      "uninstall": "Uninstall"
-    },
-    "piColumnTitle": "Pi counts a Skill as enabled when its folder exists in ~/.pi/agent/skills",
-    "piHelpTitle": "How Pi counts as enabled",
-    "piHelp": "Whether the folder exists in ~/.pi/agent/skills.",
-    "pop": {
-      "onlyApp": "Show only ones enabled in {{app}}",
-      "showAll": "Show all Skills"
-    },
-    "selectAria": "Select {{name}}",
-    "selectAllAria": "Select all shown",
     "rowFail": "Enabling in {{app}} failed: {{error}}",
     "fixSync": "Change sync method",
-    "rowMoreAria": "More actions for {{name}}",
     "copyDir": "Copy folder name",
-    "uninstallEllipsis": "Uninstall",
     "listLabel": "Installed Skills",
     "noMatch": "No Skills match “{{query}}”",
-    "noFilterMatch": "No Skills match the filters",
-    "clearFilters": "Clear filters",
     "loadFailed": "Couldn't load installed Skills",
     "emptyTitle": "No Skills yet",
-    "emptyBody": "Install from a ZIP file or import Skills already on this device.",
-    "importCount": "Import from this computer ({{count}})",
+    "emptyBody": "Install with `npx skills add` or from a ZIP. Skills added outside this app appear here automatically.",
     "confirm": {
       "uninstallOne": "Uninstall {{name}}?",
       "uninstallMany": "Uninstall {{count}} Skills?",
@@ -3552,10 +3485,7 @@
       "uninstalledMany": "Uninstalled {{count}} Skills",
       "backupAt": "Backed up to {{path}}",
       "copiedDir": "Copied folder name {{dir}}",
-      "noUpdatesInSelection": "None of the selected Skills have updates",
-      "selectionAlreadyOn": "The {{count}} selected Skills are already enabled in {{app}}",
-      "selectionAlreadyOff": "None of the {{count}} selected Skills are enabled in {{app}}",
-      "disabledSelection": "Turned off {{count}} {{noun}} in {{app}}"
+      "enableAllDone": "Enabled {{count}} Skills in {{apps}}"
     },
     "installTo": {
       "prefix": "Install to: ",
@@ -3595,9 +3525,6 @@
       "item": "{{repo}} ({{reason}})",
       "updatesBody": "Skills from these repositories weren't checked, so the results may be incomplete."
     },
-    "headerUpdates": "{{count}} updates",
-    "headerUpdatesShow": "Show only Skills with updates",
-    "headerUpdatesClear": "Show all Skills",
     "updateAllCount": "Update all ({{count}})",
     "updatingProgress": "Updating {{done}}/{{total}}…"
   },

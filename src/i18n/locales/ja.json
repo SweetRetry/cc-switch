@@ -1679,6 +1679,7 @@
     "freshInput": "新規入力",
     "cacheHitRate": "キャッシュヒット率",
     "requestLogs": "リクエストログ",
+    "openRequestLogs": "リクエストログを見る",
     "providerStats": "プロバイダー統計",
     "modelStats": "モデル統計",
     "time": "時間",
@@ -2759,30 +2760,13 @@
       "open": "保存と同期",
       "resync": "今すぐ再同期",
       "resyncing": "再同期中…",
-      "resyncHint": "変更はこの後に有効化または更新した Skill にのみ適用されます。有効な Skill も現在の方式に切り替えるには「今すぐ再同期」を押してください。",
       "resyncDone": "現在の方式で Skill を各アプリに再同期しました",
       "resyncPartial": "{{count}} 個のアプリで同期が完了しませんでした：{{apps}}",
       "resyncSkillItem": "{{directory}}：{{error}}",
-      "locationTitle": "マスターコピーの保存先",
-      "locationCcSwitch": "CC Switch フォルダ",
-      "locationUnified": "共通フォルダ",
       "openFolder": "開く",
       "openFolderAria": "{{path}} を開く",
-      "unifiedWarning": "Codex、Gemini CLI、OpenCode などはこのフォルダを直接読むため、アプリごとのスイッチが完全には効かなくなります。",
-      "move": "移動して切り替え",
-      "moving": "移動中…",
-      "moveConfirmTitle": "{{count}} 個の Skill を {{path}} に移動しますか？",
-      "moveConfirmBody": "マスターコピーを 1 つずつ移動し、各アプリのリンクを新しい場所に向け直します。移動が終わるまで CC Switch を終了しないでください。",
-      "moveConfirmButton": "移動して切り替え",
-      "moveDone": "{{count}} 個の Skill を {{path}} に移動しました",
-      "movePartial": "{{migrated}} 個の Skill を移動、{{errors}} 個が失敗しました。詳細はログを確認してください。",
-      "syncTitle": "各アプリへの同期方式",
-      "syncAuto": "自動：シンボリックリンクを優先し、失敗したらコピー（推奨）",
-      "syncSymlink": "シンボリックリンクのみ",
-      "syncSymlinkDesc": "Windows では開発者モードが必要です",
-      "syncCopy": "コピーのみ",
-      "syncCopyDesc": "ディスク容量を多く使い、更新のたびにコピーし直します",
-      "moveHint": "場所を切り替えると {{count}} 個の Skill を移動します。"
+      "fixedBody": "Skill の本体はこのフォルダだけに置き、各アプリにはシンボリックリンクを置きます。コピーはしません。",
+      "resyncHint": "各アプリのシンボリックリンクを作り直します。既存のコピーもリンクに置き換えます。"
     },
     "updatesIncomplete": "更新は見つかりませんでしたが、{{count}} 個のリポジトリを読み込めませんでした"
   },
@@ -3236,8 +3220,8 @@
     },
     "needsAttention": "対応が必要",
     "back": "戻る",
-    "providersGroup": "プロバイダー",
-    "sharedGroup": "共通設定"
+    "appsGroup": "アプリ",
+    "configGroup": "設定"
   },
   "appsPage": {
     "showInSidebar": "{{name}} をサイドバーに表示",
@@ -3401,22 +3385,6 @@
     "clearSearch": "検索をクリア",
     "found": "{{count}} 件見つかりました",
     "columnAria": "{{app}}：{{total}} 件中 {{on}} 件の {{noun}} で有効、一括操作",
-    "pop": {
-      "count": "{{total}} 件中 {{on}} 件の {{noun}} で有効",
-      "failCount": "うち {{count}} 件は書き込みに失敗",
-      "enableRest": "残り {{count}} 件を有効化",
-      "enableAll": "すべて有効化",
-      "disableAll": "すべてオフ",
-      "scopeAll": "このリストの {{count}} 件だけに適用",
-      "scopeSearch": "検索結果の {{count}} 件だけに適用",
-      "scopeFilter": "絞り込んだ {{count}} 件だけに適用"
-    },
-    "toast": {
-      "enabled": "{{app}} で {{count}} 件の {{noun}} を有効化しました",
-      "disabled": "{{app}} で {{count}} 件の {{noun}} をオフにしました",
-      "partialFail": "。うち {{count}} 件は書き込めず、リストに印を付けました",
-      "undone": "元に戻しました"
-    },
     "undo": "元に戻す",
     "cell": {
       "on": "{{name}} · {{app}}：有効",
@@ -3432,7 +3400,7 @@
   "mcpPage": {
     "noun": "MCP",
     "listSeparator": "、",
-    "importFromApps": "アプリから取り込む",
+    "importFromApps": "取り込む",
     "searchPlaceholder": "名前・コマンド・URL を検索",
     "failNoticeTitle": "{{app}} の設定に書き込めません",
     "failNoticeBody": "{{error}}。ファイルを直してから「再試行」を押してください。",
@@ -3476,65 +3444,30 @@
     }
   },
   "skillsPage": {
-    "noun": "Skill",
-    "add": "Skill を追加",
     "addMenu": {
-      "zip": "ZIP からインストール",
-      "import": "このコンピューターから取り込む"
+      "zip": "ZIP からインストール"
     },
     "moreMenu": {
       "restore": "バックアップから復元",
-      "repos": "リポジトリの管理"
+      "enableAll": "すべての Skill をすべてのアプリで有効にする"
     },
     "searchPlaceholder": "名前・フォルダー・説明・リポジトリを検索",
     "lastChecked": "前回の確認：{{when}}",
     "justNow": "たった今",
     "banner": {
-      "unmanaged": "このコンピューターに CC Switch の管理外の Skill が {{count}} 件あります。",
-      "reviewImport": "確認して取り込む",
-      "ignore": "無視",
       "close": "閉じる"
-    },
-    "filter": {
-      "all": "すべて",
-      "updates": "更新あり",
-      "none": "どのアプリでも無効",
-      "inApp": "{{app}} で有効",
-      "sourceButton": "ソース：{{source}}"
     },
     "source": {
       "local": "ローカル"
     },
-    "bulk": {
-      "selected": "{{count}} 件選択",
-      "enableTo": "有効にする先",
-      "enableToAria": "選択した {{count}} 件の Skill を有効にする先",
-      "disable": "オフにする",
-      "disableAria": "選択した {{count}} 件の Skill をこのアプリでオフ",
-      "uninstall": "アンインストール"
-    },
-    "piColumnTitle": "Pi は ~/.pi/agent/skills にそのフォルダーがあるかで判定します",
-    "piHelpTitle": "Pi の有効の判定",
-    "piHelp": "~/.pi/agent/skills にそのフォルダーがあるかどうかです。",
-    "pop": {
-      "onlyApp": "{{app}} で有効なものだけ表示",
-      "showAll": "すべての Skill を表示"
-    },
-    "selectAria": "{{name}} を選択",
-    "selectAllAria": "表示中をすべて選択",
     "rowFail": "{{app}} での有効化に失敗：{{error}}",
     "fixSync": "同期方法を変更",
-    "rowMoreAria": "{{name}} のその他の操作",
     "copyDir": "フォルダー名をコピー",
-    "uninstallEllipsis": "アンインストール",
     "listLabel": "インストール済みの Skill",
     "noMatch": "「{{query}}」に一致する Skill はありません",
-    "noFilterMatch": "絞り込み条件に合う Skill はありません",
-    "clearFilters": "絞り込みを解除",
     "loadFailed": "インストール済みの Skill を読み込めませんでした",
     "emptyTitle": "Skill はまだありません",
-    "emptyBody": "ZIP ファイルからインストールするか、この端末にある Skill をインポートします。",
-    "importCount": "このコンピューターから取り込む（{{count}}）",
+    "emptyBody": "`npx skills add` か ZIP でインストールします。このアプリの外で追加した Skill は自動的にここに表示されます。",
     "confirm": {
       "uninstallOne": "{{name}} をアンインストールしますか？",
       "uninstallMany": "{{count}} 件の Skill をアンインストールしますか？",
@@ -3552,10 +3485,7 @@
       "uninstalledMany": "{{count}} 件の Skill をアンインストールしました",
       "backupAt": "バックアップ先：{{path}}",
       "copiedDir": "フォルダー名 {{dir}} をコピーしました",
-      "noUpdatesInSelection": "選択した Skill に更新はありません",
-      "selectionAlreadyOn": "選択した {{count}} 件の Skill は既に {{app}} で有効です",
-      "selectionAlreadyOff": "選択した {{count}} 件の Skill はどれも {{app}} で有効ではありません",
-      "disabledSelection": "{{app}} で {{count}} 件の {{noun}} をオフにしました"
+      "enableAllDone": "{{count}} 件の Skill を {{apps}} で有効にしました"
     },
     "installTo": {
       "prefix": "インストール先：",
@@ -3595,9 +3525,6 @@
       "item": "{{repo}}（{{reason}}）",
       "updatesBody": "これらのリポジトリの Skill は確認されていないため、結果が不完全な可能性があります。"
     },
-    "headerUpdates": "{{count}} 件の更新",
-    "headerUpdatesShow": "更新がある Skill だけを表示",
-    "headerUpdatesClear": "すべての Skill を表示",
     "updateAllCount": "すべて更新（{{count}} 件）",
     "updatingProgress": "更新中 {{done}}/{{total}}…"
   },

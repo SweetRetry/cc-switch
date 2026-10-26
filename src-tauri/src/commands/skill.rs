@@ -6,9 +6,8 @@
 
 use crate::app_config::{AppType, InstalledSkill, UnmanagedSkill};
 use crate::services::skill::{
-    ImportSkillSelection, MigrationResult, SkillAppSyncOutcome, SkillBackupEntry, SkillRepo,
-    SkillService, SkillStorageLocation, SkillUninstallResult, SkillUpdateCheckResult,
-    ZipInstallResult,
+    ImportSkillSelection, SkillAppSyncOutcome, SkillBackupEntry, SkillService,
+    SkillUninstallResult, SkillUpdateCheckResult,
 };
 use crate::store::AppState;
 use std::str::FromStr;
@@ -132,85 +131,20 @@ pub async fn update_skill(
         .map_err(|e| e.to_string())
 }
 
-/// 迁移 Skill 存储位置
+/// Skill 主副本目录（~/.agents/skills/）
 #[tauri::command]
-pub async fn migrate_skill_storage(
-    target: SkillStorageLocation,
-    app_state: State<'_, AppState>,
-) -> Result<MigrationResult, String> {
-    SkillService::migrate_storage(&app_state.db, target).map_err(|e| e.to_string())
+pub async fn get_skills_dir() -> Result<String, String> {
+    let dir = SkillService::get_ssot_dir().map_err(|e| e.to_string())?;
+    Ok(dir.to_string_lossy().to_string())
 }
 
-/// CC Switch 目录下放 Skill 主副本的位置（改过配置目录就是改后的）
-fn cc_switch_skills_dir() -> std::path::PathBuf {
-    crate::config::get_app_config_dir().join("skills")
-}
-
-/// 「存储与同步」里显示的 CC Switch 目录路径
+/// 在系统文件管理器里打开 Skill 主副本目录
 #[tauri::command]
-pub async fn get_cc_switch_skills_dir() -> Result<String, String> {
-    Ok(cc_switch_skills_dir().to_string_lossy().to_string())
-}
-
-/// 在系统文件管理器里打开 CC Switch 目录下的 Skills 目录（不存在就先建）
-#[tauri::command]
-pub async fn open_cc_switch_skills_dir(handle: AppHandle) -> Result<bool, String> {
-    let dir = cc_switch_skills_dir();
-    if !dir.exists() {
-        std::fs::create_dir_all(&dir).map_err(|e| format!("创建目录失败: {e}"))?;
-    }
+pub async fn open_skills_dir(handle: AppHandle) -> Result<bool, String> {
+    let dir = SkillService::get_ssot_dir().map_err(|e| e.to_string())?;
     handle
         .opener()
         .open_path(dir.to_string_lossy().to_string(), None::<String>)
         .map_err(|e| format!("打开文件夹失败: {e}"))?;
     Ok(true)
-}
-
-// ========== 仓库管理命令 ==========
-
-/// 获取技能仓库列表
-#[tauri::command]
-pub fn get_skill_repos(app_state: State<'_, AppState>) -> Result<Vec<SkillRepo>, String> {
-    app_state.db.get_skill_repos().map_err(|e| e.to_string())
-}
-
-/// 添加技能仓库
-#[tauri::command]
-pub fn add_skill_repo(repo: SkillRepo, app_state: State<'_, AppState>) -> Result<bool, String> {
-    // 整个结构体由前端反序列化而来，owner/name/branch 会被拼进归档下载 URL。
-    // 主防线在 download_repo，这里让非法值当场报错而不是沉淀进表。
-    SkillService::validate_repo_ref(&repo.owner, &repo.name, &repo.branch)
-        .map_err(|e| e.to_string())?;
-    app_state
-        .db
-        .save_skill_repo(&repo)
-        .map_err(|e| e.to_string())?;
-    Ok(true)
-}
-
-/// 删除技能仓库
-#[tauri::command]
-pub fn remove_skill_repo(
-    owner: String,
-    name: String,
-    app_state: State<'_, AppState>,
-) -> Result<bool, String> {
-    app_state
-        .db
-        .delete_skill_repo(&owner, &name)
-        .map_err(|e| e.to_string())?;
-    Ok(true)
-}
-
-/// 从 ZIP 文件安装 Skills；目录名已被占用的如实列在 `skipped` 里（#3749）
-#[tauri::command]
-pub fn install_skills_from_zip(
-    file_path: String,
-    current_app: String,
-    app_state: State<'_, AppState>,
-) -> Result<ZipInstallResult, String> {
-    let app_type = parse_app_type(&current_app)?;
-    let path = std::path::Path::new(&file_path);
-
-    SkillService::install_from_zip(&app_state.db, path, &app_type).map_err(|e| e.to_string())
 }

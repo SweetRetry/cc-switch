@@ -734,6 +734,20 @@ pub fn run() {
                 Err(e) => log::warn!("✗ Failed to initialize default skill repos: {e}"),
             }
 
+            // 1.0. Skill 主副本固定在 ~/.agents/skills：把旧版 ~/.cc-switch/skills 里的搬过去
+            match crate::services::skill::SkillService::migrate_legacy_storage(&app_state.db) {
+                Ok(result) if result.migrated_count > 0 || !result.errors.is_empty() => {
+                    log::info!(
+                        "Skill 存储迁移: {} 迁移, {} 跳过, {:?}",
+                        result.migrated_count,
+                        result.skipped_count,
+                        result.errors
+                    );
+                }
+                Ok(_) => {}
+                Err(e) => log::warn!("✗ Failed to migrate legacy skill storage: {e}"),
+            }
+
             // 1.1. Skills 统一管理迁移：当数据库迁移到 v3 结构后，自动从各应用目录导入到 SSOT
             // 触发条件由 schema 迁移设置 settings.skills_ssot_migration_pending = true 控制。
             match app_state.db.get_setting("skills_ssot_migration_pending") {
@@ -1534,7 +1548,6 @@ pub fn run() {
             commands::import_config_from_file,
             commands::save_file_dialog,
             commands::open_file_dialog,
-            commands::open_zip_file_dialog,
             commands::create_db_backup,
             commands::list_db_backups,
             commands::list_backup_locations,
@@ -1569,14 +1582,9 @@ pub fn run() {
             commands::check_skill_updates,
             commands::resync_skills_to_apps,
             commands::update_skill,
-            commands::migrate_skill_storage,
-            commands::get_cc_switch_skills_dir,
-            commands::open_cc_switch_skills_dir,
+            commands::get_skills_dir,
+            commands::open_skills_dir,
             // Skill management (legacy API compatibility)
-            commands::get_skill_repos,
-            commands::add_skill_repo,
-            commands::remove_skill_repo,
-            commands::install_skills_from_zip,
             // Auto launch
             commands::set_auto_launch,
             commands::get_auto_launch_status,

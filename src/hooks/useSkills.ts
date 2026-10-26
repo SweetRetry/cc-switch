@@ -223,73 +223,6 @@ export function useImportSkillsFromApps() {
   });
 }
 
-/**
- * 获取仓库列表
- */
-export function useSkillRepos() {
-  return useQuery({
-    queryKey: ["skills", "repos"],
-    queryFn: () => skillsApi.getRepos(),
-  });
-}
-
-/**
- * 添加仓库
- */
-export function useAddSkillRepo() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: skillsApi.addRepo,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["skills", "repos"] });
-    },
-  });
-}
-
-/**
- * 删除仓库
- */
-export function useRemoveSkillRepo() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ owner, name }: { owner: string; name: string }) =>
-      skillsApi.removeRepo(owner, name),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["skills", "repos"] });
-    },
-  });
-}
-
-/**
- * 从 ZIP 文件安装 Skills
- * 成功后先合并缓存，并在结束后刷新权威列表
- */
-export function useInstallSkillsFromZip() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      filePath,
-      currentApp,
-    }: {
-      filePath: string;
-      currentApp: AppId;
-    }) => skillsApi.installFromZip(filePath, currentApp),
-    onSuccess: (result) => {
-      queryClient.setQueryData<InstalledSkill[]>(
-        ["skills", "installed"],
-        (oldData) => mergeImportedSkills(oldData, result.installed),
-      );
-    },
-    // A ZIP can install multiple Skills before a later item or config sync
-    // fails, so refresh even when the mutation rejects.
-    onSettled: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["skills", "installed"] }),
-        queryClient.invalidateQueries({ queryKey: ["skills", "unmanaged"] }),
-      ]),
-  });
-}
-
 // ========== 更新检测 ==========
 
 /**
@@ -362,12 +295,12 @@ export function useResyncSkillsToApps() {
 }
 
 /**
- * CC Switch 目录下放 Skill 主副本的真实路径（改过配置目录就是改后的）
+ * Skill 主副本目录的真实路径（~/.agents/skills）
  */
-export function useCcSwitchSkillsDir(enabled = true) {
+export function useSkillsDir(enabled = true) {
   return useQuery({
-    queryKey: ["skills", "ccSwitchDir"],
-    queryFn: () => skillsApi.getCcSwitchSkillsDir(),
+    queryKey: ["skills", "dir"],
+    queryFn: () => skillsApi.getSkillsDir(),
     enabled,
     staleTime: Infinity,
   });

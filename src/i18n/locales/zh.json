@@ -1679,6 +1679,7 @@
     "freshInput": "新增输入",
     "cacheHitRate": "缓存命中率",
     "requestLogs": "请求日志",
+    "openRequestLogs": "查看请求日志",
     "providerStats": "Provider 统计",
     "modelStats": "模型统计",
     "time": "时间",
@@ -2759,30 +2760,13 @@
       "open": "存储与同步",
       "resync": "立即重新同步",
       "resyncing": "正在重新同步…",
-      "resyncHint": "修改只对之后启用或更新的 Skill 生效。要让已启用的 Skill 也换成当前方式，点「立即重新同步」。",
       "resyncDone": "已按当前方式把 Skill 重新同步到各应用",
       "resyncPartial": "{{count}} 个应用没有同步完整：{{apps}}",
       "resyncSkillItem": "{{directory}}：{{error}}",
-      "locationTitle": "主副本放在",
-      "locationCcSwitch": "CC Switch 目录",
-      "locationUnified": "通用目录",
       "openFolder": "打开",
       "openFolderAria": "打开 {{path}}",
-      "unifiedWarning": "Codex、Gemini CLI、OpenCode 等会直接读这个目录，各应用的开关对它们不再完全生效。",
-      "move": "移动并切换",
-      "moving": "正在移动…",
-      "moveConfirmTitle": "把 {{count}} 个 Skill 移到 {{path}}？",
-      "moveConfirmBody": "会逐个移动主副本，再让各应用里的链接指向新位置。移动完成前请不要退出 CC Switch。",
-      "moveConfirmButton": "移动并切换",
-      "moveDone": "已把 {{count}} 个 Skill 移到 {{path}}",
-      "movePartial": "移动了 {{migrated}} 个 Skill，{{errors}} 个失败，请查看日志",
-      "syncTitle": "同步到各应用的方式",
-      "syncAuto": "自动：优先用软链接，失败时复制（推荐）",
-      "syncSymlink": "只用软链接",
-      "syncSymlinkDesc": "Windows 需要开启开发者模式",
-      "syncCopy": "只用复制",
-      "syncCopyDesc": "占用更多空间，更新后会重新复制",
-      "moveHint": "切换位置会把 {{count}} 个 Skill 移动过去。"
+      "fixedBody": "所有 Skill 的主副本都放在这个目录，各应用里只放指向它的软链，不复制。",
+      "resyncHint": "重建各应用里的软链，已有的旧副本也会换成软链。"
     },
     "updatesIncomplete": "没有发现更新，但有 {{count}} 个仓库没有读到"
   },
@@ -3236,8 +3220,8 @@
     },
     "needsAttention": "需要处理",
     "back": "返回",
-    "providersGroup": "供应商",
-    "sharedGroup": "共享配置"
+    "appsGroup": "应用",
+    "configGroup": "配置"
   },
   "appsPage": {
     "showInSidebar": "在侧栏显示 {{name}}",
@@ -3401,22 +3385,6 @@
     "clearSearch": "清空搜索",
     "found": "找到 {{count}} 个",
     "columnAria": "{{app}}：已在 {{on}} / {{total}} 个 {{noun}} 上启用，批量操作",
-    "pop": {
-      "count": "已在 {{on}} / {{total}} 个 {{noun}} 上启用",
-      "failCount": "其中 {{count}} 个写入失败",
-      "enableRest": "启用其余 {{count}} 个",
-      "enableAll": "全部启用",
-      "disableAll": "全部关闭",
-      "scopeAll": "只作用于当前列表里的 {{count}} 个",
-      "scopeSearch": "只作用于搜索出的 {{count}} 个",
-      "scopeFilter": "只作用于筛选出的 {{count}} 个"
-    },
-    "toast": {
-      "enabled": "已在 {{app}} 启用 {{count}} 个 {{noun}}",
-      "disabled": "已在 {{app}} 关闭 {{count}} 个 {{noun}}",
-      "partialFail": "，其中 {{count}} 个没有写入，已在列表里标出",
-      "undone": "已撤销"
-    },
     "undo": "撤销",
     "cell": {
       "on": "{{name}} · {{app}}：已启用",
@@ -3432,7 +3400,7 @@
   "mcpPage": {
     "noun": "MCP",
     "listSeparator": "、",
-    "importFromApps": "从应用导入",
+    "importFromApps": "导入",
     "searchPlaceholder": "搜索名称、命令或地址",
     "failNoticeTitle": "无法写入 {{app}} 的配置",
     "failNoticeBody": "{{error}}。修好文件后点「重试」。",
@@ -3476,65 +3444,30 @@
     }
   },
   "skillsPage": {
-    "noun": "Skill",
-    "add": "添加 Skill",
     "addMenu": {
-      "zip": "从 ZIP 安装",
-      "import": "导入本机已有"
+      "zip": "从 ZIP 安装"
     },
     "moreMenu": {
       "restore": "从备份恢复",
-      "repos": "仓库管理"
+      "enableAll": "全部 Skill 启用到所有应用"
     },
     "searchPlaceholder": "搜索名称、目录、描述或仓库",
     "lastChecked": "上次检查：{{when}}",
     "justNow": "刚刚",
     "banner": {
-      "unmanaged": "本机有 {{count}} 个 Skill 不在 CC Switch 管理中。",
-      "reviewImport": "查看并导入",
-      "ignore": "忽略",
       "close": "关闭提示"
-    },
-    "filter": {
-      "all": "全部",
-      "updates": "可更新",
-      "none": "未在任何应用启用",
-      "inApp": "在 {{app}} 启用",
-      "sourceButton": "来源：{{source}}"
     },
     "source": {
       "local": "本地"
     },
-    "bulk": {
-      "selected": "已选 {{count}}",
-      "enableTo": "启用到",
-      "enableToAria": "把选中的 {{count}} 个 Skill 启用到",
-      "disable": "停用",
-      "disableAria": "在这个应用里停用选中的 {{count}} 个 Skill",
-      "uninstall": "卸载"
-    },
-    "piColumnTitle": "Pi 按 ~/.pi/agent/skills 里有没有这个目录来判断",
-    "piHelpTitle": "Pi 怎么算启用",
-    "piHelp": "看 ~/.pi/agent/skills 里有没有这个目录。",
-    "pop": {
-      "onlyApp": "只看在 {{app}} 启用的",
-      "showAll": "显示全部 Skill"
-    },
-    "selectAria": "选择 {{name}}",
-    "selectAllAria": "全选当前列表",
     "rowFail": "在 {{app}} 启用失败：{{error}}",
     "fixSync": "改同步方式",
-    "rowMoreAria": "{{name}} 的更多操作",
     "copyDir": "复制目录名",
-    "uninstallEllipsis": "卸载",
     "listLabel": "已安装的 Skill",
     "noMatch": "没有匹配“{{query}}”的 Skill",
-    "noFilterMatch": "没有符合筛选条件的 Skill",
-    "clearFilters": "清除筛选",
     "loadFailed": "读取已安装的 Skill 失败",
     "emptyTitle": "还没有 Skill",
-    "emptyBody": "从 ZIP 安装，或者导入本机已有的 Skill。",
-    "importCount": "导入本机已有（{{count}}）",
+    "emptyBody": "用 `npx skills add` 或 ZIP 安装。在本应用之外装的 Skill 会自动出现在这里。",
     "confirm": {
       "uninstallOne": "卸载 {{name}}？",
       "uninstallMany": "卸载 {{count}} 个 Skill？",
@@ -3552,10 +3485,7 @@
       "uninstalledMany": "已卸载 {{count}} 个 Skill",
       "backupAt": "备份在 {{path}}",
       "copiedDir": "已复制目录名 {{dir}}",
-      "noUpdatesInSelection": "选中的 Skill 没有可用的更新",
-      "selectionAlreadyOn": "选中的 {{count}} 个 Skill 已经在 {{app}} 启用",
-      "selectionAlreadyOff": "选中的 {{count}} 个 Skill 都没有在 {{app}} 启用",
-      "disabledSelection": "已在 {{app}} 停用 {{count}} 个 {{noun}}"
+      "enableAllDone": "已把 {{count}} 个 Skill 启用到 {{apps}}"
     },
     "installTo": {
       "prefix": "安装到：",
@@ -3595,9 +3525,6 @@
       "item": "{{repo}}（{{reason}}）",
       "updatesBody": "这些仓库里的 Skill 没有检查，更新结果可能不完整。"
     },
-    "headerUpdates": "{{count}} 个可更新",
-    "headerUpdatesShow": "只看可更新的 Skill",
-    "headerUpdatesClear": "显示全部 Skill",
     "updateAllCount": "全部更新（{{count}} 个）",
     "updatingProgress": "正在更新 {{done}}/{{total}}…"
   },

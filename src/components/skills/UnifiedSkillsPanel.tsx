@@ -3,12 +3,10 @@ import { useDelayedFlag } from "@/hooks/useDelayedFlag";
 import { useTranslation } from "react-i18next";
 import {
   ArrowUpCircle,
-  Check,
-  ChevronDown,
+  Copy,
   Loader2,
   MoreHorizontal,
-  Plus,
-  RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
@@ -17,13 +15,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { HoverTip } from "@/components/ui/hover-tip";
-import { Checkbox } from "@/components/ui/checkbox";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
-import { AppGlyph, APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
+import { APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
 import { SkillsIcon } from "@/components/BrandIcons";
 import {
   type ImportSkillSelection,
@@ -34,46 +30,33 @@ import {
   useCheckSkillUpdates,
   useDeleteSkillBackup,
   useImportSkillsFromApps,
-  useInstallSkillsFromZip,
   useInstalledSkills,
   useRestoreSkillBackup,
   useScanUnmanagedSkills,
   useSkillBackups,
-  useSkillRepos,
-  useAddSkillRepo,
-  useRemoveSkillRepo,
   useToggleSkillApp,
   useUninstallSkill,
   useUpdateSkill,
 } from "@/hooks/useSkills";
 import type { AppId } from "@/lib/api/types";
 import { SKILLS_APP_IDS } from "@/config/appConfig";
-import { settingsApi, skillsApi } from "@/lib/api";
+import { settingsApi } from "@/lib/api";
 import { copyText } from "@/lib/clipboard";
 import { extractErrorMessage } from "@/utils/errorUtils";
 import { cn } from "@/lib/utils";
+import { MatrixSearch } from "@/components/mcp/AppMatrix";
 import {
-  MatrixCell,
-  MatrixColumnHeader,
-  MatrixColumnHighlight,
-  MatrixSearch,
-  NeutralBadge,
-  resolveBulkScope,
-  showUndoToast,
-} from "@/components/mcp/AppMatrix";
+  AppMultiSelect,
+  type AppSelectState,
+} from "@/components/mcp/AppMultiSelect";
 import { V7ConfirmDialog } from "@/components/mcp/formBits";
 import { useVisibleAppIds } from "@/components/mcp/useVisibleAppIds";
-import { RepoManagerPanel } from "./RepoManagerPanel";
-import { SkillImportDialog } from "./SkillImportDialog";
 import { SkillRestoreDialog } from "./SkillRestoreDialog";
 import { SkillsStorageSheet } from "./SkillsStorageSheet";
 import { useSkillInstallTargets } from "./useSkillInstallTargets";
 import { describeRepoFailures } from "./repoFailures";
-import type { ZipSkippedSkill } from "@/lib/api/skills";
 
 const BACKUP_DIR = "~/.cc-switch/skill-backups";
-
-type StatusFilter = "all" | "updates" | "none" | `app:${AppId}`;
 
 interface WriteFailure {
   desired: boolean;
@@ -105,18 +88,10 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
   const { targets, installTo } = useSkillInstallTargets(appIds);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [sourceFilter, setSourceFilter] = useState("all");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [fails, setFails] = useState<Record<string, WriteFailure>>({});
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
-  const [importOpen, setImportOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [storageOpen, setStorageOpen] = useState(false);
-  const [repoManagerOpen, setRepoManagerOpen] = useState(false);
-  const [dismissedUnmanaged, setDismissedUnmanaged] = useState<number | null>(
-    null,
-  );
   /** 关掉的是哪一次检查的「仓库没读到」横幅（按检查时间记） */
   const [dismissedRepoFailAt, setDismissedRepoFailAt] = useState<number | null>(
     null,
@@ -149,10 +124,8 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
   const uninstallMutation = useUninstallSkill();
   const restoreBackupMutation = useRestoreSkillBackup();
   // 进入页面时静默扫描一次「本机已有但未管理」的 Skill
-  const { data: unmanagedSkills, refetch: scanUnmanaged } =
-    useScanUnmanagedSkills({ enabled: true });
+  const { data: unmanagedSkills } = useScanUnmanagedSkills({ enabled: true });
   const importMutation = useImportSkillsFromApps();
-  const installFromZipMutation = useInstallSkillsFromZip();
   const {
     data: updateCheck,
     refetch: checkUpdates,
@@ -170,11 +143,9 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
     uninstallMutation.isPending ||
     restoreBackupMutation.isPending ||
     importMutation.isPending ||
-    installFromZipMutation.isPending ||
     updateSkillMutation.isPending ||
     isUpdatingMany;
-  const dialogOpen =
-    importOpen || restoreOpen || confirm !== null || repoManagerOpen;
+  const dialogOpen = restoreOpen || confirm !== null;
   const navigationBlocked = writePending || mutationPending || dialogOpen;
   const interactionBlocked = navigationBlocked || isCheckingUpdates;
   // 外观上的禁用晚 300ms 才出现：点一个格子写得很快时不让整页按钮闪一下变灰。
@@ -220,7 +191,6 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
   const listSeparator = t("mcpPage.listSeparator");
   const names = (apps: AppId[]) =>
     apps.map((app) => APP_DISPLAY_NAME[app]).join(listSeparator);
-  const noun = t("skillsPage.noun");
   const installedSkills = skills ?? [];
 
   // ─── 更新 ───────────────────────────────────────────────────────────
@@ -251,45 +221,12 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
     }
   }, [updatesCheckedAt, i18n.language, t]);
 
-  // ─── 来源 / 筛选 ────────────────────────────────────────────────────
-  const sourceKey = (skill: InstalledSkill) =>
-    skill.repoOwner && skill.repoName
-      ? `repo:${skill.repoOwner}/${skill.repoName}`
-      : "local";
-
-  const sourceLabel = (key: string) =>
-    key === "local" ? t("skillsPage.source.local") : key.slice(5);
-
-  const sourceOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const skill of installedSkills) {
-      const key = sourceKey(skill);
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
-    return [...counts.entries()].sort(([a], [b]) => {
-      if (a === "local") return 1;
-      if (b === "local") return -1;
-      return a.localeCompare(b);
-    });
-  }, [installedSkills]);
-
-  const enabledCount = (skill: InstalledSkill) =>
-    SKILLS_APP_IDS.filter((app) => skill.apps[app]).length;
-
+  // ─── 搜索 ───────────────────────────────────────────────────────────
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
   const filteredSkills = useMemo(() => {
-    return installedSkills.filter((skill) => {
-      if (statusFilter === "updates" && !updatesMap[skill.id]) return false;
-      if (statusFilter === "none" && enabledCount(skill) > 0) return false;
-      if (statusFilter.startsWith("app:")) {
-        const app = statusFilter.slice(4) as AppId;
-        if (!skill.apps[app]) return false;
-      }
-      if (sourceFilter !== "all" && sourceKey(skill) !== sourceFilter) {
-        return false;
-      }
-      if (!normalizedQuery) return true;
-      return [
+    if (!normalizedQuery) return installedSkills;
+    return installedSkills.filter((skill) =>
+      [
         skill.name,
         skill.id,
         skill.description,
@@ -299,44 +236,9 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
         skill.repoOwner && skill.repoName
           ? `${skill.repoOwner}/${skill.repoName}`
           : undefined,
-      ].some((value) => value?.toLocaleLowerCase().includes(normalizedQuery));
-    });
-  }, [
-    installedSkills,
-    statusFilter,
-    sourceFilter,
-    normalizedQuery,
-    updatesMap,
-  ]);
-
-  // 「可更新」筛选下把最后一个也更新完：回到全部，免得停在空表上
-  const nApplicableUpdates = applicableSkillUpdates.length;
-  const prevUpdatesRef = useRef(nApplicableUpdates);
-  useEffect(() => {
-    if (
-      prevUpdatesRef.current > 0 &&
-      nApplicableUpdates === 0 &&
-      statusFilter === "updates"
-    ) {
-      setStatusFilter("all");
-    }
-    prevUpdatesRef.current = nApplicableUpdates;
-  }, [nApplicableUpdates, statusFilter]);
-
-  const filtersActive = statusFilter !== "all" || sourceFilter !== "all";
-  const scope = resolveBulkScope(
-    installedSkills,
-    filteredSkills,
-    normalizedQuery ? "search" : filtersActive ? "filter" : null,
-  );
-
-  // 已经不在列表里的勾选自动丢掉
-  useEffect(() => {
-    if (selected.size === 0) return;
-    const ids = new Set(installedSkills.map((skill) => skill.id));
-    const next = new Set([...selected].filter((id) => ids.has(id)));
-    if (next.size !== selected.size) setSelected(next);
-  }, [installedSkills, selected]);
+      ].some((value) => value?.toLocaleLowerCase().includes(normalizedQuery)),
+    );
+  }, [installedSkills, normalizedQuery]);
 
   // ─── 写入与失败记录 ────────────────────────────────────────────────
   const recordResult = (
@@ -392,88 +294,57 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
     }
   };
 
-  const bulkToggle = async (
-    ids: string[],
-    app: AppId,
-    enabled: boolean,
-    toastKey: { on: string; off: string },
-  ) => {
+  const handleEnableAll = async () => {
     if (!beginWrite()) return;
     try {
-      const { succeeded, failed } = await writeMany(ids, app, enabled);
-      let text = t(enabled ? toastKey.on : toastKey.off, {
-        app: APP_DISPLAY_NAME[app],
-        count: succeeded.length,
-        noun,
-      });
-      if (failed) text += t("appMatrix.toast.partialFail", { count: failed });
-      showUndoToast(
-        text,
-        t("appMatrix.undo"),
-        succeeded.length
-          ? () => {
-              void (async () => {
-                if (!beginWrite()) return;
-                try {
-                  const result = await writeMany(succeeded, app, !enabled);
-                  if (result.failed) {
-                    toast[result.succeeded.length ? "warning" : "error"](
-                      t("common.bulkToggleFailed", { count: result.failed }),
-                      { closeButton: true },
-                    );
-                  } else {
-                    toast.success(t("appMatrix.toast.undone"), {
-                      closeButton: true,
-                    });
-                  }
-                } finally {
-                  endWrite();
-                }
-              })();
-            }
-          : undefined,
-        failed ? (succeeded.length ? "warning" : "error") : "success",
-      );
+      let failed = 0;
+      for (const app of appIds) {
+        const ids = installedSkills
+          .filter((skill) => !skill.apps[app])
+          .map((skill) => skill.id);
+        failed += (await writeMany(ids, app, true)).failed;
+      }
+      if (failed) {
+        toast.warning(t("common.bulkToggleFailed", { count: failed }), {
+          closeButton: true,
+        });
+      } else {
+        toast.success(
+          t("skillsPage.toast.enableAllDone", {
+            count: installedSkills.length,
+            apps: names(appIds),
+          }),
+          { closeButton: true },
+        );
+      }
     } finally {
       endWrite();
     }
   };
 
-  const handleColumnBulk = (app: AppId, enabled: boolean) => {
-    const ids = scope.rows
-      .filter((skill) => Boolean(skill.apps[app]) !== enabled)
-      .map((skill) => skill.id);
-    if (ids.length === 0) return;
-    void bulkToggle(ids, app, enabled, {
-      on: "appMatrix.toast.enabled",
-      off: "appMatrix.toast.disabled",
-    });
-  };
-
-  const handleSelectionToggle = (app: AppId, enabled: boolean) => {
-    const chosen = installedSkills.filter((skill) => selected.has(skill.id));
-    const ids = chosen
-      .filter((skill) => Boolean(skill.apps[app]) !== enabled)
-      .map((skill) => skill.id);
-    if (ids.length === 0) {
-      toast.info(
-        enabled
-          ? t("skillsPage.toast.selectionAlreadyOn", {
-              count: chosen.length,
-              app: APP_DISPLAY_NAME[app],
-            })
-          : t("skillsPage.toast.selectionAlreadyOff", {
-              count: chosen.length,
-              app: APP_DISPLAY_NAME[app],
-            }),
-        { closeButton: true },
-      );
-      return;
+  const handleRowAll = async (skill: InstalledSkill, on: boolean) => {
+    if (!beginWrite()) return;
+    try {
+      const targets = appIds.filter((app) => Boolean(skill.apps[app]) !== on);
+      if (targets.length === 0) return;
+      let failed = 0;
+      for (const app of targets) {
+        failed += (await writeMany([skill.id], app, on)).failed;
+      }
+      if (!failed) {
+        toast.success(
+          on
+            ? t("mcpPage.toast.rowAllOn", {
+                id: skill.name,
+                count: appIds.length,
+              })
+            : t("mcpPage.toast.rowAllOff", { id: skill.name }),
+          { closeButton: true },
+        );
+      }
+    } finally {
+      endWrite();
     }
-    void bulkToggle(ids, app, enabled, {
-      on: "appMatrix.toast.enabled",
-      off: "skillsPage.toast.disabledSelection",
-    });
   };
 
   // ─── 卸载 / 更新 ────────────────────────────────────────────────────
@@ -503,11 +374,6 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
         }
       }
       setConfirm(null);
-      setSelected((prev) => {
-        const next = new Set(prev);
-        for (const id of ids) next.delete(id);
-        return next;
-      });
     } finally {
       endWrite();
     }
@@ -600,37 +466,42 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
     }
   };
 
-  // ─── 导入 / ZIP / 备份 ───────────────────────────────────────────────
-  const handleOpenImport = async () => {
-    if (!beginWrite()) return;
-    try {
-      const result = await scanUnmanaged();
-      if (!result.data || result.data.length === 0) {
-        toast.success(t("skills.noUnmanagedFound"), { closeButton: true });
-        return;
+  // ─── 导入 / 备份 ───────────────────────────────────────────────
+  // npx skills add 等外部工具装进来的 Skill：打开页面时自动纳入管理，
+  // 在「发现于」里出现过的应用上默认启用（Pi 看目录，不用勾）
+  const adoptedKeyRef = useRef("");
+  useEffect(() => {
+    if (!unmanagedSkills?.length) return;
+    const key = unmanagedSkills
+      .map((skill) => skill.directory)
+      .sort()
+      .join("\u0000");
+    if (adoptedKeyRef.current === key || !beginWrite()) return;
+    adoptedKeyRef.current = key;
+    const imports: ImportSkillSelection[] = unmanagedSkills.map((skill) => ({
+      directory: skill.directory,
+      apps: {
+        claude: skill.foundIn.includes("claude"),
+        codex: skill.foundIn.includes("codex"),
+        opencode: skill.foundIn.includes("opencode"),
+        pi: false,
+        agy: skill.foundIn.includes("agy"),
+      },
+    }));
+    void (async () => {
+      try {
+        const imported = await importMutation.mutateAsync(imports);
+        toast.success(t("skills.importSuccess", { count: imported.length }), {
+          closeButton: true,
+        });
+      } catch (error) {
+        toast.error(t("common.error"), { description: String(error) });
+      } finally {
+        endWrite();
       }
-      setImportOpen(true);
-    } catch (error) {
-      toast.error(t("common.error"), { description: String(error) });
-    } finally {
-      endWrite();
-    }
-  };
-
-  const handleImport = async (imports: ImportSkillSelection[]) => {
-    if (!beginWrite(true)) return;
-    try {
-      const imported = await importMutation.mutateAsync(imports);
-      setImportOpen(false);
-      toast.success(t("skills.importSuccess", { count: imported.length }), {
-        closeButton: true,
-      });
-    } catch (error) {
-      toast.error(t("common.error"), { description: String(error) });
-    } finally {
-      endWrite();
-    }
-  };
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unmanagedSkills]);
 
   const reportEnableFailures = (
     failures: Array<{ id: string; app: AppId; error: unknown }>,
@@ -643,73 +514,6 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
       }),
       { closeButton: true },
     );
-  };
-
-  const handleInstallFromZip = async () => {
-    if (!beginWrite()) return;
-    try {
-      const filePath = await skillsApi.openZipFileDialog();
-      if (!filePath) return;
-      let skipped: ZipSkippedSkill[] = [];
-      const { installed, failures } = await installTo(async (firstApp) => {
-        const result = await installFromZipMutation.mutateAsync({
-          filePath,
-          currentApp: firstApp,
-        });
-        skipped = result.skipped;
-        return result.installed;
-      });
-      if (skipped.length > 0) {
-        // #3749：同名被跳过要说清楚跳过了哪些、被谁占用，不能说成「ZIP 里没有技能」
-        const list = skipped
-          .map((item) =>
-            t("skills.installFromZip.skippedItem", {
-              directory: item.directory,
-              name: item.existingName,
-            }),
-          )
-          .join(listSeparator);
-        toast.warning(
-          installed.length === 0
-            ? t("skills.installFromZip.allSkipped", { count: skipped.length })
-            : t("skills.installFromZip.skippedTitle", {
-                count: skipped.length,
-              }),
-          {
-            description: t("skills.installFromZip.skippedBody", { list }),
-            closeButton: true,
-          },
-        );
-      }
-      if (installed.length === 0) {
-        if (skipped.length === 0) {
-          toast.info(t("skills.installFromZip.noSkillsFound"), {
-            closeButton: true,
-          });
-        }
-      } else if (installed.length === 1) {
-        toast.success(
-          t("skillsPage.toast.installed", {
-            name: installed[0].name,
-            apps: names(targets),
-          }),
-          { closeButton: true },
-        );
-      } else {
-        toast.success(
-          t("skillsPage.toast.installedMany", {
-            count: installed.length,
-            apps: names(targets),
-          }),
-          { closeButton: true },
-        );
-      }
-      reportEnableFailures(failures);
-    } catch (error) {
-      toast.error(t("skills.installFailed"), { description: String(error) });
-    } finally {
-      endWrite();
-    }
   };
 
   const handleOpenRestoreFromBackup = async () => {
@@ -826,78 +630,68 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
   // ─── 渲染：页头 ─────────────────────────────────────────────────────
   const nInstalled = installedSkills.length;
   const nUpdates = applicableSkillUpdates.length;
-  const nUnmanaged = unmanagedSkills?.length ?? 0;
   const loadOk = !isLoading && !isError;
-  const updatesOnly = statusFilter === "updates";
-  const toggleUpdatesFilter = () => {
-    if (updatesOnly) {
-      setStatusFilter("all");
-      return;
-    }
-    setStatusFilter("updates");
-  };
-
   const header = (
     <AppPageHeader
       icon={<SkillsIcon size={20} />}
       title="Skills"
-      titleExtra={
-        <>
-          {/* 已安装数量只写在页签上；页头只留可点的「N 个可更新」 */}
-          {loadOk && nUpdates > 0 && (
-            <span className="ms-2 flex items-center whitespace-nowrap text-body">
-              {/* 可点：把表格筛到可更新的项，再点恢复；「全部更新」在搜索框旁 */}
-              <HoverTip
-                content={
-                  updatesOnly
-                    ? t("skillsPage.headerUpdatesClear")
-                    : t("skillsPage.headerUpdatesShow")
-                }
-              >
-                <button
-                  type="button"
-                  aria-pressed={updatesOnly}
-                  onClick={toggleUpdatesFilter}
-                  className={cn(
-                    "-mx-1 inline-flex h-6 items-center rounded-control px-1.5 text-body font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    updatesOnly
-                      ? "bg-selected text-fg-1"
-                      : "text-fg-2 underline decoration-border-strong underline-offset-[3px] hover:bg-subtle hover:text-fg-1",
-                  )}
-                >
-                  {t("skillsPage.headerUpdates", { count: nUpdates })}
-                </button>
-              </HoverTip>
-            </span>
-          )}
-        </>
-      }
+      // 右缘与下面列表的 px-6 对齐
+      className="pe-6"
       actions={
         <>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="solid"
-                size="regular"
-                className="pe-2.5"
-                disabled={controlsDisabled}
+          {loadOk && nInstalled > 0 && (
+            <MatrixSearch
+              className="w-[240px] min-w-[160px] shrink"
+              value={searchQuery}
+              onValueChange={setSearchQuery}
+              placeholder={t("skillsPage.searchPlaceholder")}
+              ariaLabel={t("skills.installedSearchAriaLabel")}
+              status={
+                normalizedQuery
+                  ? t("appMatrix.found", { count: filteredSkills.length })
+                  : ""
+              }
+            />
+          )}
+          {/* 有可更新项（或正在更新）时才出现；重新检查走「⋯」菜单 */}
+          {updateProgress ? (
+            <Button
+              type="button"
+              variant="neutral"
+              size="regular"
+              className="shrink-0"
+              disabled
+            >
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {t("skillsPage.updatingProgress", {
+                done: Math.min(updateProgress.done + 1, updateProgress.total),
+                total: updateProgress.total,
+              })}
+            </Button>
+          ) : (
+            loadOk &&
+            nUpdates > 0 && (
+              <HoverTip
+                content={
+                  lastCheckedText
+                    ? t("skillsPage.lastChecked", { when: lastCheckedText })
+                    : undefined
+                }
               >
-                <Plus className="h-4 w-4" strokeWidth={2} />
-                {t("skillsPage.add")}
-                <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[220px]">
-              <DropdownMenuItem onSelect={() => void handleInstallFromZip()}>
-                {t("skillsPage.addMenu.zip")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void handleOpenImport()}>
-                <span className="flex-1">{t("skillsPage.addMenu.import")}</span>
-                {nUnmanaged > 0 && <NeutralBadge>{nUnmanaged}</NeutralBadge>}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <Button
+                  type="button"
+                  variant="neutral"
+                  size="regular"
+                  className="shrink-0"
+                  disabled={controlsDisabled}
+                  onClick={() => setConfirm({ kind: "updateAll" })}
+                >
+                  <ArrowUpCircle className="h-4 w-4" strokeWidth={2} />
+                  {t("skillsPage.updateAllCount", { count: nUpdates })}
+                </Button>
+              </HoverTip>
+            )
+          )}
           <DropdownMenu>
             <HoverTip content={t("common.more")}>
               <DropdownMenuTrigger asChild>
@@ -920,16 +714,16 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
                 {t("skills.checkUpdates")}
               </DropdownMenuItem>
               <DropdownMenuItem
+                disabled={controlsDisabled || nInstalled === 0}
+                onSelect={() => void handleEnableAll()}
+              >
+                {t("skillsPage.moreMenu.enableAll")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 disabled={controlsDisabled}
                 onSelect={() => void handleOpenRestoreFromBackup()}
               >
                 {t("skillsPage.moreMenu.restore")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={controlsDisabled}
-                onSelect={() => setRepoManagerOpen(true)}
-              >
-                {t("skillsPage.moreMenu.repos")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setStorageOpen(true)}>
                 {t("skills.storageSheet.open")}
@@ -940,17 +734,6 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
       }
     />
   );
-
-  // ─── 渲染：已安装段 ─────────────────────────────────────────────────
-  const statusLabel = (value: StatusFilter) => {
-    if (value === "updates") return t("skillsPage.filter.updates");
-    if (value === "none") return t("skillsPage.filter.none");
-    if (value.startsWith("app:"))
-      return t("skillsPage.filter.inApp", {
-        app: APP_DISPLAY_NAME[value.slice(4) as AppId],
-      });
-    return t("skillsPage.filter.all");
-  };
 
   const renderInstalledBody = () => {
     if (isLoading) {
@@ -987,325 +770,210 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-10 pb-12 text-center">
           <h2 className="m-0 text-section">{t("skillsPage.emptyTitle")}</h2>
           <p className="m-0 text-body text-fg-2">{t("skillsPage.emptyBody")}</p>
-          <div className="mt-2 flex gap-2">
-            <Button
-              type="button"
-              variant="neutral"
-              size="regular"
-              disabled={controlsDisabled}
-              onClick={() => void handleOpenImport()}
-            >
-              {nUnmanaged
-                ? t("skillsPage.importCount", { count: nUnmanaged })
-                : t("skillsPage.addMenu.import")}
-            </Button>
-          </div>
         </div>
       );
     }
 
-    const selectionActive = selected.size > 0;
-    const nVisibleSelected = filteredSkills.filter((skill) =>
-      selected.has(skill.id),
-    ).length;
-    const allVisibleSelected =
-      filteredSkills.length > 0 && nVisibleSelected === filteredSkills.length;
     return (
       <div
         data-testid="skills-matrix"
-        className="min-h-0 overflow-auto scroll-stable rounded-panel border border-border bg-surface"
+        className="min-h-0 overflow-auto scroll-stable"
       >
-        <MatrixColumnHighlight>
-          <div className="min-w-[600px]">
-            <div className="sticky top-0 z-10 flex h-11 items-center border-b border-border bg-subtle px-2">
-              <span className="flex w-6 shrink-0 justify-center">
-                <Checkbox
-                  aria-label={t("skillsPage.selectAllAria")}
-                  disabled={filteredSkills.length === 0}
-                  checked={
-                    allVisibleSelected
-                      ? true
-                      : nVisibleSelected > 0
-                        ? "indeterminate"
-                        : false
-                  }
-                  onCheckedChange={() =>
-                    // 只管当前筛选出来的这些行；半选时点一下补齐
-                    setSelected((prev) => {
-                      const next = new Set(prev);
-                      for (const skill of filteredSkills) {
-                        if (allVisibleSelected) next.delete(skill.id);
-                        else next.add(skill.id);
-                      }
-                      return next;
-                    })
-                  }
-                />
+        <div className="min-w-[560px]">
+          {filteredSkills.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 px-6 py-8 text-center">
+              <span className="text-body text-fg-2">
+                {t("skillsPage.noMatch", { query: searchQuery.trim() })}
               </span>
-              <div className="-ms-0.5 flex min-w-0 flex-1 items-center gap-0.5">
-                {selectionActive ? (
-                  <>
-                    <span className="shrink-0 whitespace-nowrap pe-1.5 ps-2.5 text-body font-medium tabular-nums">
-                      {t("skillsPage.bulk.selected", { count: selected.size })}
-                    </span>
-                    <AppMenuButton
-                      label={t("skillsPage.bulk.enableTo")}
-                      ariaLabel={t("skillsPage.bulk.enableToAria", {
-                        count: selected.size,
-                      })}
-                      apps={appIds}
-                      disabled={controlsDisabled}
-                      onPick={(app) => handleSelectionToggle(app, true)}
-                    />
-                    <AppMenuButton
-                      label={t("skillsPage.bulk.disable")}
-                      ariaLabel={t("skillsPage.bulk.disableAria", {
-                        count: selected.size,
-                      })}
-                      apps={appIds}
-                      disabled={controlsDisabled}
-                      onPick={(app) => handleSelectionToggle(app, false)}
-                    />
-                    <Button
-                      type="button"
-                      variant="quiet"
-                      size="compact"
-                      className="px-2"
-                      disabled={controlsDisabled}
-                      onClick={() => {
-                        const ids = [...selected].filter(
-                          (id) => updatesMap[id],
-                        );
-                        if (ids.length === 0) {
-                          toast.info(
-                            t("skillsPage.toast.noUpdatesInSelection"),
-                            {
-                              closeButton: true,
-                            },
-                          );
-                          return;
-                        }
-                        void updateIds(ids);
-                      }}
-                    >
-                      {t("skills.update")}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="quiet"
-                      size="compact"
-                      className="px-2 text-danger-text hover:text-danger-text"
-                      disabled={controlsDisabled}
-                      onClick={() =>
-                        setConfirm({ kind: "uninstall", ids: [...selected] })
-                      }
-                    >
-                      {t("skillsPage.bulk.uninstall")}
-                    </Button>
-                    <div className="flex-1" />
-                    <Button
-                      type="button"
-                      variant="quiet"
-                      size="compact"
-                      className="px-2 text-fg-2"
-                      onClick={() => setSelected(new Set())}
-                    >
-                      {t("common.cancel")}
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <FilterMenu
-                      label={statusLabel(statusFilter)}
-                      active={statusFilter !== "all"}
-                      items={(["all", "updates", "none"] as StatusFilter[]).map(
-                        (value) => ({
-                          key: value,
-                          label: statusLabel(value),
-                          checked: statusFilter === value,
-                          onSelect: () => setStatusFilter(value),
-                        }),
-                      )}
-                    />
-                    <FilterMenu
-                      label={t("skillsPage.filter.sourceButton", {
-                        source:
-                          sourceFilter === "all"
-                            ? t("skillsPage.filter.all")
-                            : sourceLabel(sourceFilter),
-                      })}
-                      active={sourceFilter !== "all"}
-                      items={[
-                        {
-                          key: "all",
-                          label: t("skillsPage.filter.all"),
-                          checked: sourceFilter === "all",
-                          onSelect: () => setSourceFilter("all"),
-                        },
-                        ...sourceOptions.map(([key, count]) => ({
-                          key,
-                          label: sourceLabel(key),
-                          mono: key !== "local",
-                          count,
-                          checked: sourceFilter === key,
-                          onSelect: () => setSourceFilter(key),
-                        })),
-                      ]}
-                    />
-                  </>
-                )}
-              </div>
-              <div className="flex shrink-0">
-                {appIds.map((app) => {
-                  const isPi = app === "pi";
-                  const onInScope = scope.rows.filter(
-                    (skill) => skill.apps[app],
-                  ).length;
-                  const appFilter: StatusFilter = `app:${app}`;
-                  return (
-                    <MatrixColumnHeader
-                      key={app}
-                      app={app}
-                      enabledCount={
-                        installedSkills.filter((skill) => skill.apps[app])
-                          .length
-                      }
-                      totalCount={nInstalled}
-                      scopeTotal={scope.rows.length}
-                      scopeEnabled={onInScope}
-                      scopeFailed={
-                        scope.rows.filter(
-                          (skill) => fails[failKey(skill.id, app)],
-                        ).length
-                      }
-                      scopeKind={scope.kind}
-                      noun={noun}
-                      disabled={controlsDisabled}
-                      title={isPi ? t("skillsPage.piColumnTitle") : undefined}
-                      help={
-                        isPi
-                          ? {
-                              title: t("skillsPage.piHelpTitle"),
-                              body: t("skillsPage.piHelp"),
-                            }
-                          : undefined
-                      }
-                      extraAction={{
-                        label:
-                          statusFilter === appFilter
-                            ? t("skillsPage.pop.showAll")
-                            : t("skillsPage.pop.onlyApp", {
-                                app: APP_DISPLAY_NAME[app],
-                              }),
-                        onClick: () =>
-                          setStatusFilter(
-                            statusFilter === appFilter ? "all" : appFilter,
-                          ),
-                      }}
-                      onEnableRest={() => handleColumnBulk(app, true)}
-                      onDisableAll={() => handleColumnBulk(app, false)}
-                    />
-                  );
-                })}
-              </div>
-              <span aria-hidden="true" className="w-16 shrink-0" />
-            </div>
-
-            {filteredSkills.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
-                <h2 className="m-0 text-section">
-                  {normalizedQuery
-                    ? t("skillsPage.noMatch", { query: searchQuery.trim() })
-                    : t("skillsPage.noFilterMatch")}
-                </h2>
-                <div className="flex flex-wrap justify-center gap-2 pt-1">
-                  {normalizedQuery ? (
-                    <>
-                      <Button
-                        type="button"
-                        variant="neutral"
-                        size="regular"
-                        onClick={() => setSearchQuery("")}
-                      >
-                        {t("mcpPage.clearSearch")}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="neutral"
-                      size="regular"
-                      onClick={() => {
-                        setStatusFilter("all");
-                        setSourceFilter("all");
-                      }}
-                    >
-                      {t("skillsPage.clearFilters")}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <ul
-                aria-label={t("skillsPage.listLabel")}
-                className="m-0 list-none p-0"
+              <Button
+                type="button"
+                variant="neutral"
+                size="regular"
+                onClick={() => setSearchQuery("")}
               >
-                {filteredSkills.map((skill, index) => (
-                  <InstalledRow
+                {t("mcpPage.clearSearch")}
+              </Button>
+            </div>
+          ) : (
+            <ul
+              aria-label={t("skillsPage.listLabel")}
+              className="m-0 list-none p-0"
+            >
+              {filteredSkills.map((skill) => {
+                const rowFailedApps = appIds.filter(
+                  (app) => fails[failKey(skill.id, app)],
+                );
+                const failure = rowFailedApps[0]
+                  ? fails[failKey(skill.id, rowFailedApps[0])]
+                  : undefined;
+                const hasRepo = Boolean(skill.repoOwner && skill.repoName);
+                const hasUpdate = Boolean(updatesMap[skill.id]);
+                const isUpdating =
+                  updateSkillMutation.isPending &&
+                  updateSkillMutation.variables === skill.id;
+                const showDir =
+                  skill.directory &&
+                  skill.directory.trim().toLowerCase() !==
+                    skill.name.trim().toLowerCase();
+                const sourceText = hasRepo
+                  ? `${skill.repoOwner}/${skill.repoName}`
+                  : t("skillsPage.source.local");
+                return (
+                  <li
                     key={skill.id}
-                    skill={skill}
-                    first={index === 0}
-                    appIds={appIds}
-                    checked={selected.has(skill.id)}
-                    hasUpdate={Boolean(updatesMap[skill.id])}
-                    isUpdating={
-                      updateSkillMutation.isPending &&
-                      updateSkillMutation.variables === skill.id
-                    }
-                    fails={fails}
-                    disabled={controlsDisabled}
-                    sourceText={
-                      skill.repoOwner && skill.repoName
-                        ? `${skill.repoOwner}/${skill.repoName}`
-                        : t("skillsPage.source.local")
-                    }
-                    onPick={(checked) =>
-                      setSelected((prev) => {
-                        const next = new Set(prev);
-                        if (checked) next.add(skill.id);
-                        else next.delete(skill.id);
-                        return next;
-                      })
-                    }
-                    onCell={(app) => {
-                      const failure = fails[failKey(skill.id, app)];
-                      void writeOne(
-                        skill.id,
-                        app,
-                        failure ? failure.desired : !skill.apps[app],
-                      );
-                    }}
-                    onOpenSource={() => void openDocs(skill)}
-                    onFixSync={() => setStorageOpen(true)}
-                    onUpdate={() => void updateIds([skill.id])}
-                    onOpenDocs={() => void openDocs(skill)}
-                    onCopyDir={() => void copyDirectory(skill)}
-                    onUninstall={() => {
-                      if (writeLockRef.current || interactionBlocked) return;
-                      setConfirm({ kind: "uninstall", ids: [skill.id] });
-                    }}
-                  />
-                ))}
-              </ul>
-            )}
-          </div>
-        </MatrixColumnHighlight>
+                    className="group flex h-14 items-center rounded-control pe-2 ps-4 hover:bg-subtle"
+                  >
+                    <div className="flex min-w-0 flex-1 flex-col pe-3">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span
+                          title={skill.name}
+                          className="min-w-0 truncate text-body font-medium"
+                        >
+                          {skill.name}
+                        </span>
+                        {showDir && (
+                          <span
+                            title={skill.directory}
+                            className="min-w-0 shrink truncate font-mono text-caption text-fg-3"
+                          >
+                            {skill.directory}
+                          </span>
+                        )}
+                        <HoverTip content={t("skillsPage.copyDir")}>
+                          <button
+                            type="button"
+                            aria-label={t("skillsPage.copyDir")}
+                            onClick={() => void copyDirectory(skill)}
+                            className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-fg-3 opacity-0 transition-opacity hover:bg-selected hover:text-fg-1 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+                          >
+                            <Copy className="h-3 w-3" strokeWidth={1.75} />
+                          </button>
+                        </HoverTip>
+                        {hasUpdate && (
+                          <HoverTip content={t("skills.update")}>
+                            <button
+                              type="button"
+                              disabled={controlsDisabled || isUpdating}
+                              onClick={() => void updateIds([skill.id])}
+                              className="inline-flex h-[18px] shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-transparent bg-warning-soft px-1.5 text-badge font-medium text-warning-text hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                            >
+                              {isUpdating && (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              )}
+                              {t("skills.updateAvailable")}
+                            </button>
+                          </HoverTip>
+                        )}
+                      </div>
+                      <div className="flex min-w-0 whitespace-nowrap text-caption text-fg-2">
+                        {skill.description && (
+                          <>
+                            <span
+                              className="min-w-0 truncate"
+                              title={skill.description}
+                            >
+                              {skill.description}
+                            </span>
+                            <span aria-hidden="true" className="shrink-0">
+                              &nbsp;·&nbsp;
+                            </span>
+                          </>
+                        )}
+                        {hasRepo ? (
+                          <button
+                            type="button"
+                            onClick={() => void openDocs(skill)}
+                            className="shrink-0 underline underline-offset-[3px] hover:text-fg-1"
+                          >
+                            {sourceText}
+                          </button>
+                        ) : (
+                          <span className="shrink-0">{sourceText}</span>
+                        )}
+                        {failure && (
+                          <span className="ms-1.5 flex min-w-0 text-warning-text">
+                            <span className="min-w-0 truncate">
+                              {t("skillsPage.rowFail", {
+                                app: APP_DISPLAY_NAME[rowFailedApps[0]],
+                                error: failure.error,
+                              })}
+                            </span>
+                            <span aria-hidden="true" className="shrink-0">
+                              &nbsp;·&nbsp;
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setStorageOpen(true)}
+                              className="shrink-0 underline underline-offset-[3px]"
+                            >
+                              {t("skillsPage.fixSync")}
+                            </button>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 pe-1">
+                      <AppMultiSelect
+                        name={skill.name}
+                        appIds={appIds}
+                        disabled={controlsDisabled}
+                        states={
+                          Object.fromEntries(
+                            appIds.map((app) => [
+                              app,
+                              fails[failKey(skill.id, app)]
+                                ? "fail"
+                                : skill.apps[app]
+                                  ? "on"
+                                  : "off",
+                            ]),
+                          ) as Record<AppId, AppSelectState>
+                        }
+                        onToggle={(app) => {
+                          const fail = fails[failKey(skill.id, app)];
+                          void writeOne(
+                            skill.id,
+                            app,
+                            fail ? fail.desired : !skill.apps[app],
+                          );
+                        }}
+                        onSetAll={(on) => void handleRowAll(skill, on)}
+                      />
+                    </div>
+                    <div className="flex w-16 shrink-0 justify-end">
+                      <HoverTip content={t("skills.uninstall")}>
+                        <Button
+                          type="button"
+                          variant="quiet"
+                          size="icon-compact"
+                          aria-label={`${t("skills.uninstall")} ${skill.name}`}
+                          disabled={controlsDisabled}
+                          onClick={() => {
+                            if (writeLockRef.current || interactionBlocked)
+                              return;
+                            setConfirm({
+                              kind: "uninstall",
+                              ids: [skill.id],
+                            });
+                          }}
+                        >
+                          <Trash2
+                            className="h-[15px] w-[15px]"
+                            strokeWidth={1.5}
+                          />
+                        </Button>
+                      </HoverTip>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
     );
   };
 
-  const showUnmanagedBanner =
-    nUnmanaged > 0 && dismissedUnmanaged !== nUnmanaged && nInstalled > 0;
   const showUpdateRepoFailBanner =
     updateRepoFailures.length > 0 && dismissedRepoFailAt !== updatesCheckedAt;
 
@@ -1318,89 +986,7 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
     <>
       {header}
       <div id="main-content" className="flex min-h-0 flex-1 flex-col">
-        {loadOk && nInstalled > 0 ? (
-          <div className="flex shrink-0 items-center justify-end gap-2 px-6 pt-3">
-            <MatrixSearch
-              className="w-[280px] min-w-[160px] shrink"
-              value={searchQuery}
-              onValueChange={setSearchQuery}
-              placeholder={t("skillsPage.searchPlaceholder")}
-              ariaLabel={t("skills.installedSearchAriaLabel")}
-              status={
-                normalizedQuery
-                  ? t("appMatrix.found", {
-                      count: filteredSkills.length,
-                    })
-                  : ""
-              }
-            />
-            <HoverTip
-              content={
-                lastCheckedText
-                  ? t("skillsPage.lastChecked", {
-                      when: lastCheckedText,
-                    })
-                  : undefined
-              }
-            >
-              {/* 已知有更新时这颗按钮就是「全部更新」；想重新检查走「⋯」菜单 */}
-              {updateProgress ? (
-                <Button
-                  type="button"
-                  variant="neutral"
-                  size="regular"
-                  className="shrink-0"
-                  disabled
-                >
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t("skillsPage.updatingProgress", {
-                    done: Math.min(
-                      updateProgress.done + 1,
-                      updateProgress.total,
-                    ),
-                    total: updateProgress.total,
-                  })}
-                </Button>
-              ) : nUpdates > 0 && !isCheckingUpdates ? (
-                <Button
-                  type="button"
-                  variant="neutral"
-                  size="regular"
-                  className="shrink-0"
-                  disabled={controlsDisabled}
-                  onClick={() => setConfirm({ kind: "updateAll" })}
-                >
-                  <ArrowUpCircle className="h-4 w-4" strokeWidth={2} />
-                  {t("skillsPage.updateAllCount", { count: nUpdates })}
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="quiet"
-                  size="regular"
-                  className="shrink-0"
-                  disabled={controlsDisabled}
-                  onClick={() => void handleCheckUpdates()}
-                >
-                  {isCheckingUpdates ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" strokeWidth={2} />
-                  )}
-                  {isCheckingUpdates
-                    ? t("skills.checkingUpdates")
-                    : t("skills.checkUpdates")}
-                </Button>
-              )}
-            </HoverTip>
-          </div>
-        ) : null}
-
-        <NoticeSlot
-          className={cn(
-            (showUnmanagedBanner || showUpdateRepoFailBanner) && "px-6 pt-3",
-          )}
-        >
+        <NoticeSlot className={cn(showUpdateRepoFailBanner && "px-6 pt-3")}>
           {showUpdateRepoFailBanner && (
             <Notice
               tone="warning"
@@ -1424,35 +1010,6 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
             >
               {t("skillsPage.repoFail.updatesBody")}
             </Notice>
-          )}
-          {showUnmanagedBanner && (
-            <Notice
-              title={t("skillsPage.banner.unmanaged", {
-                count: nUnmanaged,
-              })}
-              actions={
-                <>
-                  <Button
-                    type="button"
-                    variant="quiet"
-                    size="compact"
-                    disabled={controlsDisabled}
-                    onClick={() => void handleOpenImport()}
-                  >
-                    {t("skillsPage.banner.reviewImport")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="quiet"
-                    size="compact"
-                    className="text-fg-2"
-                    onClick={() => setDismissedUnmanaged(nUnmanaged)}
-                  >
-                    {t("skillsPage.banner.ignore")}
-                  </Button>
-                </>
-              }
-            />
           )}
         </NoticeSlot>
 
@@ -1543,16 +1100,6 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
         onCancel={() => setConfirm(null)}
       />
 
-      {importOpen && unmanagedSkills && (
-        <SkillImportDialog
-          skills={unmanagedSkills}
-          visibleAppIds={appIds}
-          isImporting={importMutation.isPending}
-          onImport={(imports) => void handleImport(imports)}
-          onClose={() => setImportOpen(false)}
-        />
-      )}
-
       <SkillRestoreDialog
         open={restoreOpen}
         backups={skillBackups}
@@ -1588,360 +1135,10 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
       />
 
       <SkillsStorageSheet open={storageOpen} onOpenChange={setStorageOpen} />
-
-      {repoManagerOpen && (
-        <RepoManagerContainer onClose={() => setRepoManagerOpen(false)} />
-      )}
     </>
   );
 };
 
 UnifiedSkillsPanel.displayName = "UnifiedSkillsPanel";
-
-// ─── 已安装的一行 ────────────────────────────────────────────────────────
-interface InstalledRowProps {
-  skill: InstalledSkill;
-  first: boolean;
-  appIds: AppId[];
-  checked: boolean;
-  hasUpdate: boolean;
-  isUpdating: boolean;
-  fails: Record<string, WriteFailure>;
-  disabled: boolean;
-  sourceText: string;
-  onPick: (checked: boolean) => void;
-  onCell: (app: AppId) => void;
-  onOpenSource: () => void;
-  onFixSync: () => void;
-  onUpdate: () => void;
-  onOpenDocs: () => void;
-  onCopyDir: () => void;
-  onUninstall: () => void;
-}
-
-function InstalledRow({
-  skill,
-  first,
-  appIds,
-  checked,
-  hasUpdate,
-  isUpdating,
-  fails,
-  disabled,
-  sourceText,
-  onPick,
-  onCell,
-  onOpenSource,
-  onFixSync,
-  onUpdate,
-  onOpenDocs,
-  onCopyDir,
-  onUninstall,
-}: InstalledRowProps) {
-  const { t } = useTranslation();
-  const enabled = SKILLS_APP_IDS.some((app) => skill.apps[app]);
-  const showDir =
-    skill.directory &&
-    skill.directory.trim().toLowerCase() !== skill.name.trim().toLowerCase();
-  const failedApp = appIds.find((app) => fails[failKey(skill.id, app)]);
-  const failure = failedApp ? fails[failKey(skill.id, failedApp)] : undefined;
-  const failId = `sk-fail-${skill.id}`;
-  const hasRepo = Boolean(skill.repoOwner && skill.repoName);
-
-  return (
-    <li
-      id={`sk-row-${skill.id}`}
-      tabIndex={-1}
-      className={cn(
-        "group relative flex h-14 items-center px-2 outline-none transition-colors duration-150 hover:bg-subtle",
-        !first && "border-t border-border",
-      )}
-    >
-      <span className="flex w-6 shrink-0 justify-center">
-        <input
-          type="checkbox"
-          // 勾选框一直显示，不等悬停（批量操作入口要看得见）
-          className="ui-checkbox"
-          aria-label={t("skillsPage.selectAria", { name: skill.name })}
-          checked={checked}
-          onChange={(event) => onPick(event.target.checked)}
-        />
-      </span>
-      <div className="ms-2 flex min-w-0 flex-1 flex-col pe-3">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span
-            title={skill.name}
-            className="min-w-0 truncate text-body font-medium"
-          >
-            {skill.name}
-          </span>
-          {showDir && (
-            <span
-              title={skill.directory}
-              className="min-w-0 shrink truncate font-mono text-caption text-fg-3"
-            >
-              {skill.directory}
-            </span>
-          )}
-          {hasUpdate && (
-            <span className="inline-flex h-[18px] shrink-0 items-center whitespace-nowrap rounded-full border border-transparent bg-warning-soft px-1.5 text-badge font-medium text-warning-text">
-              {t("skills.updateAvailable")}
-            </span>
-          )}
-          {!enabled && <NeutralBadge>{t("mcpPage.notEnabled")}</NeutralBadge>}
-        </div>
-        <div className="flex min-w-0 whitespace-nowrap text-caption text-fg-2">
-          {skill.description && (
-            <>
-              <span className="min-w-0 truncate" title={skill.description}>
-                {skill.description}
-              </span>
-              <span aria-hidden="true" className="shrink-0">
-                &nbsp;·&nbsp;
-              </span>
-            </>
-          )}
-          {hasRepo ? (
-            <button
-              type="button"
-              onClick={onOpenSource}
-              className="shrink-0 underline underline-offset-[3px] hover:text-fg-1"
-            >
-              {sourceText}
-            </button>
-          ) : (
-            <span className="shrink-0">{sourceText}</span>
-          )}
-          {failure && failedApp && (
-            <>
-              <span
-                id={failId}
-                className="ms-1.5 min-w-0 truncate text-warning-text"
-              >
-                {t("skillsPage.rowFail", {
-                  app: APP_DISPLAY_NAME[failedApp],
-                  error: failure.error,
-                })}
-                &nbsp;·&nbsp;
-              </span>
-              <button
-                type="button"
-                aria-describedby={failId}
-                onClick={onFixSync}
-                className="shrink-0 text-warning-text underline underline-offset-[3px]"
-              >
-                {t("skillsPage.fixSync")}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-      <div className="flex shrink-0">
-        {appIds.map((app) => {
-          const fail = fails[failKey(skill.id, app)];
-          const on = Boolean(skill.apps[app]);
-          const state = fail ? "fail" : on ? "on" : "off";
-          return (
-            <MatrixCell
-              key={app}
-              app={app}
-              state={state}
-              disabled={disabled}
-              label={t(`appMatrix.cell.${state}`, {
-                name: skill.name,
-                app: APP_DISPLAY_NAME[app],
-              })}
-              onClick={() => onCell(app)}
-            />
-          );
-        })}
-      </div>
-      <div className="flex w-16 shrink-0 justify-end">
-        <DropdownMenu>
-          <HoverTip content={t("common.more")}>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="quiet"
-                size="icon-compact"
-                aria-label={t("skillsPage.rowMoreAria", { name: skill.name })}
-                disabled={disabled}
-              >
-                {isUpdating ? (
-                  <Loader2 className="h-[15px] w-[15px] animate-spin" />
-                ) : (
-                  <MoreHorizontal
-                    className="h-[15px] w-[15px]"
-                    strokeWidth={1.5}
-                  />
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-          </HoverTip>
-          <DropdownMenuContent align="end" className="min-w-[180px]">
-            {hasUpdate && (
-              <DropdownMenuItem onSelect={onUpdate}>
-                {t("skills.update")}
-              </DropdownMenuItem>
-            )}
-            {(skill.readmeUrl || hasRepo) && (
-              <DropdownMenuItem onSelect={onOpenDocs}>
-                {t("mcpPage.openDocs")}
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onSelect={onCopyDir}>
-              {t("skillsPage.copyDir")}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-danger-text focus:text-danger-text"
-              onSelect={onUninstall}
-            >
-              {t("skillsPage.uninstallEllipsis")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </li>
-  );
-}
-
-// ─── 列头左侧的筛选按钮 ──────────────────────────────────────────────────
-function FilterMenu({
-  label,
-  active,
-  items,
-}: {
-  label: string;
-  active: boolean;
-  items: Array<{
-    key: string;
-    label: string;
-    checked: boolean;
-    onSelect: () => void;
-    count?: number;
-    mono?: boolean;
-  }>;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="quiet"
-          size="compact"
-          className={cn(
-            "shrink-0 pe-1.5 ps-2.5",
-            active ? "text-fg-1" : "text-fg-2",
-          )}
-        >
-          <span className="max-w-[180px] truncate">{label}</span>
-          <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className="min-w-[210px] max-w-[280px]"
-      >
-        {items.map((item) => (
-          <DropdownMenuItem key={item.key} onSelect={item.onSelect}>
-            <span className="flex w-4 shrink-0 justify-center">
-              {item.checked && (
-                <Check className="h-3.5 w-3.5" strokeWidth={2} />
-              )}
-            </span>
-            <span
-              className={cn(
-                "min-w-0 flex-1 truncate",
-                item.mono && "font-mono text-caption",
-              )}
-            >
-              {item.label}
-            </span>
-            {item.count !== undefined && (
-              <span className="shrink-0 text-caption tabular-nums text-fg-3">
-                {item.count}
-              </span>
-            )}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-// ─── 多选条的「启用到 / 停用」应用菜单 ────────────────────────────────────
-function AppMenuButton({
-  label,
-  ariaLabel,
-  apps,
-  disabled,
-  onPick,
-}: {
-  label: string;
-  ariaLabel: string;
-  apps: AppId[];
-  disabled: boolean;
-  onPick: (app: AppId) => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="quiet"
-          size="compact"
-          className="shrink-0 pe-1.5 ps-2"
-          disabled={disabled}
-        >
-          {label}
-          <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        aria-label={ariaLabel}
-        className="min-w-[200px]"
-      >
-        {apps.map((app) => (
-          <DropdownMenuItem key={app} onSelect={() => onPick(app)}>
-            <AppGlyph app={app} size={16} badgeClassName="bg-surface" />
-            {APP_DISPLAY_NAME[app]}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-// ─── 仓库管理抽屉（打开时才挂载，避免进页面就去读仓库） ─────────────────────
-function RepoManagerContainer({ onClose }: { onClose: () => void }) {
-  const { data: repos = [] } = useSkillRepos();
-  const addRepo = useAddSkillRepo();
-  const removeRepo = useRemoveSkillRepo();
-  return (
-    <RepoManagerPanel
-      repos={repos}
-      onAdd={async (repo) => {
-        await addRepo.mutateAsync(repo);
-      }}
-      onRemove={async (owner, name) => {
-        try {
-          await removeRepo.mutateAsync({ owner, name });
-        } catch (error) {
-          toast.error(extractErrorMessage(error));
-        }
-      }}
-      onToggle={async (repo, enabled) => {
-        try {
-          await addRepo.mutateAsync({ ...repo, enabled });
-        } catch (error) {
-          toast.error(extractErrorMessage(error));
-        }
-      }}
-      onClose={onClose}
-    />
-  );
-}
 
 export default UnifiedSkillsPanel;

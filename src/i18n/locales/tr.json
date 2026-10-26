@@ -1658,6 +1658,7 @@
     "freshInput": "Önbelleksiz girdi",
     "cacheHitRate": "Önbellek İsabet Oranı",
     "requestLogs": "İstek günlüğü",
+    "openRequestLogs": "İstek günlüğünü aç",
     "providerStats": "Sağlayıcı İstatistikleri",
     "modelStats": "Model İstatistikleri",
     "time": "Zaman",
@@ -2738,30 +2739,13 @@
       "open": "Depolama ve eşitleme",
       "resync": "Şimdi yeniden eşitle et",
       "resyncing": "Yeniden eşitle ediliyor…",
-      "resyncHint": "Değişiklikler yalnızca daha sonra etkinleştirdiğiniz veya güncellediğiniz Beceriler için geçerlidir. Zaten etkin olan Becerileri değiştirmek için şimdi yeniden eşitle edin.",
       "resyncDone": "Geçerli yöntemi kullanarak Beceriler her uygulamaya yeniden eşitle edildi",
       "resyncPartial": "{{count}} uygulamaları tam olarak eşitle edilemedi: {{apps}}",
       "resyncSkillItem": "{{directory}}: {{error}}",
-      "locationTitle": "Ana kopyaları saklayın",
-      "locationCcSwitch": "CC Switch klasörü",
-      "locationUnified": "Paylaşılan klasör",
       "openFolder": "Aç",
       "openFolderAria": "{{path}}'yi açın",
-      "unifiedWarning": "Codex, Gemini CLI, OpenCode ve diğerleri bu klasörü doğrudan okur, dolayısıyla uygulama başına anahtarlar artık onlara tam olarak uygulanmaz.",
-      "move": "Taşı ve değiştir",
-      "moving": "Taşınıyor…",
-      "moveConfirmTitle": "{{count}} Becerileri {{path}}'ye taşınsın mı?",
-      "moveConfirmBody": "Her ana kopya taşınır, ardından her uygulamadaki bağlantılar yeni konuma yönlendirilir. Taşıma bitene kadar CC Switch’ten ayrılmayın.",
-      "moveConfirmButton": "Taşı ve değiştir",
-      "moveDone": "{{count}} Becerileri {{path}}'ye taşındı",
-      "movePartial": "{{migrated}} Becerileri taşındı, {{errors}} başarısız oldu. Ayrıntılar için günlükleri kontrol edin.",
-      "syncTitle": "Beceriler her uygulamaya nasıl ulaşır?",
-      "syncAuto": "Otomatik: önce sembolik bağlantı, başarısız olursa kopyala (önerilir)",
-      "syncSymlink": "Yalnızca sembolik bağlantı",
-      "syncSymlinkDesc": "Windows'de Geliştirici Modu gerektirir",
-      "syncCopy": "Yalnızca kopyala",
-      "syncCopyDesc": "Daha fazla disk alanı kullanır; her güncellemeden sonra tekrar kopyalandı",
-      "moveHint": "Geçiş, {{count}} Becerilerini yeni konuma taşır."
+      "fixedBody": "Skill'lerin ana kopyaları tek bir klasörde durur. Her uygulamaya kopya değil, buraya işaret eden bir sembolik bağ konur.",
+      "resyncHint": "Her uygulamadaki sembolik bağları yeniden kurar; eski kopyalar da bağa çevrilir."
     },
     "updatesIncomplete": "Güncelleme bulunamadı ancak {{count}} depoları okunamadı"
   },
@@ -3215,8 +3199,8 @@
     },
     "needsAttention": "Dikkat edilmesi gerekiyor",
     "back": "Geri",
-    "providersGroup": "Sağlayıcılar",
-    "sharedGroup": "Ortak"
+    "appsGroup": "Uygulamalar",
+    "configGroup": "Yapılandırma"
   },
   "appsPage": {
     "showInSidebar": "Kenar çubuğunda {{name}}'yi göster",
@@ -3381,22 +3365,6 @@
     "clearSearch": "Aramayı temizle",
     "found": "{{count}} sonuç bulundu",
     "columnAria": "{{app}}: {{total}} {{noun}}'nin {{on}}'si için etkinleştirildi, toplu işlemler",
-    "pop": {
-      "count": "{{total}} {{noun}}'nin {{on}}'si için etkinleştirildi",
-      "failCount": "{{count}} yazılamadı",
-      "enableRest": "Diğer {{count}}'yi etkinleştirin",
-      "enableAll": "Tümünü etkinleştir",
-      "disableAll": "Hepsini kapat",
-      "scopeAll": "Bu listedeki {{count}} için geçerlidir",
-      "scopeSearch": "Yalnızca {{count}} arama sonuçları için geçerlidir",
-      "scopeFilter": "Yalnızca {{count}} filtrelenen öğeler için geçerlidir"
-    },
-    "toast": {
-      "enabled": "{{app}}'de {{count}} {{noun}} etkinleştirildi",
-      "disabled": "{{app}}'de {{count}} {{noun}} kapatıldı",
-      "partialFail": "; {{count}} yazılamadı ve listede işaretlendi",
-      "undone": "Geri alındı"
-    },
     "undo": "Geri al",
     "cell": {
       "on": "{{name}} · {{app}}: etkin",
@@ -3412,7 +3380,7 @@
   "mcpPage": {
     "noun": "MCP sunucuları",
     "listSeparator": ",",
-    "importFromApps": "Uygulamalardan içe aktar",
+    "importFromApps": "İçe aktar",
     "searchPlaceholder": "Adı, komutu veya URL'yi arayın",
     "failNoticeTitle": "{{app}}'nin yapılandırması yazılamadı",
     "failNoticeBody": "{{error}}. Dosyayı düzeltin ve Yeniden Dene'ye tıklayın.",
@@ -3456,65 +3424,30 @@
     }
   },
   "skillsPage": {
-    "noun": "Beceriler",
-    "add": "Beceri Ekle",
     "addMenu": {
-      "zip": "ZIP'ten yükle",
-      "import": "Bu bilgisayardan içe aktar"
+      "zip": "ZIP'ten yükle"
     },
     "moreMenu": {
       "restore": "Yedeklemeden geri yükle",
-      "repos": "Depoları yönet"
+      "enableAll": "Tüm Skill'leri tüm uygulamalarda etkinleştir"
     },
     "searchPlaceholder": "Ad, klasör, açıklama veya repoyu arayın",
     "lastChecked": "Son kontrol: {{when}}",
     "justNow": "şimdi",
     "banner": {
-      "unmanaged": "{{count}} Bu bilgisayardaki beceriler CC Switch tarafından yönetilmiyor.",
-      "reviewImport": "İnceleyin ve içe aktarın",
-      "ignore": "Yoksay",
       "close": "Reddet"
-    },
-    "filter": {
-      "all": "Tümü",
-      "updates": "Güncellemeler var",
-      "none": "Hiçbir yerde etkinleştirilmedi",
-      "inApp": "{{app}}'de etkinleştirildi",
-      "sourceButton": "Kaynak: {{source}}"
     },
     "source": {
       "local": "Yerel"
     },
-    "bulk": {
-      "selected": "{{count}} seçildi",
-      "enableTo": "Şurada etkinleştir",
-      "enableToAria": "{{count}}'de seçilen Becerileri etkinleştirin",
-      "disable": "Şurada devre dışı bırak",
-      "disableAria": "{{count}}'de seçilen Becerileri kapatın",
-      "uninstall": "Kaldır"
-    },
-    "piColumnTitle": "Pi, klasörü ~/.pi/agent/skills konumunda mevcut olduğunda bir Beceriyi etkin olarak sayar",
-    "piHelpTitle": "Pi nasıl etkin olarak sayılır?",
-    "piHelp": "Klasörün ~/.pi/agent/skills konumunda olup olmadığı.",
-    "pop": {
-      "onlyApp": "Yalnızca {{app}}'de etkin olanları göster",
-      "showAll": "Tüm Becerileri Göster"
-    },
-    "selectAria": "{{name}}'yi seçin",
-    "selectAllAria": "Gösterilenlerin tümünü seç",
     "rowFail": "{{app}}'de etkinleştirme başarısız oldu: {{error}}",
     "fixSync": "Eşitleme yöntemini değiştir",
-    "rowMoreAria": "{{name}} için diğer işlemler",
     "copyDir": "Klasör adını kopyala",
-    "uninstallEllipsis": "Kaldır",
     "listLabel": "Yüklü Beceriler",
     "noMatch": "“{{query}}” Beceri eşleşmesi yok",
-    "noFilterMatch": "Filtrelerle eşleşen Beceri yok",
-    "clearFilters": "Filtreleri temizle",
     "loadFailed": "Yüklü Beceriler yüklenemedi",
     "emptyTitle": "Henüz Beceri yok",
-    "emptyBody": "Bir ZIP dosyasından yükleyin veya bu cihazdaki Skill’leri içe aktarın.",
-    "importCount": "Bu bilgisayardan içe aktar ({{count}})",
+    "emptyBody": "`npx skills add` ile veya ZIP'ten kurun. Bu uygulamanın dışında eklenen Skill'ler burada otomatik görünür.",
     "confirm": {
       "uninstallOne": "{{name}} kaldırılsın mı?",
       "uninstallMany": "{{count}} Skills kaldırılsın mı?",
@@ -3532,10 +3465,7 @@
       "uninstalledMany": "Kaldırılan {{count}} Becerileri",
       "backupAt": "{{path}}'ye yedeklendi",
       "copiedDir": "Kopyalanan klasör adı {{dir}}",
-      "noUpdatesInSelection": "Seçilen Becerilerin hiçbirinde güncelleme yok",
-      "selectionAlreadyOn": "{{count}}'nin seçilen Becerileri zaten {{app}}'de etkindir",
-      "selectionAlreadyOff": "Seçilen {{count}} Becerilerinden hiçbiri {{app}}'de etkin değil",
-      "disabledSelection": "{{app}}'de {{count}} {{noun}} kapatıldı"
+      "enableAllDone": "{{count}} Skill, {{apps}} içinde etkinleştirildi"
     },
     "installTo": {
       "prefix": "Şuraya yükleyin:",
@@ -3575,9 +3505,6 @@
       "item": "{{repo}} ({{reason}})",
       "updatesBody": "Bu depolardaki beceriler kontrol edilmediğinden sonuçlar eksik olabilir."
     },
-    "headerUpdates": "{{count}} güncellemeleri",
-    "headerUpdatesShow": "Yalnızca güncellemeleri olan Becerileri göster",
-    "headerUpdatesClear": "Tüm Becerileri Göster",
     "updateAllCount": "Tümünü güncelle ({{count}})",
     "updatingProgress": "{{done}}/{{total}} güncelleniyor…"
   },
