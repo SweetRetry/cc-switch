@@ -447,10 +447,6 @@
         "title": "成本定价",
         "description": "管理各模型 Token 计费规则"
       },
-      "globalProxy": {
-        "title": "全局出站代理",
-        "description": "配置 CC Switch 访问外部 API 时使用的代理"
-      },
       "data": {
         "title": "数据管理",
         "description": "导入和导出本地配置数据"
@@ -1028,35 +1024,10 @@
     "restartFailed": "应用重启失败，请手动关闭后重新打开。",
     "devModeRestartHint": "开发模式下不支持自动重启，请手动重新启动应用。",
     "saving": "正在保存...",
-    "globalProxy": {
-      "label": "全局代理",
-      "hint": "代理 CC Switch 发出的请求，包括 API 检查和 Skills 下载。留空表示直连。",
-      "username": "用户名（可选）",
-      "password": "密码（可选）",
-      "test": "测试连接",
-      "scan": "扫描本地代理",
-      "clear": "清除",
-      "scanFailed": "扫描失败：{{error}}",
-      "saved": "代理设置已保存",
-      "saveFailed": "保存失败：{{error}}",
-      "testSuccess": "连接成功！延迟 {{latency}}ms",
-      "testFailed": "连接失败：{{error}}",
-      "pricingDefaultsTitle": "计费默认配置",
-      "pricingDefaultsDescription": "设置各应用按请求模型还是返回模型匹配定价，仅对经本地路由的请求生效。",
-      "pricingAppLabel": "应用",
-      "pricingModelSourceLabel": "计费模式",
-      "pricingModelSourceRequest": "请求模型",
-      "pricingModelSourceResponse": "返回模型",
-      "pricingSave": "保存计费配置",
-      "pricingSaved": "计费配置已保存",
-      "pricingSaveFailed": "保存计费配置失败：{{error}}",
-      "pricingLoadFailed": "加载计费配置失败：{{error}}"
-    },
     "saveFailedGeneric": "保存失败，请重试",
     "sections": {
       "general": "通用",
       "appConfig": "应用配置",
-      "network": "网络",
       "data": "数据",
       "about": "关于"
     },

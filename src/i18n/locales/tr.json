@@ -426,10 +426,6 @@
         "title": "Maliyet Fiyatlandırması",
         "description": "Her model için token fiyatlandırma kurallarını yönetin"
       },
-      "globalProxy": {
-        "title": "Genel çıkış proxy’si",
-        "description": "CC Switch’in harici API'lere erişmesi için proxy'yi yapılandırın"
-      },
       "data": {
         "title": "Veri Yönetimi",
         "description": "Yerel yapılandırma verilerini içe ve dışa aktarın"
@@ -1007,35 +1003,10 @@
     "restartFailed": "Uygulama yeniden başlatılamadı. Lütfen manuel olarak kapatıp yeniden açın.",
     "devModeRestartHint": "Geliştirici Modu: Otomatik yeniden başlatma desteklenmiyor, lütfen uygulamayı manuel olarak yeniden başlatın.",
     "saving": "Kaydediliyor...",
-    "globalProxy": {
-      "label": "Küresel Vekil",
-      "hint": "API kontrolleri ve Skills indirmeleri dahil CC Switch istekleri için proxy kullanın. Doğrudan bağlantı için boş bırakın.",
-      "username": "Kullanıcı adı (isteğe bağlı)",
-      "password": "Şifre (isteğe bağlı)",
-      "test": "Bağlantıyı Test Et",
-      "scan": "Yerel Proxy'leri Tara",
-      "clear": "Temizle",
-      "scanFailed": "Tarama başarısız oldu: {{error}}",
-      "saved": "Proxy ayarları kaydedildi",
-      "saveFailed": "Kaydetme başarısız oldu: {{error}}",
-      "testSuccess": "Bağlı! Gecikme {{latency}}ms",
-      "testFailed": "Bağlantı başarısız oldu: {{error}}",
-      "pricingDefaultsTitle": "Fiyatlandırma Varsayılanları",
-      "pricingDefaultsDescription": "Her uygulamanın fiyatlandırmanın istek modeline mi yoksa yanıt modeline göre mi eşleşeceğini seçin. Yalnızca yerel yönlendirmeden geçen istekler için geçerlidir.",
-      "pricingAppLabel": "Uygulama",
-      "pricingModelSourceLabel": "Fiyatlandırma Modeli Kaynağı",
-      "pricingModelSourceRequest": "İstek modeli",
-      "pricingModelSourceResponse": "Yanıt modeli",
-      "pricingSave": "Fiyatlandırma Varsayılanlarını Kaydet",
-      "pricingSaved": "Fiyatlandırma varsayılanları kaydedildi",
-      "pricingSaveFailed": "Fiyatlandırma varsayılanları kaydedilemedi: {{error}}",
-      "pricingLoadFailed": "Fiyatlandırma varsayılanları yüklenemedi: {{error}}"
-    },
     "saveFailedGeneric": "Kaydetme başarısız oldu, lütfen tekrar deneyin",
     "sections": {
       "general": "Genel",
       "appConfig": "Uygulama yapılandırması",
-      "network": "Ağ",
       "data": "Veri",
       "about": "Hakkında"
     },

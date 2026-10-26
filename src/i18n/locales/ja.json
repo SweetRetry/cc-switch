@@ -447,10 +447,6 @@
         "title": "コスト計算",
         "description": "各モデルのトークン料金ルールを管理"
       },
-      "globalProxy": {
-        "title": "グローバル送信プロキシ",
-        "description": "CC Switch が外部 API にアクセスする際のプロキシを設定"
-      },
       "data": {
         "title": "データ管理",
         "description": "ローカル設定データのインポートとエクスポート"
@@ -1028,35 +1024,10 @@
     "restartFailed": "アプリの再起動に失敗しました。手動で閉じて再度開いてください。",
     "devModeRestartHint": "開発モードでは自動再起動をサポートしていません。手動で再起動してください。",
     "saving": "保存中...",
-    "globalProxy": {
-      "label": "グローバルプロキシ",
-      "hint": "API接続確認やSkillsのダウンロードなど、CC Switchからのリクエストにプロキシを使用します。空欄の場合は直接接続します。",
-      "username": "ユーザー名（任意）",
-      "password": "パスワード（任意）",
-      "test": "接続テスト",
-      "scan": "ローカルプロキシをスキャン",
-      "clear": "クリア",
-      "scanFailed": "スキャンに失敗しました: {{error}}",
-      "saved": "ルーティング設定を保存しました",
-      "saveFailed": "保存に失敗しました: {{error}}",
-      "testSuccess": "接続成功！遅延 {{latency}}ms",
-      "testFailed": "接続に失敗しました: {{error}}",
-      "pricingDefaultsTitle": "課金のデフォルト設定",
-      "pricingDefaultsDescription": "アプリごとに、リクエストモデルとレスポンスモデルのどちらで価格を照合するかを設定します。ローカルルーティングを経由するリクエストにのみ適用されます。",
-      "pricingAppLabel": "アプリ",
-      "pricingModelSourceLabel": "課金モード",
-      "pricingModelSourceRequest": "リクエストモデル",
-      "pricingModelSourceResponse": "レスポンスモデル",
-      "pricingSave": "課金設定を保存",
-      "pricingSaved": "課金設定を保存しました",
-      "pricingSaveFailed": "課金設定の保存に失敗しました: {{error}}",
-      "pricingLoadFailed": "課金設定の読み込みに失敗しました: {{error}}"
-    },
     "saveFailedGeneric": "保存に失敗しました。もう一度お試しください",
     "sections": {
       "general": "一般",
       "appConfig": "アプリ設定",
-      "network": "ネットワーク",
       "data": "データ",
       "about": "情報"
     },

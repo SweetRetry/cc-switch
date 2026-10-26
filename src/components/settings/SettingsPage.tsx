@@ -11,7 +11,6 @@ import {
   Database,
   Folder,
   FolderOpen,
-  Globe,
   Info,
   Loader2,
   SlidersHorizontal,
@@ -35,7 +34,6 @@ import { ImportExportSection } from "@/components/settings/ImportExportSection";
 import { BackupListSection } from "@/components/settings/BackupListSection";
 import { WebdavSyncSection } from "@/components/settings/WebdavSyncSection";
 import { AboutSection } from "@/components/settings/AboutSection";
-import { GlobalProxySettings } from "@/components/settings/GlobalProxySettings";
 import { LogConfigPanel } from "@/components/settings/LogConfigPanel";
 import { GeneralSection } from "@/components/settings/sections/GeneralSection";
 import { AppConfigSection } from "@/components/settings/sections/AppConfigSection";
@@ -56,7 +54,6 @@ const SECTION_ICON: Record<
 > = {
   general: SlidersHorizontal,
   appConfig: Folder,
-  network: Globe,
   data: Database,
   about: Info,
 };
@@ -382,20 +379,6 @@ export function SettingsPage({
             onResetDirectory={resetDirectory}
             onSaveDirectories={handleSave}
           />
-        );
-      case "network":
-        return (
-          <SettingsBlock
-            title={t("settings.advanced.globalProxy.title")}
-            help={{
-              title: t("settings.advanced.globalProxy.title"),
-              body: t("settings.advanced.globalProxy.description"),
-            }}
-          >
-            <div className="rounded-panel border border-border bg-surface p-5">
-              <GlobalProxySettings />
-            </div>
-          </SettingsBlock>
         );
       case "data":
         return (

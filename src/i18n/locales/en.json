@@ -447,10 +447,6 @@
         "title": "Cost Pricing",
         "description": "Manage token pricing rules for each model"
       },
-      "globalProxy": {
-        "title": "Global Outbound Proxy",
-        "description": "Configure proxy for CC Switch to access external APIs"
-      },
       "data": {
         "title": "Data Management",
         "description": "Import and export local configuration data"
@@ -1028,35 +1024,10 @@
     "restartFailed": "Application restart failed, please manually close and reopen.",
     "devModeRestartHint": "Dev Mode: Automatic restart not supported, please manually restart the application.",
     "saving": "Saving...",
-    "globalProxy": {
-      "label": "Global Proxy",
-      "hint": "Proxy requests made by CC Switch, including API checks and Skills downloads. Leave empty for a direct connection.",
-      "username": "Username (optional)",
-      "password": "Password (optional)",
-      "test": "Test Connection",
-      "scan": "Scan Local Proxies",
-      "clear": "Clear",
-      "scanFailed": "Scan failed: {{error}}",
-      "saved": "Proxy settings saved",
-      "saveFailed": "Save failed: {{error}}",
-      "testSuccess": "Connected! Latency {{latency}}ms",
-      "testFailed": "Connection failed: {{error}}",
-      "pricingDefaultsTitle": "Pricing Defaults",
-      "pricingDefaultsDescription": "Choose whether each app matches pricing by the request model or the response model. Only applies to requests that go through local routing.",
-      "pricingAppLabel": "App",
-      "pricingModelSourceLabel": "Pricing Model Source",
-      "pricingModelSourceRequest": "Request model",
-      "pricingModelSourceResponse": "Response model",
-      "pricingSave": "Save Pricing Defaults",
-      "pricingSaved": "Pricing defaults saved",
-      "pricingSaveFailed": "Failed to save pricing defaults: {{error}}",
-      "pricingLoadFailed": "Failed to load pricing defaults: {{error}}"
-    },
     "saveFailedGeneric": "Save failed, please try again",
     "sections": {
       "general": "General",
       "appConfig": "App config",
-      "network": "Network",
       "data": "Data",
       "about": "About"
     },

@@ -8,7 +8,6 @@ import {
   ChartColumn,
   Database,
   Folder,
-  Globe,
   History,
   Info,
   KeyRound,
@@ -452,7 +451,6 @@ function NavItem({
 const SETTINGS_ITEMS: { section: SettingsSection; icon: IconComponent }[] = [
   { section: "general", icon: SlidersHorizontal },
   { section: "appConfig", icon: Folder },
-  { section: "network", icon: Globe },
   { section: "data", icon: Database },
   { section: "about", icon: Info },
 ];
