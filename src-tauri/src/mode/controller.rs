@@ -280,30 +280,6 @@ async fn migrate_to_direct(state: &AppState, app: &AppType) -> Result<(), String
         })
         .map_err(err)?;
     }
-    // Legacy database flags can otherwise come back through imported or synced data.
-    let mut config = state
-        .db
-        .get_proxy_config_for_app(app.as_str())
-        .await
-        .map_err(err)?;
-    if config.enabled || config.auto_failover_enabled {
-        config.enabled = false;
-        config.auto_failover_enabled = false;
-        state
-            .db
-            .update_proxy_config_for_app(config)
-            .await
-            .map_err(err)?;
-    }
-    let mut global = state.db.get_global_proxy_config().await.map_err(err)?;
-    if global.proxy_enabled {
-        global.proxy_enabled = false;
-        state
-            .db
-            .update_global_proxy_config(global)
-            .await
-            .map_err(err)?;
-    }
     Ok(())
 }
 
@@ -432,17 +408,6 @@ mod tests {
             entry.stack.members = vec!["removed-route".into()];
         })
         .unwrap();
-        let mut config = state
-            .db
-            .get_proxy_config_for_app(app.as_str())
-            .await
-            .unwrap();
-        config.enabled = true;
-        config.auto_failover_enabled = true;
-        state.db.update_proxy_config_for_app(config).await.unwrap();
-        let mut global = state.db.get_global_proxy_config().await.unwrap();
-        global.proxy_enabled = true;
-        state.db.update_global_proxy_config(global).await.unwrap();
         if !attached {
             return;
         }
@@ -518,14 +483,6 @@ mod tests {
                         .is_empty()
                 );
                 assert_eq!(state.db.get_proxy_flags_sync(app.as_str()), (false, false));
-                assert!(
-                    !state
-                        .db
-                        .get_global_proxy_config()
-                        .await
-                        .unwrap()
-                        .proxy_enabled
-                );
                 startup(&state).await;
                 let again = match app {
                     AppType::Claude => serde_json::to_string(

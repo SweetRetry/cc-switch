@@ -1,5 +1,4 @@
 import { FullScreenPanel } from "@/components/common/FullScreenPanel";
-import { AuthSettingsPanel } from "@/components/providers/AuthSettingsPanel";
 import { useLiveEditConflict } from "@/components/providers/LiveEditConflictDialog";
 import {
   ProviderForm,
@@ -10,12 +9,7 @@ import { APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { isPiFamilyApp, usesEditorView } from "@/config/appConfig";
-import {
-  providersApi,
-  vscodeApi,
-  type AppId,
-  type AuthCenterTarget,
-} from "@/lib/api";
+import { providersApi, vscodeApi, type AppId } from "@/lib/api";
 import type {
   EditorConflictPolicy,
   ProviderEditorSave,
@@ -62,12 +56,6 @@ export function EditProviderDialog({
 }: EditProviderDialogProps) {
   const { t } = useTranslation();
   const [isFormSubmitting, setIsFormSubmitting] = useState(false);
-  const [authSettingsTarget, setAuthSettingsTarget] =
-    useState<AuthCenterTarget | null>(null);
-
-  useEffect(() => {
-    setAuthSettingsTarget(null);
-  }, [appId, open, provider?.id]);
 
   const formReadyToken = useMemo(
     () => Symbol("provider-form-ready"),
@@ -106,17 +94,10 @@ export function EditProviderDialog({
   const { submitWithConflictRetry, conflictDialog } = useLiveEditConflict();
 
   const closeDialog = useCallback(() => {
-    setAuthSettingsTarget(null);
     onOpenChange(false);
   }, [onOpenChange]);
 
-  const handlePanelClose = useCallback(() => {
-    if (authSettingsTarget) {
-      setAuthSettingsTarget(null);
-      return;
-    }
-    closeDialog();
-  }, [authSettingsTarget, closeDialog]);
+  const handlePanelClose = closeDialog;
 
   useEffect(() => {
     let cancelled = false;
@@ -355,7 +336,6 @@ export function EditProviderDialog({
           submitLabel={t("common.save")}
           onSubmit={handleSubmit}
           onCancel={closeDialog}
-          onManageAuthAccounts={setAuthSettingsTarget}
           onSubmittingChange={setIsFormSubmitting}
           onSubmitReadyChange={handleSubmitReadyChange}
           initialData={initialData}
@@ -364,10 +344,6 @@ export function EditProviderDialog({
         />
       )}
       {conflictDialog}
-      <AuthSettingsPanel
-        target={authSettingsTarget}
-        onClose={() => setAuthSettingsTarget(null)}
-      />
     </FullScreenPanel>
   );
 }

@@ -1,5 +1,4 @@
 import { FullScreenPanel } from "@/components/common/FullScreenPanel";
-import { AuthSettingsPanel } from "@/components/providers/AuthSettingsPanel";
 import { useLiveEditConflict } from "@/components/providers/LiveEditConflictDialog";
 import {
   ProviderForm,
@@ -19,7 +18,7 @@ import { isPiFamilyApp, usesEditorView } from "@/config/appConfig";
 import { providerPresets } from "@/config/claudeProviderPresets";
 import { codexProviderPresets } from "@/config/codexProviderPresets";
 import type { UniversalProviderPreset } from "@/config/universalProviderPresets";
-import type { AppId, AuthCenterTarget } from "@/lib/api";
+import type { AppId } from "@/lib/api";
 import { providersApi, universalProvidersApi } from "@/lib/api";
 import type {
   EditorConflictPolicy,
@@ -76,11 +75,8 @@ export function AddProviderDialog({
     useState<UniversalProviderPreset | null>(null);
   const [isFormSubmitting, setIsFormSubmitting] = useState(false);
   const [accountLogin, setAccountLogin] = useState(false);
-  const [authSettingsTarget, setAuthSettingsTarget] =
-    useState<AuthCenterTarget | null>(null);
 
   useEffect(() => {
-    setAuthSettingsTarget(null);
     setAccountLogin(false);
   }, [appId, open]);
 
@@ -135,24 +131,19 @@ export function AddProviderDialog({
   }, [open, appId, t]);
 
   const closeDialog = useCallback(() => {
-    setAuthSettingsTarget(null);
     // 表单每次打开都会重新投影；这里清掉，免得下次打开时先用上一次的底。
     setDraftEditorBase(null);
     onOpenChange(false);
   }, [onOpenChange]);
 
   const handlePanelClose = useCallback(() => {
-    if (authSettingsTarget) {
-      setAuthSettingsTarget(null);
-      return;
-    }
     // 第 2 步的返回回到选预设
     if (step === "form") {
       setStep("pick");
       return;
     }
     closeDialog();
-  }, [authSettingsTarget, closeDialog, step]);
+  }, [closeDialog, step]);
   const formReadyToken = useMemo(
     () => Symbol("provider-form-ready"),
     [appId, open],
@@ -425,7 +416,6 @@ export function AddProviderDialog({
       submitLabel={t("common.add")}
       onSubmit={handleSubmit}
       onCancel={closeDialog}
-      onManageAuthAccounts={setAuthSettingsTarget}
       onSubmittingChange={setIsFormSubmitting}
       onSubmitReadyChange={handleSubmitReadyChange}
       onAccountLoginChange={setAccountLogin}
@@ -503,10 +493,6 @@ export function AddProviderDialog({
         </FullScreenPanel>
       )}
 
-      <AuthSettingsPanel
-        target={authSettingsTarget}
-        onClose={() => setAuthSettingsTarget(null)}
-      />
       {conflictDialog}
     </FullScreenPanel>
   );

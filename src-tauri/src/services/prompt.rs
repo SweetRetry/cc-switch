@@ -61,7 +61,7 @@ impl PromptService {
         }
         // A restore replaces the DB before projecting it to live files. Keep
         // backfill outside that window, including calls outside the UI command.
-        let Ok(_sync_guard) = super::sync_protocol::sync_mutex().try_lock() else {
+        let Ok(_sync_guard) = super::sync_lock::sync_mutex().try_lock() else {
             return state.db.get_prompts(app.as_str());
         };
         let mut prompts = state.db.get_prompts(app.as_str())?;

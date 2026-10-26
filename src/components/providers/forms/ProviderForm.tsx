@@ -24,10 +24,9 @@ import {
 } from "@/config/opencodeProviderPresets";
 import type { UniversalProviderPreset } from "@/config/universalProviderPresets";
 import { useDarkMode } from "@/hooks/useDarkMode";
-import { providersApi, type AppId, type AuthCenterTarget } from "@/lib/api";
+import { providersApi, type AppId } from "@/lib/api";
 import type { ProviderEditorInactiveField } from "@/lib/api/providers";
 import { resolveManagedAccountId } from "@/lib/authBinding";
-import { isMac } from "@/lib/platform";
 import { providerSchema, type ProviderFormData } from "@/lib/schemas/provider";
 import { toast } from "@/lib/toast";
 import type {
@@ -59,10 +58,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { AgyAccountSelect } from "./AgyOAuthSection";
 import { BasicFormFields } from "./BasicFormFields";
 import { ClaudeFormFields } from "./ClaudeFormFields";
-import { ClaudeAccountSelect } from "./ClaudeOfficialSection";
 import CodexConfigEditor from "./CodexConfigEditor";
 import { CodexFormFields } from "./CodexFormFields";
 import { CommonConfigEditor } from "./CommonConfigEditor";
@@ -81,9 +78,7 @@ import {
   useApiKeyState,
   useBaseUrlState,
   useCodexConfigState,
-  useCodexOauth,
   useCodexTomlValidation,
-  useCopilotAuth,
   useDraftEditorProjection,
   useGeminiConfigState,
   useModelState,
@@ -93,7 +88,6 @@ import {
   useProviderCategory,
   useSpeedTestEndpoints,
   useTemplateValues,
-  useXaiOauth,
   type EditorBaseChange,
 } from "./hooks";
 import { OmoFormFields } from "./OmoFormFields";
@@ -189,7 +183,6 @@ export interface ProviderFormProps {
   onCancel: () => void;
   onUniversalPresetSelect?: (preset: UniversalProviderPreset) => void;
   onManageUniversalProviders?: () => void;
-  onManageAuthAccounts?: (target: AuthCenterTarget) => void;
   onSubmittingChange?: (isSubmitting: boolean) => void;
   onSubmitReadyChange?: (isReady: boolean) => void;
   /** Native account login supplies its own actions instead of the provider-save footer. */
@@ -235,7 +228,6 @@ function ProviderFormFull({
   onCancel,
   onUniversalPresetSelect,
   onManageUniversalProviders,
-  onManageAuthAccounts,
   onSubmittingChange,
   initialData,
   showButtons = true,
@@ -314,7 +306,6 @@ function ProviderFormFull({
     setSelectedCodexAccountId(
       resolveManagedAccountId(initialData?.meta, "codex_oauth"),
     );
-    setHasValidCodexOfficialSelection(true);
     setCodexFastMode(initialData?.meta?.codexFastMode ?? false);
   }, [appId, initialData, supportsFullUrl]);
 
@@ -453,28 +444,6 @@ function ProviderFormFull({
     [localApiKeyField, form, handleSettingsConfigChange],
   );
 
-  // Copilot OAuth 认证状态（仅 Claude 应用需要）
-  const {
-    isAuthenticated: isCopilotAuthenticated,
-    isStatusSuccess: isCopilotStatusSuccess,
-    isStatusError: isCopilotStatusError,
-    accounts: copilotAccounts,
-  } = useCopilotAuth();
-
-  // Codex OAuth 认证状态（ChatGPT Plus/Pro 反代）
-  const {
-    isAuthenticated: isCodexOauthAuthenticated,
-    isStatusSuccess: isCodexOauthStatusSuccess,
-    isStatusError: isCodexOauthStatusError,
-    defaultAccountId: codexOauthDefaultAccountId,
-    accounts: codexOauthAccounts,
-  } = useCodexOauth();
-
-  const {
-    isAuthenticated: isXaiOauthAuthenticated,
-    accounts: xaiOauthAccounts,
-  } = useXaiOauth();
-
   // 选中的 GitHub 账号 ID（多账号支持）
   const [selectedGitHubAccountId, setSelectedGitHubAccountId] = useState<
     string | null
@@ -484,19 +453,17 @@ function ProviderFormFull({
   const [selectedCodexAccountId, setSelectedCodexAccountId] = useState<
     string | null
   >(() => resolveManagedAccountId(initialData?.meta, "codex_oauth"));
-  const [hasValidCodexOfficialSelection, setHasValidCodexOfficialSelection] =
-    useState(true);
-  const [selectedXaiAccountId, setSelectedXaiAccountId] = useState<
-    string | null
-  >(() => resolveManagedAccountId(initialData?.meta, "xai_oauth"));
+  const [selectedXaiAccountId] = useState<string | null>(() =>
+    resolveManagedAccountId(initialData?.meta, "xai_oauth"),
+  );
   // Antigravity 官方卡绑定的授权中心账号；null = 跟着 agy 当前的登录
-  const [selectedAgyAccountId, setSelectedAgyAccountId] = useState<
-    string | null
-  >(() => resolveManagedAccountId(initialData?.meta, "agy_oauth"));
+  const [selectedAgyAccountId] = useState<string | null>(() =>
+    resolveManagedAccountId(initialData?.meta, "agy_oauth"),
+  );
   // Claude 官方卡绑定的 Claude 官方账号；null = 默认登录（~/.claude）
-  const [selectedClaudeAccountId, setSelectedClaudeAccountId] = useState<
-    string | null
-  >(() => resolveManagedAccountId(initialData?.meta, "claude_official"));
+  const [selectedClaudeAccountId] = useState<string | null>(() =>
+    resolveManagedAccountId(initialData?.meta, "claude_official"),
+  );
   const [codexFastMode, setCodexFastMode] = useState<boolean>(
     () => initialData?.meta?.codexFastMode ?? false,
   );
@@ -701,10 +668,6 @@ function ProviderFormFull({
         selectedPresetEntry?.preset.category === "official"));
   const isCodexOfficialManagedOauthBound =
     isCodexOfficialProvider && Boolean(selectedCodexAccountId);
-  const requiresExplicitCodexOfficialSelection =
-    isCodexOfficialProvider && !hasValidCodexOfficialSelection;
-  const requiresCodexOauthLogin =
-    isClaudeCodexOauthProvider || isCodexOfficialManagedOauthBound;
 
   const {
     templateValues,
@@ -1004,131 +967,6 @@ function ProviderFormFull({
       }
     }
 
-    // OAuth 未登录：B 类（token 根本不存在，保存了也没法建立）
-    if (isCopilotProvider && isCopilotStatusError) {
-      toast.error(
-        t("copilot.statusLoadFailed", {
-          defaultValue: "无法加载 GitHub Copilot 账号状态，请重试。",
-        }),
-      );
-      return;
-    }
-    if (isCopilotProvider && !isCopilotStatusSuccess) {
-      toast.error(
-        t("copilot.statusLoading", {
-          defaultValue: "正在加载 GitHub Copilot 账号状态，请稍后再试。",
-        }),
-      );
-      return;
-    }
-    if (isCopilotProvider && !isCopilotAuthenticated) {
-      toast.error(
-        t("copilot.loginRequired", {
-          defaultValue: "请先登录 GitHub Copilot",
-        }),
-      );
-      return;
-    }
-    if (requiresExplicitCodexOfficialSelection) {
-      toast.error(
-        t("codexOauth.explicitSelectionRequired", {
-          defaultValue: "请先选择登录方式",
-        }),
-      );
-      return;
-    }
-    if (requiresCodexOauthLogin && isCodexOauthStatusError) {
-      toast.error(
-        t("codexOauth.statusLoadFailed", {
-          defaultValue: "无法加载 ChatGPT 账号状态，请重试。",
-        }),
-      );
-      return;
-    }
-    if (requiresCodexOauthLogin && !isCodexOauthStatusSuccess) {
-      toast.error(
-        t("codexOauth.statusLoading", {
-          defaultValue: "正在加载 ChatGPT 账号状态，请稍后再试。",
-        }),
-      );
-      return;
-    }
-    if (requiresCodexOauthLogin && !isCodexOauthAuthenticated) {
-      toast.error(
-        t("codexOauth.loginRequired", {
-          defaultValue: "请先登录 ChatGPT 账号",
-        }),
-      );
-      return;
-    }
-    if (isXaiOauthProvider && !isXaiOauthAuthenticated) {
-      toast.error(
-        t("xaiOauth.loginRequired", {
-          defaultValue: "请先登录 xAI 账号",
-        }),
-      );
-      return;
-    }
-
-    const selectedAccountExists = (
-      accountId: string | null,
-      accounts: Array<{ id: string }>,
-    ) =>
-      accountId === null ||
-      accounts.some((account) => account.id === accountId);
-    const selectedCodexAccountIsUsable = (accountId: string | null) => {
-      const effectiveAccountId =
-        accountId ??
-        codexOauthDefaultAccountId ??
-        codexOauthAccounts.find((account) => account.is_default)?.id ??
-        codexOauthAccounts[0]?.id;
-      return (
-        !!effectiveAccountId &&
-        codexOauthAccounts.some(
-          (account) =>
-            account.id === effectiveAccountId && !account.reauth_required,
-        )
-      );
-    };
-    const selectedXaiAccountIsUsable = (accountId: string | null) =>
-      accountId === null ||
-      xaiOauthAccounts.some(
-        (account) => account.id === accountId && !account.requires_reauth,
-      );
-    if (
-      isCopilotProvider &&
-      !selectedAccountExists(selectedGitHubAccountId, copilotAccounts)
-    ) {
-      toast.error(
-        t("managedAuth.selectedAccountUnavailable", {
-          defaultValue: "已绑定账号不存在，请重新选择账号",
-        }),
-      );
-      return;
-    }
-    if (
-      requiresCodexOauthLogin &&
-      !selectedCodexAccountIsUsable(selectedCodexAccountId)
-    ) {
-      toast.error(
-        t("managedAuth.selectedAccountNeedsReauth", {
-          defaultValue: "已绑定账号不存在或需要重新登录",
-        }),
-      );
-      return;
-    }
-    if (
-      isXaiOauthProvider &&
-      !selectedXaiAccountIsUsable(selectedXaiAccountId)
-    ) {
-      toast.error(
-        t("managedAuth.selectedAccountNeedsReauth", {
-          defaultValue: "已绑定 xAI 账号不存在或需要重新登录",
-        }),
-      );
-      return;
-    }
-
     // OMO Other Fields JSON：B 类（格式错了保存下去数据就坏了）
     if (
       appId === "opencode" &&
@@ -1362,21 +1200,6 @@ function ProviderFormFull({
       payload.presetId = activePreset.id;
       if (activePreset.category) {
         payload.presetCategory = activePreset.category;
-      }
-    }
-
-    if (!isEditMode && isCodexOfficialManagedOauthBound) {
-      const selectedAccountLogin = codexOauthAccounts.find(
-        (account) => account.id === selectedCodexAccountId,
-      )?.login;
-      const presetName = selectedPresetEntry
-        ? "nameKey" in selectedPresetEntry.preset &&
-          selectedPresetEntry.preset.nameKey
-          ? t(selectedPresetEntry.preset.nameKey)
-          : selectedPresetEntry.preset.name
-        : null;
-      if (selectedAccountLogin && presetName && payload.name === presetName) {
-        payload.name = `${presetName} (${selectedAccountLogin})`;
       }
     }
 
@@ -1874,18 +1697,6 @@ function ProviderFormFull({
                 isClaudeCodexOauthProvider ||
                 isXaiOauthProvider
               }
-              isCopilotAuthenticated={isCopilotAuthenticated}
-              selectedGitHubAccountId={selectedGitHubAccountId}
-              onGitHubAccountSelect={setSelectedGitHubAccountId}
-              onManageAuthAccounts={onManageAuthAccounts}
-              isCodexOauthAuthenticated={isCodexOauthAuthenticated}
-              selectedCodexAccountId={selectedCodexAccountId}
-              onCodexAccountSelect={setSelectedCodexAccountId}
-              codexFastMode={codexFastMode}
-              onCodexFastModeChange={setCodexFastMode}
-              isXaiOauthAuthenticated={isXaiOauthAuthenticated}
-              selectedXaiAccountId={selectedXaiAccountId}
-              onXaiAccountSelect={setSelectedXaiAccountId}
               templateValueEntries={templateValueEntries}
               templateValues={templateValues}
               templatePresetName={templatePreset?.name || ""}
@@ -1920,57 +1731,20 @@ function ProviderFormFull({
             />
           )}
 
-          {appId === "claude" && category === "official" && (
-            <ClaudeAccountSelect
-              value={selectedClaudeAccountId}
-              onChange={setSelectedClaudeAccountId}
-              onManageAccounts={
-                onManageAuthAccounts
-                  ? () => onManageAuthAccounts("claude_official")
-                  : undefined
-              }
-            />
-          )}
-
           {appId === "codex" && (
             <CodexFormFields
               providerId={providerId}
               isCopilotPreset={isCopilotProvider}
-              isCopilotAuthenticated={isCopilotAuthenticated}
-              selectedGitHubAccountId={selectedGitHubAccountId}
-              onGitHubAccountSelect={setSelectedGitHubAccountId}
               isXaiOauthPreset={
                 presetProviderType === "xai_oauth" ||
                 initialData?.meta?.providerType === "xai_oauth"
               }
-              isXaiOauthAuthenticated={isXaiOauthAuthenticated}
-              selectedXaiAccountId={selectedXaiAccountId}
-              onXaiAccountSelect={setSelectedXaiAccountId}
               codexApiKey={codexApiKey}
               onApiKeyChange={handleCodexApiKeyChange}
               category={category}
               shouldShowApiKeyLink={shouldShowCodexApiKeyLink}
               websiteUrl={codexWebsiteUrl}
               isCodexOauthPreset={isCodexOfficialProvider}
-              selectedCodexAccountId={selectedCodexAccountId}
-              onCodexAccountSelect={setSelectedCodexAccountId}
-              onCodexAuthSelectionConfirmed={() =>
-                setHasValidCodexOfficialSelection(true)
-              }
-              onCodexAuthSelectionInvalidated={() =>
-                setHasValidCodexOfficialSelection(false)
-              }
-              onManageAuthAccounts={onManageAuthAccounts}
-              codexOauthSelectionLabel={t("codexOauth.signInMethod")}
-              codexOauthNoneOptionLabel={t("codexOauth.noneOptionLabel")}
-              codexOauthNoneOptionDescription={t(
-                "codex.followCodexLoginDescription",
-              )}
-              codexOauthAllowUnboundSelection
-              codexOauthAllowUnboundSelectionWithoutStatus
-              codexOauthRequireExplicitSelection={
-                requiresExplicitCodexOfficialSelection
-              }
               shouldShowSpeedTest={shouldShowSpeedTest}
               codexBaseUrl={codexBaseUrl}
               onBaseUrlChange={handleCodexBaseUrlChange}
@@ -2023,14 +1797,6 @@ function ProviderFormFull({
               model={geminiModel}
               onModelChange={handleGeminiModelChange}
               speedTestEndpoints={speedTestEndpoints}
-            />
-          )}
-
-          {/* 切号只实现了 macOS；别的平台上不显示，卡上已有的绑定原样保留 */}
-          {appId === "agy" && category === "official" && isMac() && (
-            <AgyAccountSelect
-              value={selectedAgyAccountId}
-              onChange={setSelectedAgyAccountId}
             />
           )}
 

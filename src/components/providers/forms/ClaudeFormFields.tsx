@@ -32,9 +32,6 @@ import {
   ModelDropdown,
   ModelInputWithFetch,
 } from "./shared";
-import { CopilotAuthSection } from "./CopilotAuthSection";
-import { CodexOAuthSection } from "./CodexOAuthSection";
-import { XaiOAuthSection } from "./XaiOAuthSection";
 import {
   copilotGetModels,
   copilotGetModelsForAccount,
@@ -52,7 +49,6 @@ import type {
   ClaudeApiFormat,
   ClaudeApiKeyField,
 } from "@/types";
-import type { ManagedAuthProvider } from "@/lib/api";
 import {
   hasClaudeOneMMarker,
   setClaudeOneMMarker,
@@ -84,24 +80,16 @@ interface ClaudeFormFieldsProps {
   isCopilotAuthenticated?: boolean;
   /** 当前选中的 GitHub 账号 ID（多账号支持） */
   selectedGitHubAccountId?: string | null;
-  /** GitHub 账号选择回调（多账号支持） */
-  onGitHubAccountSelect?: (accountId: string | null) => void;
-  /** 打开托管账号管理入口 */
-  onManageAuthAccounts?: (target: ManagedAuthProvider) => void;
 
   // Codex OAuth (ChatGPT Plus/Pro)
   isCodexOauthPreset?: boolean;
   isCodexOauthAuthenticated?: boolean;
   selectedCodexAccountId?: string | null;
-  onCodexAccountSelect?: (accountId: string | null) => void;
-  codexFastMode?: boolean;
-  onCodexFastModeChange?: (enabled: boolean) => void;
 
   // xAI OAuth
   isXaiOauthPreset?: boolean;
   isXaiOauthAuthenticated?: boolean;
   selectedXaiAccountId?: string | null;
-  onXaiAccountSelect?: (accountId: string | null) => void;
 
   // Template Values
   templateValueEntries: Array<[string, TemplateValueConfig]>;
@@ -157,18 +145,12 @@ export function ClaudeFormFields({
   usesOAuth,
   isCopilotAuthenticated,
   selectedGitHubAccountId,
-  onGitHubAccountSelect,
-  onManageAuthAccounts,
   isCodexOauthPreset,
   isCodexOauthAuthenticated,
   selectedCodexAccountId,
-  onCodexAccountSelect,
-  codexFastMode,
-  onCodexFastModeChange,
   isXaiOauthPreset,
   isXaiOauthAuthenticated,
   selectedXaiAccountId,
-  onXaiAccountSelect,
   templateValueEntries,
   templateValues,
   templatePresetName,
@@ -604,47 +586,6 @@ export function ClaudeFormFields({
     handleRoleModelChange(row, setClaudeOneMMarker(row.model, enabled));
   };
 
-  const oauthSections = (
-    <>
-      {/* GitHub Copilot OAuth 认证 */}
-      {isCopilotPreset && (
-        <CopilotAuthSection
-          mode="select"
-          selectedAccountId={selectedGitHubAccountId}
-          onAccountSelect={onGitHubAccountSelect}
-          onManageAccounts={
-            onManageAuthAccounts
-              ? () => onManageAuthAccounts("github_copilot")
-              : undefined
-          }
-        />
-      )}
-
-      {/* Codex OAuth 认证 (ChatGPT Plus/Pro) */}
-      {isCodexOauthPreset && (
-        <CodexOAuthSection
-          mode="select"
-          selectedAccountId={selectedCodexAccountId}
-          onAccountSelect={onCodexAccountSelect}
-          onManageAccounts={
-            onManageAuthAccounts
-              ? () => onManageAuthAccounts("codex_oauth")
-              : undefined
-          }
-          fastModeEnabled={codexFastMode}
-          onFastModeChange={onCodexFastModeChange}
-        />
-      )}
-
-      {isXaiOauthPreset && (
-        <XaiOAuthSection
-          selectedAccountId={selectedXaiAccountId}
-          onAccountSelect={onXaiAccountSelect}
-        />
-      )}
-    </>
-  );
-
   const apiKeySection = (
     <>
       {/* API Key 输入框（非 OAuth 预设时显示） */}
@@ -799,7 +740,6 @@ export function ClaudeFormFields({
 
   return (
     <>
-      {oauthSections}
       {apiKeySection}
       {templateSection}
       {endpointSection}

@@ -28,11 +28,10 @@ export function FirstRunNoticeDialog() {
   const handleAcknowledge = async () => {
     if (!settings) return;
     try {
-      const { webdavSync: _, ...rest } = settings;
       // 新装用户看的就是新界面、新版本，「界面改版了」弹窗和更新摘要一并记成已看过
       const version = await getVersion().catch(() => undefined);
       await settingsApi.save({
-        ...rest,
+        ...settings,
         firstRunNoticeConfirmed: true,
         newLayoutNoticeConfirmed: true,
         whatsNewSeenVersion: markSeen(settings.whatsNewSeenVersion, version),

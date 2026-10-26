@@ -1142,7 +1142,6 @@ pub fn run() {
             }
 
             // 构建托盘：Windows 左键打开主界面，右键默认弹出面板；macOS 左右键默认都弹出面板。
-            // 设置里打开「原生托盘菜单」就挂原生菜单（`tray::apply_tray_style` 运行时切换）。
             // Linux（AppIndicator）不派发点击事件，只能出原生菜单，菜单里有一项打开面板。
             let native_menu = tray_panel::uses_native_menu();
             let mut tray_builder = TrayIconBuilder::with_id(tray::TRAY_ID)
@@ -1190,7 +1189,7 @@ pub fn run() {
                 .on_menu_event(|app, event| {
                     tray::handle_tray_menu_event(app, &event.id.0);
                 })
-                .show_menu_on_left_click(tray::native_menu_on_left_click(native_menu));
+                .show_menu_on_left_click(native_menu);
             if native_menu {
                 let menu = tray::create_tray_menu(app.handle(), &app_state)?;
                 tray_builder = tray_builder.menu(&menu);
@@ -1202,14 +1201,6 @@ pub fn run() {
             }
 
             let _tray = tray_builder.build(app)?;
-            crate::services::webdav_auto_sync::start_worker(
-                app_state.db.clone(),
-                app.handle().clone(),
-            );
-            crate::services::s3_auto_sync::start_worker(
-                app_state.db.clone(),
-                app.handle().clone(),
-            );
             // 将同一个实例注入到全局状态，避免重复创建导致的不一致
             app.manage(app_state);
 
@@ -1542,16 +1533,6 @@ pub fn run() {
             // theirs: config import/export and dialogs
             commands::export_config_to_file,
             commands::import_config_from_file,
-            commands::webdav_test_connection,
-            commands::webdav_sync_upload,
-            commands::webdav_sync_download,
-            commands::webdav_sync_save_settings,
-            commands::webdav_sync_fetch_remote_info,
-            commands::s3_test_connection,
-            commands::s3_sync_upload,
-            commands::s3_sync_download,
-            commands::s3_sync_save_settings,
-            commands::s3_sync_fetch_remote_info,
             commands::save_file_dialog,
             commands::open_file_dialog,
             commands::open_zip_file_dialog,

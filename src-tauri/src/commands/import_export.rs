@@ -13,7 +13,7 @@ use crate::database::Database;
 use crate::error::AppError;
 use crate::services::provider::ProviderService;
 use crate::services::skill::skill_state_write_guard;
-use crate::services::sync_protocol::sync_mutex;
+use crate::services::sync_lock::sync_mutex;
 use crate::store::AppState;
 
 async fn run_with_database_restore_lock<T, Start, Fut>(start_operation: Start) -> T
@@ -243,7 +243,7 @@ pub async fn reveal_backup_location(id: String) -> Result<bool, String> {
 #[cfg(test)]
 mod tests {
     use super::run_with_database_restore_lock;
-    use crate::services::sync_protocol::sync_mutex;
+    use crate::services::sync_lock::sync_mutex;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
     use std::time::Duration;

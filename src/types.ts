@@ -296,58 +296,6 @@ export interface VisibleApps {
   agy: boolean;
 }
 
-// WebDAV 同步状态
-export interface WebDavSyncStatus {
-  lastSyncAt?: number | null;
-  lastError?: string | null;
-  lastErrorSource?: string | null;
-  lastRemoteEtag?: string | null;
-  lastLocalManifestHash?: string | null;
-  lastRemoteManifestHash?: string | null;
-}
-
-// WebDAV 同步配置
-export interface WebDavSyncSettings {
-  enabled?: boolean;
-  autoSync?: boolean;
-  baseUrl?: string;
-  username?: string;
-  password?: string;
-  remoteRoot?: string;
-  profile?: string;
-  status?: WebDavSyncStatus;
-}
-
-// S3 同步配置
-export interface S3SyncSettings {
-  enabled?: boolean;
-  autoSync?: boolean;
-  region?: string;
-  bucket?: string;
-  accessKeyId?: string;
-  secretAccessKey?: string;
-  endpoint?: string;
-  remoteRoot?: string;
-  profile?: string;
-  status?: WebDavSyncStatus;
-}
-
-export type RemoteSnapshotLayout = "current" | "legacy";
-
-// 远端快照信息（下载前预览）
-export interface RemoteSnapshotInfo {
-  deviceName: string;
-  createdAt: string;
-  snapshotId: string;
-  version: number;
-  protocolVersion: number;
-  dbCompatVersion?: number | null;
-  compatible: boolean;
-  artifacts: string[];
-  layout: RemoteSnapshotLayout;
-  remotePath: string;
-}
-
 /** 用量金额的显示方式；对应 Rust `UsageDisplaySettings`。值由前端校验兜底。 */
 export interface UsageDisplaySettings {
   /** 显示币种（见 `DISPLAY_CURRENCIES`），缺省为 USD */
@@ -389,8 +337,6 @@ export interface Settings {
   sessionAutoSyncEnabled?: boolean;
   // 启动时检查已安装的命令行应用有没有新版本（默认关）
   checkToolUpdatesOnStartup?: boolean;
-  // 点托盘图标出原生菜单，不出托盘面板（macOS / Windows；Linux 一律原生菜单；默认关，没写过视为关，即用托盘面板）
-  nativeTrayMenu?: boolean;
   // Preserve Codex ChatGPT login in auth.json when switching third-party providers
   preserveCodexOfficialAuthOnSwitch?: boolean;
   // Run official Codex under the shared "custom" provider id so future
@@ -439,12 +385,6 @@ export interface Settings {
   skillSyncMethod?: SkillSyncMethod;
   // Skill 存储位置：cc_switch（默认）或 unified（~/.agents/skills/）
   skillStorageLocation?: SkillStorageLocation;
-
-  // ===== WebDAV v2 同步设置 =====
-  webdavSync?: WebDavSyncSettings;
-
-  // ===== S3 同步设置 =====
-  s3Sync?: S3SyncSettings;
 
   // ===== 备份策略设置 =====
   // Auto-backup interval in hours (0=disabled, default 24)

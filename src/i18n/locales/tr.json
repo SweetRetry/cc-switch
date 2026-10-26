@@ -400,23 +400,12 @@
       "checkToolUpdates": "Açılışta uygulama güncellemelerini kontrol et",
       "checkToolUpdatesHelp": "CC Switch açıkken, her başlatıldığında yüklü komut satırı uygulamalarınızı yeni sürümler için kontrol eder ve bulursa kenar çubuğunda Uygulamalar üzerinde bir nokta gösterir. Hiçbir şey otomatik olarak yükseltilmez.",
       "windowAndTerminal": "Pencere ve terminal",
-      "trayStyle": "Tepsi simgesi tıklama davranışı",
-      "trayStylePanel": "Panel",
-      "trayStyleMenu": "Menü",
-      "trayStyleHelp": "Tepsi simgesine tıkladığınızda ne açılacağını belirler (Windows'ta sol tıklama her zaman ana pencereyi, sağ tıklama ise seçilen görünümü açar). Panel: her uygulamanın etkin sağlayıcısını, kotasını ve kullanımını arama ve geçiş seçenekleriyle gösterir. Menü: sistemin yerel menüsünü açar. Değişiklik hemen uygulanır.",
       "minimizeToTrayHelp": "Açık olduğunda, kapat düğmesi yalnızca pencereyi gizler ve CC Switch sistem tepsisinde çalışmaya devam eder (hafif mod tepsi menüsündedir). Kapatıldığında kapatma düğmesi kapanır.",
       "terminalHelp": "Sağlayıcı kartlarındaki “Açık terminal”in kullandığı terminal. Mevcut değilse sistemin varsayılan terminali kullanılır."
     },
     "tabGeneral": "Genel",
     "tabAuth": "Kimlik doğrulama",
     "tabAdvanced": "Gelişmiş",
-    "authCenter": {
-      "description": "Bağlı hesapları ve abonelik kotalarını yönetin. Codex resmi kartları bir ChatGPT hesabını kullanabilir. Antigravity hesapları uygulamanın resmi oturumunu değiştirir.",
-      "beta": "beta",
-      "copilotDescription": "GitHub Copilot hesaplarını yönetin",
-      "codexOauthDescription": "ChatGPT hesaplarını yönetin",
-      "xaiOauthDescription": "xAI / Grok hesaplarını yönetin"
-    },
     "advanced": {
       "configDir": {
         "title": "Yapılandırma Dizini",
@@ -1703,26 +1692,8 @@
     "loginRequired": "Önce bir xAI hesabında oturum açın"
   },
   "managedAuth": {
-    "accountRemoved": "Hesap silindi",
     "selectedAccountNeedsReauth": "Bağlı hesap eksik veya tekrar oturum açmanız gerekiyor",
-    "selectedAccountUnavailable": "Bağlı hesap eksik veya tekrar oturum açmanız gerekiyor. Başka bir hesap seçin.",
-    "usedBy": "{{count}} sağlayıcı(lar)ı tarafından kullanılır",
-    "usedByTitle": "Kullanan: {{names}}",
-    "remove": {
-      "titleOne": "“{{login}}” hesabı silinsin mi?",
-      "titleAll": "Tüm {{service}} hesapları silinsin mi?",
-      "leadOne": "Bu, CC Switch’in bu hesap için tuttuğu oturum açma kimlik bilgilerini siler. Bu geri alınamaz.",
-      "leadAll": "Bu, CC Switch’in bu {{count}} hesapları için tuttuğu oturum açma kimlik bilgilerini siler. Bu geri alınamaz.",
-      "brokenOne": "Bu sağlayıcılar, siz tekrar oturum açana veya başka bir hesap seçene kadar çalışmayı durduracaktır:",
-      "brokenAll": "Bu sağlayıcılar siz tekrar oturum açana kadar çalışmayı durduracak:",
-      "moved": "Bu sağlayıcılar varsayılan hesabı kullanır ve yeni varsayılana geçer:",
-      "noneOne": "Bu hesabı hiçbir sağlayıcı kullanmıyor.",
-      "noneAll": "Bu hesapları hiçbir sağlayıcı kullanmaz.",
-      "confirmOne": "Hesabı sil",
-      "confirmAll": "{{count}} hesaplarını silin",
-      "appSeparator": ":",
-      "nameSeparator": ","
-    }
+    "selectedAccountUnavailable": "Bağlı hesap eksik veya tekrar oturum açmanız gerekiyor. Başka bir hesap seçin."
   },
   "endpointTest": {
     "title": "API Uç Nokta Yönetimi",
@@ -3725,8 +3696,6 @@
     "todayRequests": "{{value}} istek",
     "todayHitRate": "İsabet {{value}}",
     "usage": "Kullanım",
-    "auth": "Hesaplar",
-    "authNeedsReauth": "Bir hesapta tekrar oturum açılması gerekiyor",
     "prompts": "İstemler",
     "sessions": "Oturumlar",
     "apps": "Uygulamalar",
@@ -4245,67 +4214,6 @@
     "showEarlier": "{{count}} önceki sürüm(ler)",
     "viewFull": "Değişiklik günlüğünün tamamını görüntüle",
     "confirm": "Anladım"
-  },
-  "authCenter": {
-    "helpTitle": "Hesaplar Nedir?",
-    "group": {
-      "helpTitle": "{{service}} hesapları nasıl kullanılır?",
-      "copilotHelp": "Claude Code ve Claude Desktop'deki GitHub Copilot ön ayarları tarafından kullanılır. Seçilmiş bir hesaba sahip olmayan sağlayıcılar Varsayılan hesabı kullanır.",
-      "chatgptHelp": "Claude Code ve Claude Desktop'deki ChatGPT ön ayarları ve Codex'nin resmi oturum açma bağlaması tarafından kullanılır. Seçilmiş bir hesaba sahip olmayan sağlayıcılar Varsayılan hesabı kullanır.",
-      "xaiHelp": "Claude Code, Claude Desktop ve Codex'deki xAI ön ayarları tarafından kullanılır. Seçilmiş bir hesaba sahip olmayan sağlayıcılar Varsayılan hesabı kullanır.",
-      "agyHelp": "Antigravity CLI (agy) için resmî oturum açma yöntemi. agy aynı anda yalnızca tek bir hesapta oturum açabilir. Hesabı Değiştir seçeneği agy'nin oturumunu seçilen hesapla değiştirir ve bundan sonra başlatılan agy oturumları bu hesabı kullanır. agy'nin hâlihazırda oturum açtığı hesap buraya otomatik olarak eklenir; böylece başka hesaba geçerken önceki hesabı kaybetmezsiniz."
-    },
-    "addAccount": "Hesap ekle",
-    "accountMenu": "{{login}} için daha fazla eylem",
-    "removeAccount": "Hesabı sil",
-    "setDefault": "Varsayılan olarak ayarla",
-    "reauth": "Tekrar oturum açın",
-    "busyHint": "Öncelikle devam eden oturum açma işlemini tamamlayın veya iptal edin",
-    "default": "Varsayılan",
-    "needsReauth": "Oturum açılması gerekiyor",
-    "empty": "Henüz {{service}} hesabına giriş yapılmadı.",
-    "signedInOn": "{{date}}'de oturum açıldı",
-    "enterpriseServer": "Kurumsal Sunucu",
-    "enterpriseDomain": "Kurumsal alan adı",
-    "enterpriseDomainRequired": "Önce kurumsal etki alanını girin, ör. şirket.ghe.com",
-    "codexReauthNote": "Oturum açma kimlik bilgisi (id_token) eksik olduğundan Codex yönetilen bağlama için kullanılamaz",
-    "xaiReauthNote": "Oturum açma kimlik bilgilerinin süresi doldu; bunu kullanan sağlayıcılar çalışmaz",
-    "statusLoading": "Hesaplar yükleniyor…",
-    "xaiStatusLoadFailed": "xAI hesapları yüklenemedi. Yeniden deneyin.",
-    "retry": "Yeniden dene",
-    "loginFailed": "Oturum açma işlemi tamamlanmadı",
-    "pending": {
-      "add": "{{service}} hesabı ekleniyor · Yetkilendirme bekleniyor…",
-      "reauth": "{{login}} olarak tekrar oturum açılıyor · Yetkilendirme bekleniyor…",
-      "enterCode": "Bu kodu tarayıcıya girin:",
-      "copy": "Kodu kopyala",
-      "copied": "Kod kopyalandı.",
-      "open": "Yetkilendirme sayfasını açın",
-      "note": "Tarayıcınızda yetkilendirme sayfası açık; bitirdiğinizde bu kendi kendine güncellenir. {{service}}'nin kullanım koşullarına dikkat edin.",
-      "browserNote": "{{service}} oturum açma sayfası tarayıcınızda açık. Oturum açıp erişim izni verin; bu bilgi otomatik olarak güncellenir.",
-      "reopen": "Oturum açma sayfasını yeniden aç"
-    },
-    "toast": {
-      "added": "{{service}} hesabı eklendi.",
-      "reauthed": "{{login}} olarak tekrar oturum açıldı."
-    },
-    "quota": {
-      "updating": "Güncelleniyor…",
-      "loading": "Kota kontrol ediliyor…",
-      "refresh": "Kotayı yenile",
-      "refreshAria": "{{login}} için kotayı yenileyin"
-    },
-    "agy": {
-      "reauthNote": "Oturum süresi doldu, bu hesaba geçilemiyor",
-      "addedOn": "{{date}} tarihinde eklendi",
-      "statusLoadFailed": "Antigravity hesapları okunamadı. Yeniden deneyin.",
-      "empty": "Henüz Antigravity hesabı yok. agy'nin oturum açtığı hesap burada otomatik olarak görünür.",
-      "current": "agy tarafından kullanılıyor",
-      "switchTo": "agy'yi bu hesaba geçir",
-      "removeNote": "agy'nin oturumu açık kalır: agy bu hesabı kullanıyorsa kaldırdıktan sonra da çalışmaya devam eder.",
-      "switched": "Hesap değiştirildi. Yeni agy oturumları bu hesabı kullanacak.",
-      "switchedWhileRunning": "Hesap değiştirildi. agy çalışıyor: açık agy oturumları önceki hesabı kullanmaya devam eder ve hesabı yeniden kaydedebilir. agy'yi kapatıp yeniden açın."
-    }
   },
   "kimi": {
     "oauth": {

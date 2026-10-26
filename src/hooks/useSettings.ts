@@ -207,14 +207,8 @@ export function useSettings(): UseSettingsResult {
           mergedSettings.opencodeConfigDir,
         );
         const sanitizedPiDir = sanitizeDir(mergedSettings.piConfigDir);
-        const {
-          webdavSync: _ignoredWebdavSync,
-          s3Sync: _ignoredS3Sync,
-          ...restSettings
-        } = mergedSettings;
-
         const payload: Settings = {
-          ...restSettings,
+          ...mergedSettings,
           claudeConfigDir: sanitizedClaudeDir,
           codexConfigDir: sanitizedCodexDir,
           opencodeConfigDir: sanitizedOpencodeDir,
@@ -339,14 +333,8 @@ export function useSettings(): UseSettingsResult {
         const previousCodexDir = sanitizeDir(data?.codexConfigDir);
         const previousOpencodeDir = sanitizeDir(data?.opencodeConfigDir);
         const previousPiDir = sanitizeDir(data?.piConfigDir);
-        const {
-          webdavSync: _ignoredWebdavSync,
-          s3Sync: _ignoredS3Sync,
-          ...restSettings
-        } = mergedSettings;
-
         const payload: Settings = {
-          ...restSettings,
+          ...mergedSettings,
           claudeConfigDir: sanitizedClaudeDir,
           codexConfigDir: sanitizedCodexDir,
           opencodeConfigDir: sanitizedOpencodeDir,

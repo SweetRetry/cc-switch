@@ -1994,32 +1994,6 @@ pub fn refresh_tray_menu(app: &tauri::AppHandle) {
     crate::tray_panel::notify_changed(app);
 }
 
-/// 设置里切换了原生托盘菜单 / 托盘面板：当场换掉托盘的点击行为，不用重启。
-/// 换成原生菜单时挂上重建的菜单、收起面板；换成面板时摘掉菜单（`refresh_tray_menu` 只更新图标状态）。
-pub fn apply_tray_style(app: &tauri::AppHandle) {
-    let native = crate::tray_panel::uses_native_menu();
-    if let Some(tray) = app.tray_by_id(TRAY_ID) {
-        if native {
-            crate::tray_panel::hide_panel(app);
-        } else {
-            if let Err(e) = tray.set_menu(None::<Menu<tauri::Wry>>) {
-                log::error!("摘掉托盘菜单失败: {e}");
-            }
-            // 菜单没了，旧句柄不再更新标题。
-            lock(&TRAY_SECTION_SUBMENUS).clear();
-        }
-        if let Err(e) = tray.set_show_menu_on_left_click(native_menu_on_left_click(native)) {
-            log::warn!("设置托盘左键行为失败: {e}");
-        }
-    }
-    refresh_tray_menu(app);
-}
-
-/// 左键是否直接出原生菜单：用面板时不出；Windows 的习惯是左键打开主界面、右键出菜单。
-pub fn native_menu_on_left_click(native: bool) -> bool {
-    native && cfg!(not(target_os = "windows"))
-}
-
 /// 就重建菜单。只在变了时重建，菜单还没打开，不会被关掉。
 pub fn refresh_tray_if_problems_changed(app: &tauri::AppHandle) {
     static LAST_CHECK: Mutex<Option<std::time::Instant>> = Mutex::new(None);

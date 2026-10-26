@@ -290,7 +290,7 @@ const SKILL_BACKUP_RETAIN_COUNT: usize = 20;
 ///
 /// 归档字节由第三方完全控制（仓库可经 deeplink 添加，且 branch 可把下载落点
 /// 改写到攻击者自传的 release asset），没有上限时一个几 MB 的压缩炸弹就能塞满磁盘。
-/// 取值对齐 `webdav_sync/archive.rs` 里同款保护的量级。
+/// 取值对齐 Skills 压缩包解压时的同款保护量级。
 ///
 /// 条目数只是解压前的快速失败：真正兜底磁盘与 inode 消耗的是字节预算——每个
 /// 文件、目录都至少按一个磁盘块计费。上限曾是 10_000，但下载的是整个仓库归档
@@ -3370,7 +3370,7 @@ impl SkillService {
         };
 
         // 归档字节完全由第三方控制（仓库可经 deeplink 添加），所以解压必须限量，
-        // 否则一个几 MB 的压缩炸弹就能塞满磁盘。webdav_sync/archive.rs 早有同款
+        // 否则一个几 MB 的压缩炸弹就能塞满磁盘。Skills 解压早有同款
         // 双重上限，这条下载路径一直没有。
         if archive.len() > MAX_ARCHIVE_ENTRIES {
             let count = archive.len().to_string();
@@ -6257,7 +6257,7 @@ mod tests {
     }
 
     #[test]
-    // serial：与 backup/s3_sync/deeplink 等同样读写进程级 CC_SWITCH_TEST_HOME 的测试互斥，
+    // serial：与 backup/deeplink 等同样读写进程级 CC_SWITCH_TEST_HOME 的测试互斥，
     // EnvGuard 只负责恢复不提供互斥。
     #[serial_test::serial]
     fn get_app_skills_dir_honors_test_home_override() {

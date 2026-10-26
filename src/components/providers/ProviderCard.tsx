@@ -422,15 +422,6 @@ export function ProviderCard({
                       })}
                     </span>
                   </span>
-                  <button
-                    type="button"
-                    className="shrink-0 text-body font-medium text-action-text hover:underline"
-                    onClick={() => onEdit(provider)}
-                  >
-                    {t("codex.chooseAccount", {
-                      defaultValue: "选择账号",
-                    })}
-                  </button>
                 </>
               ) : (
                 <span className="min-w-0 truncate">

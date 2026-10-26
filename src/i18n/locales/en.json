@@ -421,23 +421,12 @@
       "checkToolUpdates": "Check for new versions of your apps at launch",
       "checkToolUpdatesHelp": "When on, CC Switch checks your installed command-line apps for new versions each time it starts, and shows a dot on Apps in the sidebar if it finds one. Nothing is upgraded automatically.",
       "windowAndTerminal": "Window and terminal",
-      "trayStyle": "Tray style",
-      "trayStylePanel": "Panel",
-      "trayStyleMenu": "Menu",
-      "trayStyleHelp": "What opens when you click the tray icon (on Windows, left-click always opens the main window and right-click opens the selected style). Panel: each app's in-use provider, quota and usage, with search and switching. Menu: the system's native menu. Takes effect right away.",
       "minimizeToTrayHelp": "When on, the close button only hides the window and CC Switch keeps running in the system tray (lightweight mode is in the tray menu). When off, the close button quits.",
       "terminalHelp": "The terminal used by “Open terminal” on provider cards. If it isn't available, the system default terminal is used."
     },
     "tabGeneral": "General",
     "tabAuth": "Auth",
     "tabAdvanced": "Advanced",
-    "authCenter": {
-      "description": "Manage your linked accounts and subscription quotas. Codex official cards can use a ChatGPT account. Antigravity accounts switch the app’s official login.",
-      "beta": "Beta",
-      "copilotDescription": "Manage GitHub Copilot accounts",
-      "codexOauthDescription": "Manage ChatGPT accounts",
-      "xaiOauthDescription": "Manage xAI / Grok accounts"
-    },
     "advanced": {
       "configDir": {
         "title": "Configuration Directory",
@@ -1724,26 +1713,8 @@
     "loginRequired": "Sign in to an xAI account first"
   },
   "managedAuth": {
-    "accountRemoved": "Account deleted",
     "selectedAccountNeedsReauth": "The linked account is missing or needs you to sign in again",
-    "selectedAccountUnavailable": "The linked account is missing or needs you to sign in again. Select another account.",
-    "usedBy": "Used by {{count}} provider(s)",
-    "usedByTitle": "Used by: {{names}}",
-    "remove": {
-      "titleOne": "Delete account “{{login}}”?",
-      "titleAll": "Delete all {{service}} accounts?",
-      "leadOne": "This deletes the sign-in credentials CC Switch keeps for this account. This can’t be undone.",
-      "leadAll": "This deletes the sign-in credentials CC Switch keeps for these {{count}} accounts. This can’t be undone.",
-      "brokenOne": "These providers will stop working until you sign in again or pick another account:",
-      "brokenAll": "These providers will stop working until you sign in again:",
-      "moved": "These providers use the default account and will switch to the new default:",
-      "noneOne": "No provider uses this account.",
-      "noneAll": "No provider uses these accounts.",
-      "confirmOne": "Delete account",
-      "confirmAll": "Delete {{count}} accounts",
-      "appSeparator": ": ",
-      "nameSeparator": ", "
-    }
+    "selectedAccountUnavailable": "The linked account is missing or needs you to sign in again. Select another account."
   },
   "endpointTest": {
     "title": "API Endpoint Management",
@@ -3746,8 +3717,6 @@
     "todayRequests": "{{value}} req",
     "todayHitRate": "Hit {{value}}",
     "usage": "Usage",
-    "auth": "Accounts",
-    "authNeedsReauth": "An account needs to sign in again",
     "prompts": "Prompts",
     "sessions": "Sessions",
     "apps": "Apps",
@@ -4269,83 +4238,6 @@
     "showEarlier": "{{count}} earlier version(s)",
     "viewFull": "View full changelog",
     "confirm": "Got it"
-  },
-  "authCenter": {
-    "helpTitle": "What is Accounts?",
-    "group": {
-      "helpTitle": "How {{service}} accounts are used",
-      "copilotHelp": "Used by GitHub Copilot presets in Claude Code and Claude Desktop. Providers without a chosen account use the Default one.",
-      "chatgptHelp": "Used by ChatGPT presets in Claude Code and Claude Desktop, and by Codex's official-login binding. Providers without a chosen account use the Default one.",
-      "xaiHelp": "Used by xAI presets in Claude Code, Claude Desktop and Codex. Providers without a chosen account use the Default one.",
-      "agyHelp": "The official sign-in for Antigravity CLI (agy). agy can only be signed in to one account at a time; Switch replaces agy's sign-in with the selected account, and agy sessions started afterwards use it. The account agy was already signed in with is added here automatically, so switching away never loses it.",
-      "claudeHelpTerminal": "Official Claude Code subscription accounts (Pro / Max / Team). The Claude config folder is overridden in Settings (for example, to WSL), so switching cards doesn't change Claude Code's sign-in. Pick an account on an official card and use Open Terminal on the card.",
-      "claudeHelp": "Official Claude Code subscription accounts (Pro / Max / Team). Pick an account on a Claude official card: after switching to the card, every newly started claude uses it. To use several accounts at once, use Open Terminal on the card. Sign-in tokens stay on this computer and are never uploaded, refreshed or signed out. The first switch saves the account Claude Code is signed in to now; switching ends Remote Control and rebuilds the prompt cache."
-    },
-    "addAccount": "Add account",
-    "accountMenu": "More actions for {{login}}",
-    "removeAccount": "Delete account",
-    "setDefault": "Set as default",
-    "reauth": "Sign in again",
-    "busyHint": "Finish or cancel the sign-in in progress first",
-    "default": "Default",
-    "needsReauth": "Sign-in needed",
-    "empty": "No {{service}} account signed in yet.",
-    "signedInOn": "Signed in {{date}}",
-    "enterpriseServer": "Enterprise Server",
-    "enterpriseDomain": "Enterprise domain",
-    "enterpriseDomainRequired": "Enter the enterprise domain first, e.g. company.ghe.com",
-    "codexReauthNote": "Missing a sign-in credential (id_token), so it can't be used for Codex managed binding",
-    "xaiReauthNote": "Sign-in credential expired; providers using it won't work",
-    "statusLoading": "Loading accounts…",
-    "xaiStatusLoadFailed": "Couldn't load xAI accounts. Try again.",
-    "retry": "Retry",
-    "loginFailed": "Sign-in didn't finish",
-    "pending": {
-      "add": "Adding a {{service}} account · Waiting for authorization…",
-      "reauth": "Signing in again as {{login}} · Waiting for authorization…",
-      "enterCode": "Enter this code in the browser:",
-      "copy": "Copy code",
-      "copied": "Code copied.",
-      "open": "Open the authorization page",
-      "note": "The authorization page is open in your browser; this updates on its own when you finish. Mind {{service}}'s terms of use.",
-      "browserNote": "The {{service}} sign-in page is open in your browser. Sign in and grant access, and this updates automatically.",
-      "reopen": "Reopen sign-in page"
-    },
-    "toast": {
-      "added": "{{service}} account added.",
-      "reauthed": "Signed in again as {{login}}."
-    },
-    "quota": {
-      "updating": "Updating…",
-      "loading": "Checking quota…",
-      "refresh": "Refresh quota",
-      "refreshAria": "Refresh quota for {{login}}"
-    },
-    "agy": {
-      "reauthNote": "Sign-in expired, can't switch to it",
-      "addedOn": "Added {{date}}",
-      "statusLoadFailed": "Couldn't read Antigravity accounts. Try again.",
-      "empty": "No Antigravity accounts yet. The account agy is signed in with appears here automatically.",
-      "current": "In use by agy",
-      "switchTo": "Switch agy to this account",
-      "removeNote": "agy stays signed in: if agy is using this account, it keeps working after removal.",
-      "switched": "Switched. New agy sessions will use this account.",
-      "switchedWhileRunning": "Switched. agy is running: open agy sessions keep using the previous account and may write it back. Quit agy and open it again."
-    },
-    "claude": {
-      "pasteSubmitted": "Submitted. Finishing sign-in…",
-      "pasteToggle": "Didn't come back here after authorizing?",
-      "pasteHint": "Paste the address from the browser's address bar after authorizing, or the code shown on the page.",
-      "pasteLabel": "Authorization code or address",
-      "pasteSubmit": "Submit",
-      "reauthNote": "Sign-in expired. Sign in again.",
-      "addedOn": "Added {{date}}",
-      "loginExpiresOn": "Sign-in expires around {{date}}; sign in again after that",
-      "loginMaybeExpired": "Sign-in may have expired. Sign in again before switching to it.",
-      "statusLoadFailed": "Couldn't read Claude accounts. Try again.",
-      "empty": "No Claude accounts yet. Sign in here to switch between multiple subscription accounts.",
-      "removeNote": "Only removes the sign-in CC Switch saved for this account; it isn't signed out anywhere else, and Claude Code's current sign-in (~/.claude) is untouched. Cards bound to it switch to Claude Code's current sign-in."
-    }
   },
   "kimi": {
     "oauth": {
