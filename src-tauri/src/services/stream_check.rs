@@ -24,7 +24,7 @@ use std::time::Instant;
 use crate::app_config::AppType;
 use crate::error::AppError;
 use crate::provider::Provider;
-use crate::proxy::providers::{get_adapter, GeminiAdapter, ProviderAdapter};
+use crate::proxy::providers;
 
 /// Google Gemini 默认端点（agy 未配置自定义端点时使用）。
 const DEFAULT_GEMINI_BASE_URL: &str = "https://generativelanguage.googleapis.com";
@@ -185,20 +185,12 @@ impl StreamCheckService {
                         "Official providers do not expose a reachability-check target".to_string(),
                     ));
                 }
-                Ok(GeminiAdapter::new()
-                    .extract_base_url(provider)
+                Ok(providers::gemini_base_url(provider)
                     .ok()
                     .filter(|url| !url.trim().is_empty())
                     .unwrap_or_else(|| DEFAULT_GEMINI_BASE_URL.to_string()))
             }
-            _ => get_adapter(app_type)
-                .ok_or_else(|| {
-                    AppError::InvalidInput(format!(
-                        "{} does not support proxy adapters",
-                        app_type.as_str()
-                    ))
-                })?
-                .extract_base_url(provider)
+            _ => providers::base_url(app_type, provider)
                 .map_err(|e| AppError::Message(format!("Failed to extract base_url: {e}"))),
         }
     }

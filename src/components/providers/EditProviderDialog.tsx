@@ -22,7 +22,6 @@ import type {
   ProviderEditorView,
 } from "@/lib/api/providers";
 import type { Provider } from "@/types";
-import type { AppMode } from "@/types/proxy";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -37,11 +36,8 @@ interface EditProviderDialogProps {
     editorSave?: ProviderEditorSave;
   }) => Promise<void> | void;
   appId: AppId;
-  isProxyTakeover?: boolean; // 代理接管模式下不读取 live（避免显示被接管后的代理配置）
   /** 正在编辑的是当前生效的那家（切换式应用）：页头下提示保存后立即生效 */
   isCurrent?: boolean;
-  /** 从供应商页哪一格打开的，见 ProviderForm 的同名参数 */
-  modeView?: AppMode;
 }
 
 /** 直连时保存当前供应商会写进的配置文件 */
@@ -62,14 +58,10 @@ export function EditProviderDialog({
   onOpenChange,
   onSubmit,
   appId,
-  isProxyTakeover = false,
   isCurrent = false,
-  modeView,
 }: EditProviderDialogProps) {
   const { t } = useTranslation();
   const [isFormSubmitting, setIsFormSubmitting] = useState(false);
-  // 表单用了聚合的简化布局：页头应用名后标「聚合模式」
-  const [stackLayout, setStackLayout] = useState(false);
   const [authSettingsTarget, setAuthSettingsTarget] =
     useState<AuthCenterTarget | null>(null);
 
@@ -171,16 +163,6 @@ export function EditProviderDialog({
         return;
       }
 
-      // 代理接管模式：Live 配置已被代理改写，读取 live 会导致编辑界面展示代理地址/占位符等内容
-      // 因此直接回退到 SSOT（数据库）配置，避免用户困惑与误保存
-      if (isProxyTakeover) {
-        if (!cancelled) {
-          setLiveSettings(null);
-          setHasLoadedLive(true);
-        }
-        return;
-      }
-
       // OpenCode uses additive mode, while Pi's (and Oh My Pi's) native models
       // file is owned by its provider service. Neither has a per-provider generic
       // live snapshot that may replace the DB aggregate in this form.
@@ -224,7 +206,7 @@ export function EditProviderDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, provider?.id, appId, hasLoadedLive, isProxyTakeover]); // 只依赖 provider.id，不依赖整个 provider 对象
+  }, [open, provider?.id, appId, hasLoadedLive]); // 只依赖 provider.id，不依赖整个 provider 对象
 
   const initialSettingsConfig = useMemo(
     () => liveSettings ?? asRecord(provider?.settingsConfig) ?? {},
@@ -308,7 +290,7 @@ export function EditProviderDialog({
 
   const waitingForEditorView = usesEditorView(appId) && !hasLoadedLive;
 
-  const liveFile = !isProxyTakeover ? LIVE_FILE[appId] : undefined;
+  const liveFile = LIVE_FILE[appId];
   const currentNotice =
     isCurrent && SWITCH_APPS.includes(appId) ? (
       <Notice
@@ -334,14 +316,7 @@ export function EditProviderDialog({
       isOpen={open && !waitingForEditorView}
       trackUnsavedChanges
       title={t("provider.editProviderNamed", { name: provider.name })}
-      subtitle={
-        stackLayout
-          ? t("provider.formSubtitleStack", {
-              app: APP_DISPLAY_NAME[appId],
-              defaultValue: "{{app}}（聚合模式）",
-            })
-          : APP_DISPLAY_NAME[appId]
-      }
+      subtitle={APP_DISPLAY_NAME[appId]}
       backLabel={t("provider.backToList")}
       onClose={handlePanelClose}
       contentClassName={appId === "pi" ? "pb-0 pt-4" : "pt-4"}
@@ -385,10 +360,7 @@ export function EditProviderDialog({
           onSubmitReadyChange={handleSubmitReadyChange}
           initialData={initialData}
           showButtons={false}
-          isProxyTakeover={isProxyTakeover}
           inactiveFields={editorView?.inactive}
-          modeView={modeView}
-          onStackLayoutChange={setStackLayout}
         />
       )}
       {conflictDialog}

@@ -122,7 +122,6 @@ export function useSettingsForm(): UseSettingsFormResult {
       preserveCodexOfficialAuthOnSwitch:
         data.preserveCodexOfficialAuthOnSwitch ?? false,
       unifyCodexSessionHistory: data.unifyCodexSessionHistory ?? false,
-      codexStackClassicTools: data.codexStackClassicTools ?? true,
       claudeConfigDir: sanitizeDir(data.claudeConfigDir),
       codexConfigDir: sanitizeDir(data.codexConfigDir),
       opencodeConfigDir: sanitizeDir(data.opencodeConfigDir),
@@ -148,7 +147,6 @@ export function useSettingsForm(): UseSettingsFormResult {
             skipClaudeOnboarding: false,
             preserveCodexOfficialAuthOnSwitch: false,
             unifyCodexSessionHistory: false,
-            codexStackClassicTools: true,
             language: readPersistedLanguage(),
           } as SettingsFormState);
 
@@ -189,7 +187,6 @@ export function useSettingsForm(): UseSettingsFormResult {
         preserveCodexOfficialAuthOnSwitch:
           serverData.preserveCodexOfficialAuthOnSwitch ?? false,
         unifyCodexSessionHistory: serverData.unifyCodexSessionHistory ?? false,
-        codexStackClassicTools: serverData.codexStackClassicTools ?? true,
         claudeConfigDir: sanitizeDir(serverData.claudeConfigDir),
         codexConfigDir: sanitizeDir(serverData.codexConfigDir),
         opencodeConfigDir: sanitizeDir(serverData.opencodeConfigDir),

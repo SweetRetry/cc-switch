@@ -23,7 +23,7 @@ English | [中文](README_ZH.md) | [日本語](README_JA.md) | [Deutsch](README_
 
 ## Supported applications
 
-This edition supports only these five applications. Claude Code and Codex support direct, routing and stack modes. OpenCode and Pi support multiple providers. Antigravity supports provider and account management.
+This edition supports only these five applications. Claude Code and Codex connect directly to the selected provider. OpenCode and Pi support multiple providers. Antigravity supports provider and account management.
 
 - Pi
 - Claude Code

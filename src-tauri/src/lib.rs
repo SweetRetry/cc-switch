@@ -715,12 +715,11 @@ pub fn run() {
 
             let app_state = AppState::new(db);
 
-            // 设置 AppHandle 用于代理故障转移时的 UI 更新
-            app_state.proxy_service.set_app_handle(app.handle().clone());
-
             // 补完上次崩溃时写到一半的客户端文件（写前意图在 ~/.cc-switch/live-state.json），
             // 要在任何写客户端文件的启动步骤之前。
             crate::mode::operation::recover_on_startup(&app_state.db);
+            // Complete old takeover restoration before exposing provider commands.
+            futures::executor::block_on(crate::mode::controller::startup(&app_state));
 
             // ============================================================
             // 按表独立判断的导入逻辑（各类数据独立检查，互不影响）
@@ -1305,29 +1304,21 @@ pub fn run() {
                 }
             }
 
-            // 异常退出恢复 + 代理状态自动恢复
+            // 旧版本地路由配置单向恢复为直连
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 let state = app_handle.state::<AppState>();
 
                 initialize_common_config_snippets(&state);
 
-                // 定下各应用的直连 / 代理模式（处理旧版遗留的接管状态），再把代理模式的
-                // 应用接上。要排在通用配置片段的自动提取之后：它读的是直连的 live。
-                crate::mode::controller::startup(&state).await;
                 // #8268 测试版给 agy 装过包装脚本、改过 shell 启动文件，撤掉带标记的部分。
                 if let Err(e) =
                     crate::services::provider::agy_direct::migrate_legacy_launcher(&state.db)
                 {
                     log::warn!("清理旧版 agy 启动器失败: {e}");
                 }
-                // 启动流程走完：托盘这时才开始报「路由服务没在运行」，并记下退回直连的应用。
+                // Startup migrations are complete; refresh the direct-provider tray.
                 crate::tray::mark_startup_settled(&app_handle);
-                // Codex 官方做路由、发布了 Stack 模型时，官方模型列表过期就在后台刷新。
-                crate::services::provider::codex_official_models::start_background_checks(
-                    state.inner().clone(),
-                );
-
                 // Periodic backup check (on startup)
                 if let Err(e) = state.db.periodic_backup_if_needed() {
                     log::warn!("Periodic backup failed on startup: {e}");
@@ -1506,12 +1497,6 @@ pub fn run() {
             commands::set_codex_session_compression,
             commands::get_codex_sessions_disk_usage,
             commands::restore_codex_unified_history,
-            commands::get_rectifier_config,
-            commands::set_rectifier_config,
-            commands::get_optimizer_config,
-            commands::set_optimizer_config,
-            commands::get_copilot_optimizer_config,
-            commands::set_copilot_optimizer_config,
             commands::get_log_config,
             commands::set_log_config,
             commands::restart_app,
@@ -1564,12 +1549,6 @@ pub fn run() {
             commands::import_prompt_from_file,
             commands::get_current_prompt_file_content,
             commands::get_prompt_file_location,
-            commands::get_pi_prompt_file,
-            commands::replace_pi_prompt_file,
-            commands::delete_pi_prompt_file,
-            commands::list_pi_prompt_templates,
-            commands::upsert_pi_prompt_template,
-            commands::delete_pi_prompt_template,
             // Pi native provider and session views
             commands::get_pi_current_state,
             commands::update_pi_provider_usage_script,
@@ -1652,15 +1631,6 @@ pub fn run() {
             // Auto launch
             commands::set_auto_launch,
             commands::get_auto_launch_status,
-            // Proxy server management
-            commands::start_proxy_server,
-            commands::stop_proxy_server,
-            commands::stop_proxy_with_restore,
-            commands::get_proxy_takeover_status,
-            commands::set_proxy_takeover_for_app,
-            commands::get_app_mode,
-            commands::set_proxy_route,
-            commands::take_startup_attach_failures,
             tray::take_tray_navigation,
             tray_panel::tray_panel_state,
             tray_panel::tray_panel_placement,
@@ -1668,41 +1638,6 @@ pub fn run() {
             tray_panel::tray_panel_hide,
             tray_panel::tray_panel_action,
             tray::tray_app_page_seen,
-            commands::exit_proxy_apps_in_mode,
-            commands::get_direct_provider,
-            commands::get_proxy_status,
-            commands::get_proxy_config,
-            commands::update_proxy_config,
-            // Global & Per-App Config
-            commands::get_global_proxy_config,
-            commands::update_global_proxy_config,
-            commands::get_proxy_client_host,
-            commands::set_proxy_client_host,
-            commands::get_proxy_config_for_app,
-            commands::update_proxy_config_for_app,
-            commands::get_pricing_model_source,
-            commands::set_pricing_model_source,
-            commands::is_proxy_running,
-            commands::is_live_takeover_active,
-            commands::switch_proxy_provider,
-            commands::get_proxy_stack,
-            commands::set_proxy_stack_member,
-            commands::adopt_codex_stack_catalog,
-            commands::restart_codex_app_server_daemon,
-            commands::acknowledge_codex_stale_clients,
-            // Proxy failover commands
-            commands::get_provider_health,
-            commands::reset_circuit_breaker,
-            commands::get_circuit_breaker_config,
-            commands::update_circuit_breaker_config,
-            commands::get_circuit_breaker_stats,
-            // Failover queue management
-            commands::get_failover_queue,
-            commands::get_available_providers_for_failover,
-            commands::add_to_failover_queue,
-            commands::remove_from_failover_queue,
-            commands::get_auto_failover_enabled,
-            commands::set_auto_failover_enabled,
             // Usage statistics
             commands::get_usage_summary,
             commands::get_session_usage_summary,
@@ -1866,7 +1801,6 @@ pub fn run() {
             let app_handle = app_handle.clone();
             tauri::async_runtime::spawn(async move {
                 save_window_state_before_exit(&app_handle);
-                cleanup_before_exit(&app_handle).await;
                 // 先于 std::process::exit 显式移除托盘图标。
                 // 进程直接退出时 Tauri 运行时不走正常 Drop 流程，
                 // 不会向 Windows Shell 发送 NIM_DELETE，导致已退出的进程
@@ -1880,16 +1814,6 @@ pub fn run() {
                 // 使用 std::process::exit 避免再次触发 ExitRequested
                 std::process::exit(0);
             });
-            return;
-        }
-
-        // macOS ⌘Q、Dock「退出」、注销关机走系统 terminate，不发 ExitRequested、只发
-        // RunEvent::Exit，回调一返回进程就结束，只能在这里同步补做退出清理。重启也会走到
-        // 这里，照上面 DeferToTauriRestart 的约定交还 Tauri 默认流程，不清理。
-        if matches!(event, RunEvent::Exit) {
-            if !RESTART_REQUESTED.load(Ordering::SeqCst) {
-                cleanup_before_system_exit(app_handle);
-            }
             return;
         }
 
@@ -1923,45 +1847,6 @@ pub fn run() {
     });
 }
 
-// ============================================================
-// 应用退出清理
-// ============================================================
-
-/// 应用退出前的清理工作
-///
-/// 把接上代理的客户端都指回直连（模式和代理路由保留，下次启动再接上），再停止代理。
-/// 客户端不能一直指着代理：开机自启默认关闭，CC Switch 一关客户端就连不上了。
-pub async fn cleanup_before_exit(app_handle: &tauri::AppHandle) {
-    if let Some(state) = app_handle.try_state::<store::AppState>() {
-        crate::mode::controller::detach_all(state.inner()).await;
-        log::info!("退出清理完成：客户端已指回直连，代理已停止");
-    }
-}
-
-/// 系统终止应用时最多等退出清理这么久：停代理服务自带 5 秒超时，指回直连只是写几个文件。
-const SYSTEM_EXIT_CLEANUP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(8);
-
-/// 系统直接终止应用时（macOS ⌘Q、Dock「退出」、注销关机）的退出清理。
-///
-/// 这条路没有 `ExitRequested` 可以 `prevent_exit()` 再异步清理，只能在主线程上等清理做完。
-/// 清理放到异步运行时的线程上跑、主线程限时等：万一里面有步骤要等主线程，超时后照常退出，
-/// 不会把进程卡住。
-fn cleanup_before_system_exit(app_handle: &tauri::AppHandle) {
-    log::info!("系统终止应用，开始退出清理...");
-    let handle = app_handle.clone();
-    let task = tauri::async_runtime::spawn(async move { cleanup_before_exit(&handle).await });
-    // timeout 要在运行时里构造（它取当前运行时的计时器），所以包一层 async。
-    let finished = tauri::async_runtime::block_on(async move {
-        tokio::time::timeout(SYSTEM_EXIT_CLEANUP_TIMEOUT, task).await
-    });
-    if finished.is_err() {
-        log::warn!(
-            "退出清理 {} 秒内没做完，直接退出",
-            SYSTEM_EXIT_CLEANUP_TIMEOUT.as_secs()
-        );
-    }
-}
-
 /// 主动从系统托盘移除托盘图标。
 ///
 /// `std::process::exit` 会绕过 Tauri 运行时，触发不了 `TrayIcon::drop()`，
@@ -1984,9 +1869,7 @@ pub(crate) fn remove_tray_icon_before_exit(app_handle: &tauri::AppHandle) {
 
 fn initialize_common_config_snippets(state: &store::AppState) {
     // Auto-extract common config snippets from clean live files when snippet is missing.
-    // This must run before proxy mode is re-attached on startup, otherwise we'd read
-    // proxy-placeholder configs instead of the user's actual live settings. A client
-    // still attached from an update restart (no detach on the way out) is skipped too.
+    // Legacy takeover restoration has already run before these client files are read.
     for app_type in crate::app_config::AppType::all() {
         if !state
             .db

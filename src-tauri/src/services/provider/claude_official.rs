@@ -237,19 +237,16 @@ fn pointer_account(db: &Database) -> Option<String> {
 /// `settings.json` 里那一家的地址、Key（或本地路由）会盖过这个账号的登录。
 pub fn ensure_default_terminal_is_official(db: &Database) -> Result<(), AppError> {
     let app = AppType::Claude;
-    let in_use = if crate::mode::current::is_proxy(&app) {
-        None
-    } else {
+    let in_use =
         crate::mode::current::provider_for(db, &app, crate::mode::current::Purpose::Direct)?
-            .and_then(|id| db.get_all_providers(app.as_str()).ok()?.get(&id).cloned())
-    };
+            .and_then(|id| db.get_all_providers(app.as_str()).ok()?.get(&id).cloned());
     if in_use.as_ref().is_some_and(is_official) {
         return Ok(());
     }
     Err(AppError::localized(
         "claude.account.default_taken",
-        "这个账号现在在 Claude Code 的默认登录里，但 Claude Code 当前用的是其他供应商或本地路由，打开的终端不会用这个账号。请先切到这张卡（或任一官方卡）再打开终端",
-        "This account is Claude Code's current sign-in, but Claude Code is set to another provider or the local router, so a new terminal wouldn't use this account. Switch to this card (or any official card) first, then open the terminal.",
+        "这个账号现在在 Claude Code 的默认登录里，但 Claude Code 当前用的是其他供应商，打开的终端不会用这个账号。请先切到这张卡（或任一官方卡）再打开终端",
+        "This account is Claude Code's current sign-in, but Claude Code is set to another provider, so a new terminal wouldn't use this account. Switch to this card (or any official card) first, then open the terminal.",
     ))
 }
 
@@ -280,9 +277,6 @@ pub async fn refresh_live_after_account_change(
     let _guard = crate::mode::controller::lock_settled(state, &app)
         .await
         .map_err(|error| error.to_string())?;
-    if crate::mode::current::is_proxy(&app) {
-        return Ok(());
-    }
     let current =
         crate::mode::current::provider_for(&state.db, &app, crate::mode::current::Purpose::Direct)
             .map_err(|error| error.to_string())?;

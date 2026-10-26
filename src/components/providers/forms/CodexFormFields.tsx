@@ -30,7 +30,6 @@ import { HelpTip } from "@/components/ui/help-tip";
 import { HoverTip } from "@/components/ui/hover-tip";
 import { FormLabel } from "@/components/ui/form";
 import { fieldClass, Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -51,16 +50,10 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { toast } from "@/lib/toast";
 import {
   Check,
   ChevronDown,
-  ChevronRight,
   Download,
   GripVertical,
   Loader2,
@@ -72,12 +65,9 @@ import { CodexOAuthSection } from "./CodexOAuthSection";
 import { CopilotAuthSection } from "./CopilotAuthSection";
 import {
   ApiKeySection,
-  DirectModeFormatWarning,
   EndpointField,
-  FullUrlToggle,
   GptContextWindowHint,
   ModelDropdown,
-  type DirectModeFormatNotice,
 } from "./shared";
 import { XaiOAuthSection } from "./XaiOAuthSection";
 import {
@@ -88,16 +78,13 @@ import {
 import {
   fetchModelsForConfig,
   fetchXaiOauthModels,
-  modelFetchRequestHeaders,
   showFetchModelsError,
   type FetchedModel,
 } from "@/lib/api/model-fetch";
-import { CustomUserAgentField } from "./CustomUserAgentField";
 import {
   FetchedModelPicker,
   type FetchedModelSelection,
 } from "./FetchedModelPicker";
-import { LocalProxyRequestOverridesField } from "./LocalProxyRequestOverridesField";
 import { cn } from "@/lib/utils";
 import { useCommittableRef } from "@/hooks/useLatestRef";
 import { useModelMetadataFill } from "@/hooks/useModelMetadataFill";
@@ -107,12 +94,8 @@ import {
   metadataFilledAnything,
 } from "./modelMetadataFill";
 import type {
-  ClaudeApiKeyField,
-  CodexApiFormat,
   CodexCopilotApiFormat,
   CodexCatalogModel,
-  CodexChatReasoning,
-  PromptCacheRoutingMode,
   ProviderCategory,
 } from "@/types";
 import type { ManagedAuthProvider } from "@/lib/api";
@@ -187,8 +170,6 @@ interface CodexFormFieldsProps {
   shouldShowSpeedTest: boolean;
   codexBaseUrl: string;
   onBaseUrlChange: (url: string) => void;
-  isFullUrl: boolean;
-  onFullUrlChange: (value: boolean) => void;
   isEndpointModalOpen: boolean;
   onEndpointModalToggle: (open: boolean) => void;
   onCustomEndpointsChange?: (endpoints: string[]) => void;
@@ -199,58 +180,28 @@ interface CodexFormFieldsProps {
   codexModel?: string;
   onModelChange?: (model: string) => void;
 
-  // such keys, and the Stack layout omits them (subagents follow the main model).
+  // Native subagent model and reasoning effort.
   subagentModel?: string;
   onSubagentModelChange?: (model: string) => void;
   subagentReasoningEffort?: string;
   onSubagentReasoningEffortChange?: (effort: string) => void;
 
   // API Format
-  // Note: wire_api is always "responses" for Codex; apiFormat controls proxy-layer conversion
-  apiFormat: CodexApiFormat;
-  onApiFormatChange: (format: CodexApiFormat) => void;
+  // Legacy format metadata determines whether this provider is compatible.
   copilotApiFormat?: CodexCopilotApiFormat;
-  onCopilotApiFormatChange?: (format: CodexCopilotApiFormat) => void;
-  // Auth field for the Anthropic Messages upstream (only used when apiFormat === "anthropic")
-  anthropicAuthField: ClaudeApiKeyField;
-  onAnthropicAuthFieldChange: (value: ClaudeApiKeyField) => void;
   // Anthropic path: whether to emulate the Claude Code client
-  impersonateClaudeCode: boolean;
-  onImpersonateClaudeCodeChange: (value: boolean) => void;
   // Anthropic path: output ceiling override (empty string = use default). Digits only.
-  maxOutputTokens: string;
-  onMaxOutputTokensChange: (value: string) => void;
-  codexChatReasoning?: CodexChatReasoning;
-  onCodexChatReasoningChange?: (value: CodexChatReasoning) => void;
-  promptCacheRouting: PromptCacheRoutingMode;
-  onPromptCacheRoutingChange: (value: PromptCacheRoutingMode) => void;
 
   // Model Catalog
   catalogModels?: CodexCatalogModel[];
   onCatalogModelsChange?: (models: CodexCatalogModel[]) => void;
   // Auto Review (approval reviewer) model: `modelCatalog.autoReviewModel`, one of
-  // the catalog rows. Codex only; the Stack layout omits it (aggregation settings apply).
+  // the catalog rows.
   autoReviewModel?: string;
   onAutoReviewModelChange?: (model: string) => void;
 
   // Speed Test Endpoints
   speedTestEndpoints: EndpointCandidate[];
-
-  // Local proxy User-Agent override
-  customUserAgent: string;
-  onCustomUserAgentChange: (value: string) => void;
-  localProxyHeadersOverride: string;
-  onLocalProxyHeadersOverrideChange: (value: string) => void;
-  localProxyBodyOverride: string;
-  onLocalProxyBodyOverrideChange: (value: string) => void;
-
-  /**
-   * 布局：`classic` 是直连 / 路由用的完整表单；`stack` 是 Stack 模式的简化面板（连接 +
-   * 模型列表 + 高级），没有默认模型字段，列表第一行就是默认模型。
-   */
-  variant?: "classic" | "stack";
-  /** 应用实际在直连时传：选了要靠路由转换的格式就在格式下面提示后果。 */
-  directModeFormatNotice?: DirectModeFormatNotice;
 }
 
 type CodexCatalogRow = CodexCatalogModel & { rowId: string };
@@ -653,8 +604,6 @@ export function CodexFormFields({
   shouldShowSpeedTest,
   codexBaseUrl,
   onBaseUrlChange,
-  isFullUrl,
-  onFullUrlChange,
   isEndpointModalOpen,
   onEndpointModalToggle,
   onCustomEndpointsChange,
@@ -666,33 +615,12 @@ export function CodexFormFields({
   onSubagentModelChange,
   subagentReasoningEffort = "",
   onSubagentReasoningEffortChange,
-  apiFormat,
-  onApiFormatChange,
   copilotApiFormat = "auto",
-  onCopilotApiFormatChange,
-  anthropicAuthField,
-  onAnthropicAuthFieldChange,
-  impersonateClaudeCode,
-  onImpersonateClaudeCodeChange,
-  maxOutputTokens,
-  onMaxOutputTokensChange,
-  codexChatReasoning = {},
-  onCodexChatReasoningChange,
-  promptCacheRouting,
-  onPromptCacheRoutingChange,
   catalogModels = [],
   autoReviewModel = "",
   onAutoReviewModelChange,
   onCatalogModelsChange,
   speedTestEndpoints,
-  customUserAgent,
-  onCustomUserAgentChange,
-  localProxyHeadersOverride,
-  onLocalProxyHeadersOverrideChange,
-  localProxyBodyOverride,
-  onLocalProxyBodyOverrideChange,
-  variant = "classic",
-  directModeFormatNotice,
 }: CodexFormFieldsProps) {
   const { t } = useTranslation();
 
@@ -708,74 +636,22 @@ export function CodexFormFields({
     setFetchedModels((prev) => (prev.length === 0 ? prev : []));
   }, [
     codexBaseUrl,
-    isFullUrl,
     codexApiKey,
-    customUserAgent,
     isCopilotPreset,
     copilotApiFormat,
     isCopilotAuthenticated,
     selectedGitHubAccountId,
-    localProxyHeadersOverride,
     isXaiOauthPreset,
     isXaiOauthAuthenticated,
     selectedXaiAccountId,
   ]);
   // 思考能力随 Chat 格式显示（仅 Chat Completions 转换路径用得上）；模型映射常驻
-  //（填了才生成 catalog）。两者都已与「路由接管」概念解耦。
-  const effectiveApiFormat = isCopilotPreset
-    ? copilotApiFormat === "auto"
-      ? "openai_chat"
-      : copilotApiFormat
-    : apiFormat;
-  const isChatFormat = effectiveApiFormat === "openai_chat";
-  const isAnthropicFormat = effectiveApiFormat === "anthropic";
+  //（填了才生成 catalog）。
   // api_backend 声明、请求体也不是 Codex 发出的）——提示文案按 appId 分流，
   // 对应词条在 grokBuild.* 下。
   const canEditCatalog = Boolean(onCatalogModelsChange);
   // 有模型列表的卡（两种布局）：列表第一行就是默认模型，没有单独的默认模型框；列表为空时
   const firstRowIsDefault = canEditCatalog && category !== "official";
-  const canEditReasoning = Boolean(onCodexChatReasoningChange);
-  const supportsThinking =
-    codexChatReasoning.supportsThinking === true ||
-    codexChatReasoning.supportsEffort === true;
-  const supportsEffort = codexChatReasoning.supportsEffort === true;
-
-  // 高级区在有任何可见配置时自动展开（仅折叠→展开，不会自动折叠）：自定义 UA /
-  // 请求覆盖 / 非默认的上游格式 / 已配置思考能力。模型列表在高级区外面，不算。
-  const hasRequestOverrides = Boolean(
-    localProxyHeadersOverride.trim() || localProxyBodyOverride.trim(),
-  );
-  const hasAnyAdvancedValue =
-    isCopilotPreset ||
-    !!customUserAgent ||
-    hasRequestOverrides ||
-    isAnthropicFormat ||
-    supportsThinking ||
-    supportsEffort ||
-    promptCacheRouting !== "auto" ||
-    !!maxOutputTokens ||
-    isFullUrl;
-  const [advancedExpanded, setAdvancedExpanded] = useState(
-    isXaiOauthPreset ? false : hasAnyAdvancedValue,
-  );
-
-  // 预设/编辑加载填充高级值后自动展开（仅从折叠→展开，不会自动折叠）；
-  // xAI OAuth 托管预设的高级值都是预设自带的，无需展示，保持折叠
-  useEffect(() => {
-    if (isXaiOauthPreset) {
-      return;
-    }
-    if (hasAnyAdvancedValue) {
-      setAdvancedExpanded(true);
-    }
-  }, [hasAnyAdvancedValue, isXaiOauthPreset]);
-
-  // Stack 布局的高级区（思考能力、Anthropic 专有项、User-Agent、请求覆盖）：填了 UA 或请求
-  // 覆盖才展开，其余多是预设自带的。
-  const [stackAdvancedExpanded, setStackAdvancedExpanded] = useState(
-    isFullUrl || !!customUserAgent || hasRequestOverrides,
-  );
-
   // 显示用的顺序。挪动默认那一行不算修改：没动过列表时保存仍是原来的顺序。
   const orderCatalogModels = (models: CodexCatalogModel[]) =>
     firstRowIsDefault ? withDefaultModelFirst(models, codexModel) : models;
@@ -828,33 +704,6 @@ export function CodexFormFields({
     setCatalogRows(ordered);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codexModel, firstRowIsDefault]);
-
-  const handleReasoningThinkingChange = useCallback(
-    (checked: boolean) => {
-      if (!onCodexChatReasoningChange) return;
-      onCodexChatReasoningChange({
-        ...codexChatReasoning,
-        supportsThinking: checked,
-        supportsEffort: checked ? codexChatReasoning.supportsEffort : false,
-      });
-    },
-    [codexChatReasoning, onCodexChatReasoningChange],
-  );
-
-  const handleReasoningEffortChange = useCallback(
-    (checked: boolean) => {
-      if (!onCodexChatReasoningChange) return;
-      onCodexChatReasoningChange({
-        ...codexChatReasoning,
-        supportsThinking: checked ? true : codexChatReasoning.supportsThinking,
-        supportsEffort: checked,
-        effortParam: checked
-          ? (codexChatReasoning.effortParam ?? "reasoning_effort")
-          : "none",
-      });
-    },
-    [codexChatReasoning, onCodexChatReasoningChange],
-  );
 
   const receiveFetchedModels = useCallback((models: FetchedModel[]) => {
     setFetchedModels(models);
@@ -986,17 +835,7 @@ export function CodexFormFields({
       return;
     }
     runModelFetch(
-      () =>
-        fetchModelsForConfig(
-          codexBaseUrl,
-          codexApiKey,
-          isFullUrl,
-          undefined,
-          customUserAgent,
-          {
-            requestHeaders: modelFetchRequestHeaders(localProxyHeadersOverride),
-          },
-        ),
+      () => fetchModelsForConfig(codexBaseUrl, codexApiKey, undefined),
       receiveFetchedModels,
       "[ModelFetch] Failed:",
     );
@@ -1007,15 +846,12 @@ export function CodexFormFields({
     codexApiKey,
     codexModel,
     catalogModels,
-    isFullUrl,
-    customUserAgent,
     isCopilotPreset,
     copilotApiFormat,
     isCopilotAuthenticated,
     selectedGitHubAccountId,
     onCatalogModelsChange,
     onModelChange,
-    localProxyHeadersOverride,
     isXaiOauthPreset,
     isXaiOauthAuthenticated,
     selectedXaiAccountId,
@@ -1302,13 +1138,11 @@ export function CodexFormFields({
       (choice) => choice.model === CODEX_AUTO_REVIEW_MODEL,
     );
 
-  // 子代理模型不在模型映射里：Codex 拿不到它的窗口和推理档位；经路由转成 Chat / Anthropic
-  // 协议时还会被换成默认模型（转换路径只放行映射里的模型）。没有映射、走原生 Responses 的
-  // 供应商直接请求任意模型名，不提示。
+  // 模型目录提供子代理模型的上下文窗口和推理档位。
   const trimmedSubagentModel = subagentModel.trim();
   const isSubagentModelOutsideCatalog =
     !!trimmedSubagentModel &&
-    (catalogRows.length > 0 || isChatFormat || isAnthropicFormat) &&
+    catalogRows.length > 0 &&
     !catalogRows.some((row) => row.model.trim() === trimmedSubagentModel);
 
   const handleAddSubagentModelToCatalog = useCallback(() => {
@@ -1371,296 +1205,11 @@ export function CodexFormFields({
     </div>
   );
 
-  // 上游格式及 Anthropic 格式专有的几项：经典布局都在高级选项里；Stack 布局把上游格式和
-  // 认证字段放进连接区，其余留在高级选项里。
-  // 字段名后面的「?」：规则和术语解释收进去；后果（要开路由、会报错）仍写在页面上。
   const labelWithHelp = (label: string, help: ReactNode, htmlFor?: string) => (
     <div className="flex items-center gap-0.5">
       <FormLabel htmlFor={htmlFor}>{label}</FormLabel>
       <HelpTip title={label}>{help}</HelpTip>
     </div>
-  );
-
-  const upstreamFormatSelect = (
-    <div className="space-y-1.5">
-      {labelWithHelp(
-        t("codexConfig.upstreamFormatLabel", { defaultValue: "上游格式" }),
-        isCopilotPreset
-          ? t("codexConfig.upstreamFormatCopilotHint")
-          : t("codexConfig.upstreamFormatHint", {
-              defaultValue:
-                "看供应商原生支持哪种协议：Responses 原样转发、不转换格式；Chat 或 Anthropic 由路由转成 Responses。",
-            }),
-        "codex-upstream-format",
-      )}
-      <Select
-        value={isCopilotPreset ? copilotApiFormat : apiFormat}
-        onValueChange={(value) => {
-          if (isCopilotPreset) {
-            if (
-              value === "auto" ||
-              value === "openai_chat" ||
-              value === "openai_responses"
-            ) {
-              onCopilotApiFormatChange?.(value);
-            }
-          } else if (
-            value === "openai_chat" ||
-            value === "openai_responses" ||
-            value === "anthropic"
-          ) {
-            onApiFormatChange(value);
-          }
-        }}
-      >
-        <SelectTrigger id="codex-upstream-format" className="w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {isCopilotPreset && (
-            <SelectItem value="auto">
-              {t("codexConfig.upstreamFormatAuto")}
-            </SelectItem>
-          )}
-          <SelectItem value="openai_chat">
-            {t("codexConfig.upstreamFormatChat", {
-              defaultValue: "Chat Completions（需转换）",
-            })}
-          </SelectItem>
-          <SelectItem value="openai_responses">
-            {isCopilotPreset
-              ? t("codexConfig.upstreamFormatCopilotResponses")
-              : t("codexConfig.upstreamFormatResponses", {
-                  defaultValue: "Responses（原生）",
-                })}
-          </SelectItem>
-          {!isCopilotPreset && (
-            <SelectItem value="anthropic">
-              {t("codexConfig.upstreamFormatAnthropic", {
-                defaultValue: "Anthropic Messages（需转换）",
-              })}
-            </SelectItem>
-          )}
-        </SelectContent>
-      </Select>
-      {/* 直连下 Chat / Anthropic 发不出请求，按实际模式提示后果；Copilot 恒需路由，单独提示。 */}
-      {directModeFormatNotice &&
-        !isCopilotPreset &&
-        (isChatFormat || isAnthropicFormat) && (
-          <DirectModeFormatWarning notice={directModeFormatNotice} />
-        )}
-      {isCopilotPreset && (
-        <p className="text-xs leading-relaxed text-fg-2">
-          {t("codexConfig.upstreamFormatCopilotRouteHint")}
-        </p>
-      )}
-    </div>
-  );
-
-  const anthropicAuthFieldSelect = (
-    <div className="space-y-1.5">
-      {labelWithHelp(
-        t("codexConfig.anthropicAuthFieldLabel", { defaultValue: "认证字段" }),
-        t("codexConfig.anthropicAuthFieldHint", {
-          defaultValue: "按网关读取 API Key 的请求头选择，两者只发其一。",
-        }),
-        "codex-anthropic-auth-field",
-      )}
-      <Select
-        value={anthropicAuthField}
-        onValueChange={(value) =>
-          onAnthropicAuthFieldChange(value as ClaudeApiKeyField)
-        }
-      >
-        <SelectTrigger id="codex-anthropic-auth-field" className="w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="ANTHROPIC_AUTH_TOKEN">
-            {t("codexConfig.anthropicAuthFieldAuthToken", {
-              defaultValue: "ANTHROPIC_AUTH_TOKEN（Authorization）",
-            })}
-          </SelectItem>
-          <SelectItem value="ANTHROPIC_API_KEY">
-            {t("codexConfig.anthropicAuthFieldApiKey", {
-              defaultValue: "ANTHROPIC_API_KEY（x-api-key）",
-            })}
-          </SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  );
-
-  const impersonateClaudeCodeToggle = (
-    <div className="flex items-center justify-between gap-4 border-t border-border pt-3">
-      {labelWithHelp(
-        t("codexConfig.impersonateClaudeCodeLabel", {
-          defaultValue: "模拟 Claude Code 客户端",
-        }),
-        t("codexConfig.impersonateClaudeCodeHint", {
-          defaultValue:
-            "网关只允许 Claude Code 使用时打开：伪装 Claude Code 的请求头，并在系统提示首行注入它的身份。",
-        }),
-      )}
-      <Switch
-        checked={impersonateClaudeCode}
-        onCheckedChange={onImpersonateClaudeCodeChange}
-        aria-label={t("codexConfig.impersonateClaudeCodeLabel", {
-          defaultValue: "模拟 Claude Code 客户端",
-        })}
-      />
-    </div>
-  );
-
-  const maxOutputTokensField = (
-    <div className="space-y-1.5 border-t border-border pt-3">
-      {labelWithHelp(
-        t("codexConfig.maxOutputTokensLabel", {
-          defaultValue: "最大输出 tokens",
-        }),
-        t("codexConfig.maxOutputTokensHint", {
-          defaultValue:
-            "Codex 不带输出上限，默认 8192，长回答或深度思考容易被截断。这里的值会作为 Anthropic 的 max_tokens 发出。",
-        }),
-        "codex-anthropic-max-output-tokens",
-      )}
-      <Input
-        id="codex-anthropic-max-output-tokens"
-        type="number"
-        min={1}
-        inputMode="numeric"
-        value={maxOutputTokens}
-        onChange={(event) =>
-          onMaxOutputTokensChange(event.target.value.replace(/[^\d]/g, ""))
-        }
-        placeholder={t("codexConfig.maxOutputTokensPlaceholder", {
-          defaultValue: "留空则使用默认 8192",
-        })}
-      />
-      <p className="text-xs leading-relaxed text-fg-2">
-        {t("codexConfig.maxOutputTokensWarning", {
-          defaultValue: "不要超过模型或网关的真实输出上限，否则会返回 400。",
-        })}
-      </p>
-    </div>
-  );
-
-  const reasoningFields = (
-    <>
-      <div className="space-y-2">
-        {labelWithHelp(
-          t("codexConfig.promptCacheRoutingLabel", {
-            defaultValue: "提示词缓存路由",
-          }),
-          t("codexConfig.promptCacheRoutingHint", {
-            defaultValue:
-              "自动：只对确认兼容的上游发送 prompt_cache_key。开启：用于其他兼容网关。关闭：避免严格网关因未知字段返回 400。",
-          }),
-        )}
-        <Select
-          value={promptCacheRouting}
-          onValueChange={(value) =>
-            onPromptCacheRoutingChange(value as PromptCacheRoutingMode)
-          }
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="auto">
-              {t("codexConfig.promptCacheRoutingAuto", {
-                defaultValue: "自动（推荐）",
-              })}
-            </SelectItem>
-            <SelectItem value="enabled">
-              {t("codexConfig.promptCacheRoutingEnabled", {
-                defaultValue: "开启",
-              })}
-            </SelectItem>
-            <SelectItem value="disabled">
-              {t("codexConfig.promptCacheRoutingDisabled", {
-                defaultValue: "关闭",
-              })}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <FormLabel>
-        {t("codexConfig.reasoningGroupTitle", {
-          defaultValue: "思考能力",
-        })}
-      </FormLabel>
-
-      <div className="flex items-center justify-between gap-4">
-        {labelWithHelp(
-          t("codexConfig.reasoningModeToggle", {
-            defaultValue: "支持思考模式",
-          }),
-          t("codexConfig.reasoningModeHint", {
-            defaultValue:
-              "上游 Chat 接口能开关 thinking 时打开，Kimi、GLM、Qwen 等通常属于这一类。",
-          }),
-        )}
-        <Switch
-          checked={supportsThinking}
-          onCheckedChange={handleReasoningThinkingChange}
-          aria-label={t("codexConfig.reasoningModeToggle", {
-            defaultValue: "支持思考模式",
-          })}
-        />
-      </div>
-
-      <div className="flex items-center justify-between gap-4 border-t border-border pt-3">
-        {labelWithHelp(
-          t("codexConfig.reasoningEffortToggle", {
-            defaultValue: "支持思考等级",
-          }),
-          t("codexConfig.reasoningEffortHint", {
-            defaultValue:
-              "上游支持 low/high/max 等思考深度时打开。会同时打开思考模式，并把 Codex 的 reasoning.effort 转成上游 Chat 参数。",
-          }),
-        )}
-        <Switch
-          checked={supportsEffort}
-          onCheckedChange={handleReasoningEffortChange}
-          aria-label={t("codexConfig.reasoningEffortToggle", {
-            defaultValue: "支持思考等级",
-          })}
-        />
-      </div>
-    </>
-  );
-
-  // 两项都只在路由模式下生效：在分组开头说一次，各自的作用收进字段名后的「?」。
-  // Copilot 的请求由转发层按 Copilot 客户端的样子发，UA 和请求覆盖都会被跳过，不显示。
-  const userAgentAndOverrides = isCopilotPreset ? null : (
-    <>
-      <p className="text-xs leading-relaxed text-fg-2">
-        {t("codexConfig.routeOnlySettingsHint", {
-          defaultValue: "以下两项只在路由、聚合模式下生效。",
-        })}
-      </p>
-      <CustomUserAgentField
-        id="codex-custom-user-agent"
-        value={customUserAgent}
-        onChange={onCustomUserAgentChange}
-        help={t("providerForm.customUserAgentHelp", {
-          defaultValue: "替换转发到供应商的请求里的 User-Agent。",
-        })}
-      />
-      <div className="border-t border-border pt-3">
-        <LocalProxyRequestOverridesField
-          headersJson={localProxyHeadersOverride}
-          bodyJson={localProxyBodyOverride}
-          onHeadersJsonChange={onLocalProxyHeadersOverrideChange}
-          onBodyJsonChange={onLocalProxyBodyOverrideChange}
-          help={t("providerForm.localProxyRequestOverridesHelp", {
-            defaultValue: "作用于格式转换后发给上游的请求。",
-          })}
-        />
-      </div>
-    </>
   );
 
   // 模型映射 / 模型列表的行。
@@ -1903,17 +1452,6 @@ export function CodexFormFields({
     </>
   );
 
-  // 完整 URL 跟着地址框（托管 OAuth 端点由 adapter 硬定向，没有这个开关）。
-  const showFullUrlToggle =
-    shouldShowSpeedTest && !isCopilotPreset && !isXaiOauthPreset;
-  const fullUrlToggle = (
-    <FullUrlToggle
-      checked={isFullUrl}
-      onCheckedChange={onFullUrlChange}
-      className="border-t border-border pt-3"
-    />
-  );
-
   const speedTestModal = (
     <>
       {/* 端点测速弹窗 - Codex */}
@@ -1988,7 +1526,7 @@ export function CodexFormFields({
   );
 
   // 默认模型 —— config.toml 顶层 model，Codex 启动时默认请求的模型。实时写回 TOML；留空则删行。
-  // 两种布局都显示，聚合模式下发布的就是它。
+  // 模型列表留空时单独显示默认模型。
   const defaultModelField = category !== "official" &&
     onModelChange &&
     (!firstRowIsDefault || catalogRows.length === 0) && (
@@ -2040,139 +1578,6 @@ export function CodexFormFields({
         </div>
       </div>
     );
-
-  if (variant === "stack") {
-    const showFormatFields = shouldShowSpeedTest && !isXaiOauthPreset;
-    const showReasoning = isChatFormat && canEditReasoning;
-    // Copilot 不显示 UA 和请求覆盖，Responses 格式下高级区就空了。
-    const hasStackAdvancedContent =
-      showFullUrlToggle ||
-      (showFormatFields && isAnthropicFormat) ||
-      showReasoning ||
-      userAgentAndOverrides !== null;
-    return (
-      <>
-        {oauthSections}
-        {showFormatFields && upstreamFormatSelect}
-        {apiKeySection}
-        {showFormatFields && isAnthropicFormat && anthropicAuthFieldSelect}
-        {endpointSection}
-
-        {canEditCatalog && (
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-0.5">
-                  <FormLabel>
-                    {t("codexConfig.modelListTitle", {
-                      defaultValue: "模型列表",
-                    })}
-                  </FormLabel>
-                  <HelpTip
-                    title={t("codexConfig.modelListTitle", {
-                      defaultValue: "模型列表",
-                    })}
-                  >
-                    {t("codexConfig.stackModelDefaultHelp", {
-                      defaultValue:
-                        "这些模型会出现在 Codex 的 /model 里，选中后请求直达这家。第一行是默认模型：这家被设为默认时，Codex 默认用它。",
-                    })}
-                  </HelpTip>
-                </div>
-                {renderCatalogActionButtons(
-                  handleAddCatalogRow,
-                  t("codexConfig.addCatalogModel", {
-                    defaultValue: "手动添加",
-                  }),
-                )}
-              </div>
-              <p className="text-xs leading-relaxed text-fg-2">
-                {t("codexConfig.modelListHint", {
-                  defaultValue: "修改后需要重启 Codex。",
-                })}
-              </p>
-            </div>
-            {defaultModelNotInListNotice}
-            {catalogRows.length > 0 ? (
-              renderCatalogRows()
-            ) : (
-              <p className="text-xs leading-relaxed text-fg-2">
-                {t("codexConfig.modelListEmpty", {
-                  defaultValue: "未配置模型：聚合模式下只发布下面的默认模型。",
-                })}
-              </p>
-            )}
-          </div>
-        )}
-        {defaultModelField}
-
-        {hasStackAdvancedContent && (
-          <Collapsible
-            open={stackAdvancedExpanded}
-            onOpenChange={setStackAdvancedExpanded}
-            className="rounded-lg border border-border p-4"
-          >
-            <CollapsibleTrigger asChild>
-              <Button
-                type="button"
-                variant={null}
-                size="sm"
-                className="h-8 w-full justify-start gap-1.5 px-0 text-sm font-medium text-fg-1 hover:opacity-70 active:scale-100"
-              >
-                {stackAdvancedExpanded ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-                {t("providerForm.advancedOptionsToggle", {
-                  defaultValue: "高级选项",
-                })}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-3 pt-3">
-              {showFullUrlToggle && (
-                <FullUrlToggle
-                  checked={isFullUrl}
-                  onCheckedChange={onFullUrlChange}
-                />
-              )}
-              {showFormatFields &&
-                isAnthropicFormat &&
-                impersonateClaudeCodeToggle}
-              {showFormatFields && isAnthropicFormat && maxOutputTokensField}
-              {showReasoning && (
-                <div
-                  className={cn(
-                    "space-y-3",
-                    showFormatFields &&
-                      isAnthropicFormat &&
-                      "border-t border-border pt-3",
-                  )}
-                >
-                  {reasoningFields}
-                </div>
-              )}
-              {userAgentAndOverrides && (
-                <div
-                  className={cn(
-                    "space-y-3",
-                    (showFullUrlToggle ||
-                      (showFormatFields && isAnthropicFormat) ||
-                      showReasoning) &&
-                      "border-t border-border pt-3",
-                  )}
-                >
-                  {userAgentAndOverrides}
-                </div>
-              )}
-            </CollapsibleContent>
-          </Collapsible>
-        )}
-
-        {speedTestModal}
-      </>
-    );
-  }
 
   return (
     <>
@@ -2226,7 +1631,7 @@ export function CodexFormFields({
       {defaultModelField}
 
       {/* 子代理 —— config.toml 的 [agents] default_subagent_model / default_subagent_reasoning_effort。
-          留空删键，子代理跟随主模型；聚合模式下不写进 live（改用聚合设置）。 */}
+          留空删键，子代理跟随主模型。 */}
       {category !== "official" && onSubagentModelChange && (
         <div className="space-y-1.5">
           {labelWithHelp(
@@ -2235,7 +1640,7 @@ export function CodexFormFields({
             }),
             t("codexConfig.subagentModelHint", {
               defaultValue:
-                "Codex 派出的子代理默认用的模型和推理强度。留空时沿用主代理的；只填模型时用该模型自己的默认强度。聚合模式下不生效，改用聚合页签「聚合设置」里的子代理模型。",
+                "Codex 派出的子代理默认用的模型和推理强度。留空时沿用主代理的；只填模型时用该模型自己的默认强度。",
             }),
             "codexSubagentModel",
           )}
@@ -2272,7 +1677,7 @@ export function CodexFormFields({
             <p className="flex flex-wrap items-center gap-x-2 text-xs leading-relaxed text-fg-2">
               {t("codexConfig.subagentModelNotInCatalog", {
                 defaultValue:
-                  "该模型不在模型列表中：Codex 拿不到它的上下文窗口；经路由转成 Chat / Anthropic 协议时会被换成默认模型。",
+                  "该模型不在模型列表中，Codex 无法读取它的上下文窗口。",
               })}
               {onCatalogModelsChange && (
                 <Button
@@ -2293,7 +1698,7 @@ export function CodexFormFields({
       )}
 
       {/* 自动审批 —— 写进模型目录每一行的 auto_review_model_override，Codex 按主模型那一行
-          选审批模型。只能选列表里的模型；聚合模式下不生效，改用聚合设置。 */}
+          选审批模型，只能选列表里的模型。 */}
       {category !== "official" && onAutoReviewModelChange && (
         <div className="space-y-1.5">
           {labelWithHelp(
@@ -2302,7 +1707,7 @@ export function CodexFormFields({
             }),
             t("codexConfig.autoReviewModelHint", {
               defaultValue:
-                "Codex 开了自动审批（Approve for me）时，判断操作能不能放行用的模型。审批请求和主对话发给同一家，所以只能选这张卡模型列表里的。聚合模式下不生效，改用聚合页签「聚合设置」里的自动审批模型。改完需要重启 Codex。",
+                "Codex 开了自动审批（Approve for me）时，判断操作能不能放行用的模型。审批请求和主对话发给同一家，只能选择这张卡模型列表里的模型。改完需要重启 Codex。",
             }),
             "codexAutoReviewModel",
           )}
@@ -2350,69 +1755,6 @@ export function CodexFormFields({
             </p>
           )}
         </div>
-      )}
-
-      {/* 高级选项 —— 上游格式/思考能力/自定义 UA；预设供应商通常无需展开 */}
-      {category !== "official" && (
-        <Collapsible
-          open={advancedExpanded}
-          onOpenChange={setAdvancedExpanded}
-          className="rounded-lg border border-border p-4"
-        >
-          <CollapsibleTrigger asChild>
-            <Button
-              type="button"
-              variant={null}
-              size="sm"
-              className="h-8 w-full justify-start gap-1.5 px-0 text-sm font-medium text-fg-1 hover:opacity-70 active:scale-100"
-            >
-              {advancedExpanded ? (
-                <ChevronDown className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
-              {t("providerForm.advancedOptionsToggle", {
-                defaultValue: "高级选项",
-              })}
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-3 pt-3">
-            {/* Copilot supports automatic capability routing or an explicit protocol;
-                other providers retain their existing format controls. */}
-            {(shouldShowSpeedTest || isCopilotPreset) && !isXaiOauthPreset && (
-              <div className="space-y-3">
-                {upstreamFormatSelect}
-                {isAnthropicFormat && anthropicAuthFieldSelect}
-                {isAnthropicFormat && impersonateClaudeCodeToggle}
-                {isAnthropicFormat && maxOutputTokensField}
-                {showFullUrlToggle && fullUrlToggle}
-              </div>
-            )}
-
-            {isChatFormat && canEditReasoning && (
-              <div
-                className={cn(
-                  "space-y-3",
-                  shouldShowSpeedTest && "border-t border-border pt-3",
-                )}
-              >
-                {reasoningFields}
-              </div>
-            )}
-
-            {userAgentAndOverrides && (
-              <div
-                className={cn(
-                  "space-y-3",
-                  (shouldShowSpeedTest || (isChatFormat && canEditReasoning)) &&
-                    "border-t border-border pt-3",
-                )}
-              >
-                {userAgentAndOverrides}
-              </div>
-            )}
-          </CollapsibleContent>
-        </Collapsible>
       )}
 
       {speedTestModal}

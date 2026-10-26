@@ -149,7 +149,10 @@ pub const COPILOT_INTEGRATION_ID: &str = "vscode-chat";
 pub fn build_copilot_request_headers(
     token: &str,
 ) -> Result<Vec<(http::HeaderName, http::HeaderValue)>, ProxyError> {
-    use super::adapter::auth_header_value;
+    let auth_header_value = |value: &str| {
+        http::HeaderValue::from_str(value)
+            .map_err(|error| ProxyError::AuthError(format!("invalid auth header value: {error}")))
+    };
 
     let mut bearer = String::from("Bearer ");
     bearer.push_str(token);

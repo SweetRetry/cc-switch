@@ -14,7 +14,6 @@ import {
   Globe,
   Info,
   Loader2,
-  Route,
   SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
@@ -36,7 +35,6 @@ import { ImportExportSection } from "@/components/settings/ImportExportSection";
 import { BackupListSection } from "@/components/settings/BackupListSection";
 import { WebdavSyncSection } from "@/components/settings/WebdavSyncSection";
 import { AboutSection } from "@/components/settings/AboutSection";
-import { RoutingSection } from "@/components/settings/sections/RoutingSection";
 import { GlobalProxySettings } from "@/components/settings/GlobalProxySettings";
 import { LogConfigPanel } from "@/components/settings/LogConfigPanel";
 import { GeneralSection } from "@/components/settings/sections/GeneralSection";
@@ -58,7 +56,6 @@ const SECTION_ICON: Record<
 > = {
   general: SlidersHorizontal,
   appConfig: Folder,
-  routing: Route,
   network: Globe,
   data: Database,
   about: Info,
@@ -71,8 +68,6 @@ interface SettingsPageProps {
   onImportSuccess?: () => void | Promise<void>;
   /** 「在侧栏显示哪些应用」跳到「应用」页 */
   onOpenApps: () => void;
-  /** 本地路由 →「正在使用路由的应用」的「前往」 */
-  onOpenApp: (app: AppId) => void;
 }
 
 /**
@@ -84,7 +79,6 @@ export function SettingsPage({
   appConfigScrollTarget,
   onImportSuccess,
   onOpenApps,
-  onOpenApp,
 }: SettingsPageProps) {
   const { t } = useTranslation();
   const {
@@ -389,8 +383,6 @@ export function SettingsPage({
             onSaveDirectories={handleSave}
           />
         );
-      case "routing":
-        return <RoutingSection onOpenApp={onOpenApp} />;
       case "network":
         return (
           <SettingsBlock

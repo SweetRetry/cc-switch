@@ -4176,6 +4176,9 @@ pub async fn open_provider_terminal(
         .get(&providerId)
         .ok_or_else(|| format!("提供商 {providerId} 不存在"))?;
 
+    crate::services::provider::require_direct(&app_type, provider)
+        .map_err(|error| error.to_string())?;
+
     let launch = match app_type {
         AppType::Agy => {
             switch_agy_to_bound_account(&agy_accounts.0, provider).await?;

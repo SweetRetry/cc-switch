@@ -8,19 +8,19 @@ import SubscriptionQuotaFooter from "@/components/SubscriptionQuotaFooter";
 import { HoverTip } from "@/components/ui/hover-tip";
 import UsageFooter from "@/components/UsageFooter";
 import XaiOauthQuotaFooter from "@/components/XaiOauthQuotaFooter";
-import { isAdditiveAppId, isProxyAppId } from "@/config/appConfig";
+import { isAdditiveAppId } from "@/config/appConfig";
 import { PROVIDER_TYPES, TEMPLATE_TYPES } from "@/config/constants";
 import type { AppId } from "@/lib/api";
 import { authApi } from "@/lib/api";
 import { resolveManagedAccountId } from "@/lib/authBinding";
 import { claudePlanLabel } from "@/lib/claudePlan";
 import { isMac } from "@/lib/platform";
-import { useProviderHealth } from "@/lib/query/failover";
 import { useUsageQuery } from "@/lib/query/queries";
 import { useClaudeDefaultPlan } from "@/lib/query/subscription";
 import { cn } from "@/lib/utils";
 import type { Provider } from "@/types";
 import {
+  providerNeedsRouting,
   resolveCodexOfficialIdentity,
   supportsConnectivityCheck,
 } from "@/utils/providerCapabilities";
@@ -74,15 +74,11 @@ interface ProviderCardProps {
 /** 当前那张：模式色边框 + 淡底；共存式应用的默认那家同直连色。 */
 const TONE_CLASS: Record<CardTone, string> = {
   direct: "border-direct-border bg-direct-soft",
-  route: "border-route-border bg-route-soft",
-  stack: "border-stack-border bg-stack-soft",
 };
 
 const CHIP_CLASS: Record<CardChip["tone"], string> = {
   outline: "border border-border-strong text-fg-2",
   direct: "bg-direct-soft text-direct-text",
-  route: "bg-route-soft text-route-text",
-  stack: "bg-stack-soft text-stack-text",
   success: "bg-success-soft text-success-text",
   warning: "bg-warning-soft text-warning-text",
   danger: "bg-danger-soft text-danger-text",
@@ -103,24 +99,6 @@ export function CardChipBadge({ chip }: { chip: CardChip }) {
   );
 }
 
-function HealthChip({
-  consecutiveFailures,
-  isHealthy,
-}: {
-  consecutiveFailures: number;
-  isHealthy?: boolean;
-}) {
-  const { t } = useTranslation();
-  const chip: CardChip =
-    consecutiveFailures === 0
-      ? { key: "health", label: t("health.operational"), tone: "success" }
-      : isHealthy !== false
-        ? { key: "health", label: t("health.degraded"), tone: "warning" }
-        : { key: "health", label: t("health.circuitOpen"), tone: "danger" };
-  return <CardChipBadge chip={chip} />;
-}
-
-/** 判断是否为官方供应商（无自定义 base URL / API key，直连官方 API） */
 function isOfficialProvider(provider: Provider, appId: AppId): boolean {
   if (provider.category === "official") {
     return true;
@@ -221,12 +199,6 @@ export function ProviderCard({
       (provider.name.trim() === managedCodexAccount.login ||
         provider.name.trim() ===
           `OpenAI Official (${managedCodexAccount.login})`),
-  );
-
-  const { data: health } = useProviderHealth(
-    provider.id,
-    appId,
-    Boolean(presentation.showHealth) && isProxyAppId(appId),
   );
 
   const fallbackUrlText = t("provider.notConfigured", {
@@ -400,12 +372,6 @@ export function ProviderCard({
             {presentation.chips.map((chip) => (
               <CardChipBadge key={chip.key} chip={chip} />
             ))}
-            {presentation.showHealth && health && (
-              <HealthChip
-                consecutiveFailures={health.consecutive_failures}
-                isHealthy={health.is_healthy}
-              />
-            )}
           </div>
 
           {codexOfficialIdentity && codexOfficialIdentity !== "api_key" ? (
@@ -647,7 +613,9 @@ export function ProviderCard({
                 : () => onConfigureUsage(provider)
             }
             onOpenTerminal={
-              onOpenTerminal ? () => onOpenTerminal(provider) : undefined
+              onOpenTerminal && !providerNeedsRouting(appId, provider)
+                ? () => onOpenTerminal(provider)
+                : undefined
             }
             openTerminalIsolated={terminalIsIsolated(provider, appId)}
           />

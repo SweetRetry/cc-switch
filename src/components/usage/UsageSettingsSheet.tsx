@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import {
   Sheet,
   SheetBody,
@@ -20,7 +20,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { UsageDisplaySettings } from "@/types";
-import { useGlobalProxyConfig } from "@/lib/query/proxy";
 import { APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
 import { KNOWN_APP_TYPES } from "@/types/usage";
 import { cn } from "@/lib/utils";
@@ -37,8 +36,6 @@ interface UsageSettingsSheetProps {
   syncedLabel?: string;
   syncing: boolean;
   onSyncNow: () => void;
-  /** 打开设置 → 本地路由（「记录请求用量」开关在那里） */
-  onOpenRoutingSettings?: () => void;
   rebuildingCodex: boolean;
   /** 只负责打开确认框；确认框里写清后果 */
   onRebuildCodex: () => void;
@@ -116,26 +113,8 @@ function SettingsRow({
   );
 }
 
-function LoggingStatus() {
-  const { t } = useTranslation();
-  const { data: config, isLoading } = useGlobalProxyConfig();
-  if (isLoading || !config) {
-    return (
-      <Loader2
-        aria-hidden="true"
-        className="h-4 w-4 text-fg-3 motion-safe:animate-spin"
-      />
-    );
-  }
-  return (
-    <span className="text-body text-fg-2">
-      {config.enableLogging ? t("usage.sources.on") : t("usage.sources.off")}
-    </span>
-  );
-}
-
 /**
- * 用量页唯一的设置入口：数据来源（会话日志扫描与间隔、路由请求日志、Codex 用量维护）、
+ * 用量页唯一的设置入口：数据来源（会话日志扫描与间隔、Codex 用量维护）、
  * 显示（币种、侧栏「今日」、趋势图样式）、定价（打开定价对话框）。
  */
 export function UsageSettingsSheet({
@@ -146,7 +125,6 @@ export function UsageSettingsSheet({
   syncedLabel,
   syncing,
   onSyncNow,
-  onOpenRoutingSettings,
   rebuildingCodex,
   onRebuildCodex,
   refreshIntervalMs,
@@ -252,41 +230,6 @@ export function UsageSettingsSheet({
                   </Button>
                 </div>
               </SettingsRow>
-
-              {/* 只读状态 + 去别处修改：整行就是入口（「已开启 ›」），不再单放一个按钮 */}
-              <div className="relative">
-                {onOpenRoutingSettings && (
-                  <button
-                    type="button"
-                    aria-label={t("usage.sources.editLogging")}
-                    className="absolute inset-0 transition-colors hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                    onClick={() => {
-                      onOpenChange(false);
-                      onOpenRoutingSettings();
-                    }}
-                  />
-                )}
-                <div className="pointer-events-none relative px-4 py-3.5">
-                  <RowHeader
-                    title={t("routingSettings.logging")}
-                    help={{
-                      title: t("usage.sources.loggingHelpTitle"),
-                      body: t("usage.sources.loggingHelp"),
-                    }}
-                    trailing={
-                      <span className="flex items-center gap-0.5">
-                        {open ? <LoggingStatus /> : null}
-                        {onOpenRoutingSettings && (
-                          <ChevronRight
-                            aria-hidden="true"
-                            className="h-4 w-4 text-fg-3"
-                          />
-                        )}
-                      </span>
-                    }
-                  />
-                </div>
-              </div>
 
               <SettingsRow
                 title={t("usage.rebuildCodex.title")}

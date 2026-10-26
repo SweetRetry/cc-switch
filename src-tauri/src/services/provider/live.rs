@@ -639,8 +639,6 @@ pub(crate) fn sync_additive_app_to_live(
 pub(crate) enum LiveSyncOutcome {
     /// 按直连投影写了 live。
     WroteLive,
-    /// 应用在代理模式：live 是代理契约，没有按直连写。
-    ProxyMode,
 }
 
 /// 把 `provider` 同步到 live，按应用的模式处理：
@@ -659,13 +657,6 @@ pub(crate) fn sync_live_for_provider_respecting_mode(
     provider: &Provider,
     prev: Option<&Provider>,
 ) -> Result<LiveSyncOutcome, AppError> {
-    if crate::mode::current::is_proxy(app_type) {
-        futures::executor::block_on(crate::mode::controller::resync_saved_row_locked(
-            state, app_type, provider,
-        ))
-        .map_err(AppError::Message)?;
-        return Ok(LiveSyncOutcome::ProxyMode);
-    }
     if matches!(app_type, AppType::Claude) {
         super::claude_direct::reapply(state.db.as_ref(), prev.or(Some(provider)), provider)?;
     } else {

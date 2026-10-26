@@ -28,9 +28,6 @@
 //! | 17 | 切到无材料官方卡时删掉第三方残留的 auth.json，真实登录不删；重选当前卡不删 | 已有 `..._official_clears_stale_third_party_auth`、`provider_service_reswitch_current_official_keeps_live_auth` |
 //! | 18 | 元数据（last_refresh、account_id）不算登录（#6277） | crate 内：`codex_config.rs` 的 `credential_login_material_only_counts_real_credentials` |
 //! | 19 | 托管账号切走：先采纳 CLI 轮换过的 refresh token，按 marker 精确删；代际无法排序时拒绝 | crate 内：`services/provider/mod.rs` 的托管账号测试 |
-//! | 20 | 进入代理不写 auth.json；第三方路由契约用字面值 `PROXY_MANAGED` | 已有 `codex_official_to_deepseek_then_takeover_...` |
-//! | 21 | 代理下官方路由不写占位凭据，客户端带自己的真实登录 | crate 内：`mode::controller` 的 `codex_routes_between_official_and_third_party_contracts` |
-//! | 22 | 退出代理不覆盖用户此刻的登录状态（期间登出就保持登出，重新登录就保留新登录） | 本文件 |
 //! | 23 | `model_catalog_json` 是关键字段：卡里自带的指针随卡写入；否则有生成的目录写 `cc-switch-model-catalog.json`，没有就删；live 里手写的值不保留 | 本文件 |
 //! | 24 | `web_search = "disabled"` 只删 CC Switch 写的哨兵值，用户的其他值保留 | 本文件 |
 //! | 25 | auth.json 删不掉时切换照常成功，返回 `codex_auth_cleanup_failed` 警告 | 本文件 |
@@ -512,7 +509,7 @@ fn stale_reserved_tables_never_reach_live() {
             vec![codex(
                 "stale",
                 Some("sk-stale"),
-                "model_provider = \"openai\"\nmodel = \"gpt-5\"\n\n[model_providers.openai]\nname = \"Stale\"\nbase_url = \"https://stale.example/v1\"\nwire_api = \"chat\"\n",
+                "model_provider = \"openai\"\nmodel = \"gpt-5\"\n\n[model_providers.openai]\nname = \"Stale\"\nbase_url = \"https://stale.example/v1\"\nwire_api = \"responses\"\n",
             )],
             true,
         );
@@ -613,19 +610,8 @@ fn proxy_injected_oauth_cards_never_carry_the_official_login() {
         let state = setup(vec![card], true);
         let before = snapshot(&state, "oauth-card");
 
-        match switch(&state, "oauth-card") {
-            Ok(_) => {
-                let doc = live_config();
-                let (_, route) = route(&doc).expect("route");
-                assert_ne!(
-                    flag(route, "requires_openai_auth"),
-                    Some(true),
-                    "{provider_type}: the official ChatGPT login would be sent to api.x.ai"
-                );
-                assert_loadable(&doc);
-            }
-            Err(_) => assert_eq!(before, snapshot(&state, "oauth-card")),
-        }
+        assert!(switch(&state, "oauth-card").is_err());
+        assert_eq!(before, snapshot(&state, "oauth-card"));
     }
 }
 
@@ -715,20 +701,17 @@ fn web_search_sentinel_is_the_only_value_removed() {
     let _guard = test_mutex().lock().unwrap_or_else(|e| e.into_inner());
     reset_test_fs();
     set_login_preservation(false);
-    let anthropic = with_meta(
-        codex(
-            "anthropic",
-            Some("sk-a"),
-            &relay_config("relay", "https://relay.example/v1"),
+    let disabled = codex(
+        "disabled",
+        Some("sk-a"),
+        &format!(
+            "web_search = \"disabled\"\n{}",
+            relay_config("relay", "https://relay.example/v1")
         ),
-        ProviderMeta {
-            api_format: Some("anthropic".to_string()),
-            ..Default::default()
-        },
     );
     let state = setup(
         vec![
-            anthropic,
+            disabled,
             codex(
                 "plain",
                 Some("sk-p"),
@@ -746,7 +729,7 @@ fn web_search_sentinel_is_the_only_value_removed() {
         false,
     );
 
-    switch(&state, "anthropic").expect("switch to anthropic");
+    switch(&state, "disabled").expect("switch to a native provider with web search disabled");
     assert_eq!(live_config()["web_search"].as_str(), Some("disabled"));
 
     switch(&state, "plain").expect("switch to plain");
@@ -786,93 +769,4 @@ fn auth_cleanup_failure_is_a_warning() {
         ProviderService::current(&state, AppType::Codex).expect("current"),
         "relay"
     );
-}
-
-async fn use_ephemeral_proxy_port(state: &AppState) {
-    let mut config = state.db.get_proxy_config().await.expect("proxy config");
-    config.listen_port = 0;
-    state
-        .db
-        .update_proxy_config(config)
-        .await
-        .expect("use ephemeral proxy port");
-}
-
-const NEW_LOGIN: &str = r#"{"auth_mode":"chatgpt","OPENAI_API_KEY":null,"tokens":{"id_token":"id-2","access_token":"access-2","refresh_token":"refresh-2","account_id":"account-2"},"last_refresh":"2026-09-20T00:00:00Z"}"#;
-
-/// 当前是 `current` 时进入代理，用户在 Codex 里改成 `after_login`（`None` 为登出），
-/// 退出代理后 auth.json 应当仍是用户此刻的状态。
-async fn check_proxy_exit_keeps_login(current: &str, after_login: Option<&str>) {
-    reset_test_fs();
-    set_login_preservation(true);
-    let state = setup(
-        vec![codex(
-            "relay",
-            Some("sk-relay"),
-            &relay_config("relay", "https://relay.example/v1"),
-        )],
-        true,
-    );
-    if current == "relay" {
-        switch(&state, "relay").expect("switch to relay");
-    }
-    use_ephemeral_proxy_port(&state).await;
-    cc_switch_lib::mode::controller::enter(&state, &AppType::Codex, false)
-        .await
-        .expect("enter proxy");
-    if current == "codex-official" {
-        // 进入代理不回填官方卡（直连切走时的回填是另一回事，随 Codex 只写关键字段那一步去掉）。
-        let official = state
-            .db
-            .get_provider_by_id(current, AppType::Codex.as_str())
-            .expect("read official row")
-            .expect("official row");
-        assert!(
-            !official
-                .settings_config
-                .to_string()
-                .contains("refresh-token"),
-            "entering the proxy must not store the ChatGPT login in the official row"
-        );
-    }
-
-    match after_login {
-        None => std::fs::remove_file(get_codex_auth_path()).expect("codex logout"),
-        Some(login) => std::fs::write(get_codex_auth_path(), login).expect("codex login"),
-    }
-
-    cc_switch_lib::mode::controller::exit(&state, &AppType::Codex)
-        .await
-        .expect("exit proxy");
-
-    assert_eq!(
-        live_auth().as_deref(),
-        after_login,
-        "current={current}: exiting the proxy must keep the login state the user has now"
-    );
-}
-
-/// CX-22：进入代理后用户在 Codex 里登出或换了账号，退出代理时保持用户此刻的状态。
-#[tokio::test(flavor = "current_thread")]
-#[allow(
-    clippy::await_holding_lock,
-    reason = "the test HOME and settings are process-global; the guard must span the async takeover calls"
-)]
-async fn exiting_proxy_keeps_the_login_the_user_has_now() {
-    let _guard = test_mutex().lock().unwrap_or_else(|e| e.into_inner());
-    check_proxy_exit_keeps_login("codex-official", None).await;
-    check_proxy_exit_keeps_login("codex-official", Some(NEW_LOGIN)).await;
-    check_proxy_exit_keeps_login("relay", Some(NEW_LOGIN)).await;
-}
-
-/// CX-22：当前是第三方卡、保留登录开关打开时，代理期间登出，退出代理后仍是登出状态（退出
-/// 代理按直连供应商写回，不回放进入时的快照）。
-#[tokio::test(flavor = "current_thread")]
-#[allow(
-    clippy::await_holding_lock,
-    reason = "the test HOME and settings are process-global; the guard must span the async takeover calls"
-)]
-async fn exiting_proxy_after_logout_on_a_third_party_route_stays_logged_out() {
-    let _guard = test_mutex().lock().unwrap_or_else(|e| e.into_inner());
-    check_proxy_exit_keeps_login("relay", None).await;
 }

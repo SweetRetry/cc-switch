@@ -4,7 +4,6 @@ import type { AppId } from "@/lib/api";
 import {
   providerNeedsRouting,
   resolveCodexOfficialIdentity,
-  supportsOfficialProxyTakeover,
   supportsConnectivityCheck,
 } from "@/utils/providerCapabilities";
 
@@ -17,7 +16,7 @@ const codexConfig = (wireApi: "chat_completions" | "responses") =>
   `model_provider = "custom"\n\n[model_providers.custom]\nname = "X"\nbase_url = "https://x.example/v1"\nwire_api = "${wireApi}"\n`;
 
 describe("providerNeedsRouting", () => {
-  it("allows explicit Codex Official cards during takeover", () => {
+  it("recognizes Codex official accounts for native authentication", () => {
     const native = mkProvider({
       id: "codex-official",
       category: "official",
@@ -69,10 +68,6 @@ describe("providerNeedsRouting", () => {
       "managed_account",
     );
     expect(resolveCodexOfficialIdentity("claude", managed)).toBeNull();
-
-    expect(supportsOfficialProxyTakeover("codex", native)).toBe(true);
-    expect(supportsOfficialProxyTakeover("codex", managed)).toBe(true);
-    expect(supportsOfficialProxyTakeover("codex", unbound)).toBe(true);
   });
 
   it("does not infer Codex login identity from a stale Official category", () => {
@@ -125,7 +120,6 @@ describe("providerNeedsRouting", () => {
     expect(resolveCodexOfficialIdentity("codex", storedAuthKey)).toBe(
       "api_key",
     );
-    expect(supportsOfficialProxyTakeover("codex", storedAuthKey)).toBe(false);
     expect(resolveCodexOfficialIdentity("codex", storedBearer)).toBeNull();
     expect(resolveCodexOfficialIdentity("codex", explicitOpenAi)).toBe(
       "api_key",

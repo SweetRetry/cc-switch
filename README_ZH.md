@@ -23,7 +23,7 @@
 
 ## 支持的应用
 
-此版本仅保留这五个应用。Claude Code 和 Codex 支持直连、路由和聚合模式。OpenCode 和 Pi 支持多个供应商共存。Antigravity 支持供应商与账号管理。
+此版本仅保留这五个应用。Claude Code 和 Codex 直接连接所选供应商。OpenCode 和 Pi 支持多个供应商共存。Antigravity 支持供应商与账号管理。
 
 - Pi
 - Claude Code

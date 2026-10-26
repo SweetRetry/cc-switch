@@ -1,9 +1,7 @@
 //! 托盘菜单（v7）
 //!
 //! 结构：问题区（出问题才有）→ 反馈行（托盘里刚做完要重启才生效的操作）→ 打开 CC Switch →
-//! 切换式应用的子菜单（Claude Code、Claude Desktop、Codex、Gemini CLI、Grok Build；在「应用」页
-//! 隐藏的不列）→ 轻量模式 → 打开官方网站 / 退出 CC Switch。累加式应用（OpenCode / OpenClaw /
-//! Hermes / Pi / MiniMax Code）不进托盘；托盘里不切模式、不启停路由服务。
+//! Claude Code 和 Codex 的供应商子菜单（隐藏的应用不列）→ 轻量模式 → 打开官方网站 / 退出 CC Switch。
 //!
 //! 分三层：`collect_*` 从数据库和设备状态读出快照，`build_menu_model` 把快照变成纯数据的菜单
 //! 模型（单测覆盖这一层），`attach_*` 把模型挂到 Tauri 原生菜单上。
@@ -69,7 +67,7 @@ static TRAY_SECTION_SUBMENUS: Lazy<Mutex<HashMap<AppType, Submenu<tauri::Wry>>>>
 
 /// 托盘菜单文本（四语）。托盘文案不走前端的 i18n JSON；和界面同义的词照抄前端的译法。
 ///
-/// 模板占位：`{app}` `{name}` `{port}` `{mode}` `{reason}` `{count}` `{value}` `{when}`；
+/// 模板占位：`{app}` `{name}` `{reason}` `{count}` `{value}` `{when}`；
 /// 档名用 `{label}`，中文模板用 `{labelSp}`（档名以字母数字结尾时自动补一个空格）。
 #[derive(Clone, Copy)]
 pub struct TrayTexts {
@@ -77,33 +75,16 @@ pub struct TrayTexts {
     pub open_website: &'static str,
     pub lightweight_mode: &'static str,
     pub quit: &'static str,
-    /// 有应用在用路由服务时的「退出」：写明后果（客户端指回直连、路由服务停止，下次打开自动接回）。
-    pub quit_stops_routing: &'static str,
-    pub header_direct: &'static str,
-    pub header_route: &'static str,
-    pub header_failover: &'static str,
-    pub header_stack: &'static str,
-    /// 聚合子菜单标题，写出默认那家：`{name}`
-    pub header_stack_default: &'static str,
-    pub failover_note: &'static str,
-    pub mode_route: &'static str,
-    pub mode_stack: &'static str,
-    pub needs_routing_suffix: &'static str,
-    pub official_blocked_suffix: &'static str,
     pub open_app_page: &'static str,
     pub add_provider: &'static str,
     pub almost_out: &'static str,
     pub needs_attention: &'static str,
-    pub problem_service_down: &'static str,
-    pub problem_attach_failed: &'static str,
     pub problem_switch_failed: &'static str,
     pub problem_more: &'static str,
     /// 出问题时托盘图标的悬停提示：`{problem}` 是问题区第一条
     pub tooltip_problem: &'static str,
-    /// 反馈行（灰字）：直连切换 / Claude Desktop 切换，`{app}` `{name}`
+    /// 反馈行（灰字）：Codex 切换，`{app}` `{name}`
     pub feedback_switched: &'static str,
-    /// 反馈行：聚合换默认
-    pub feedback_stack_default: &'static str,
     pub tier_five_hour: &'static str,
     pub tier_weekly: &'static str,
     pub tier_fable: &'static str,
@@ -177,30 +158,14 @@ impl TrayTexts {
                 open_website: "Open official website",
                 lightweight_mode: "Lightweight mode",
                 quit: "Quit CC Switch",
-                quit_stops_routing: "Quit CC Switch (stops the routing service)",
-                header_direct: "Direct",
-                header_route: "Routing",
-                header_failover: "Routing · Failover on",
-                header_stack: "Aggregation · Default provider",
-                header_stack_default: "Aggregation · Default: {name}",
-                failover_note: "Picked from the queue automatically; change it on the app page",
-                mode_route: "Routing",
-                mode_stack: "Aggregation",
-                needs_routing_suffix: " (needs routing)…",
-                official_blocked_suffix: " (official plans don't go through routing)",
                 open_app_page: "Open {app} page",
                 add_provider: "Add provider…",
                 almost_out: "almost out",
                 needs_attention: "needs attention",
-                problem_service_down: "The routing service isn't running (port {port})",
-                problem_attach_failed:
-                    "{app}: {mode} couldn't reconnect at startup; back to direct",
                 problem_switch_failed: "{app} didn't switch: {reason}",
                 problem_more: "{count} more issues — open CC Switch to see them",
                 tooltip_problem: "CC Switch · Needs attention: {problem}",
                 feedback_switched: "{app} switched to {name}. Restart {app} to apply",
-                feedback_stack_default:
-                    "{app}'s default provider is now {name}. Restart {app} to apply",
                 tier_five_hour: "5-hour",
                 tier_weekly: "Weekly",
                 tier_fable: "Fable",
@@ -233,28 +198,14 @@ impl TrayTexts {
                 texts.open_website = "Resmî web sitesini aç";
                 texts.lightweight_mode = "Hafif mod";
                 texts.quit = "CC Switch'ten çık";
-                texts.quit_stops_routing = "CC Switch'ten çık (yönlendirme hizmeti durur)";
-                texts.header_direct = "Doğrudan";
-                texts.header_route = "Yönlendirme";
-                texts.header_failover = "Yönlendirme · Yedek sağlayıcıya geçiş açık";
-                texts.header_stack = "Birleştirme · Varsayılan sağlayıcı";
-                texts.header_stack_default = "Birleştirme · Varsayılan: {name}";
-                texts.failover_note = "Kuyruktan otomatik seçilir; uygulama sayfasından değiştirebilirsiniz";
-                texts.mode_route = "Yönlendirme";
-                texts.mode_stack = "Birleştirme";
-                texts.needs_routing_suffix = " (yönlendirme gerekir)…";
-                texts.official_blocked_suffix = " (resmî abonelikler yönlendirmeyi kullanmaz)";
                 texts.open_app_page = "{app} sayfasını aç";
                 texts.add_provider = "Sağlayıcı ekle…";
                 texts.almost_out = "bitmek üzere";
                 texts.needs_attention = "ilgilenilmesi gerekiyor";
-                texts.problem_service_down = "Yönlendirme hizmeti çalışmıyor (port {port})";
-                texts.problem_attach_failed = "{app}: {mode} başlangıçta yeniden bağlanamadı; doğrudan bağlantıya dönüldü";
                 texts.problem_switch_failed = "{app} geçiş yapamadı: {reason}";
                 texts.problem_more = "{count} sorun daha var — görmek için CC Switch'i açın";
                 texts.tooltip_problem = "CC Switch · İlgilenilmesi gerekiyor: {problem}";
                 texts.feedback_switched = "{app}, {name} sağlayıcısına geçti. Uygulamak için {app} uygulamasını yeniden başlatın";
-                texts.feedback_stack_default = "{app} için varsayılan sağlayıcı artık {name}. Uygulamak için {app} uygulamasını yeniden başlatın";
                 texts.tier_five_hour = "5 saatlik";
                 texts.tier_weekly = "Haftalık";
                 texts.tier_fable = "Fable";
@@ -273,7 +224,8 @@ impl TrayTexts {
                 texts.used_amount = "Kullanılan: {value}";
                 texts.quota_failed = "Kota bilgisi alınamıyor";
                 texts.quota_failed_login_expired = "Kota bilgisi alınamıyor: oturumun süresi doldu";
-                texts.quota_failed_token_refresh_pending = "Kota bilgisi alınamıyor: token yenilenmesi bekleniyor";
+                texts.quota_failed_token_refresh_pending =
+                    "Kota bilgisi alınamıyor: token yenilenmesi bekleniyor";
                 texts.reset_on_date = "{label} kotası {when} tarihinde sıfırlanır";
                 texts.reset_at_time = "{label} kotası {when} saatinde sıfırlanır";
                 texts.date_format = "%d.%m";
@@ -284,30 +236,16 @@ impl TrayTexts {
                 open_website: "公式サイトを開く",
                 lightweight_mode: "軽量モード",
                 quit: "CC Switch を終了",
-                quit_stops_routing: "CC Switch を終了（ルーティングサービスが停止します）",
-                header_direct: "直接接続",
-                header_route: "ルーティング",
-                header_failover: "ルーティング · フェイルオーバー有効",
-                header_stack: "集約 · デフォルトのプロバイダー",
-                header_stack_default: "集約 · デフォルト：{name}",
-                failover_note: "キューの順に自動で選ばれます（変更はアプリのページで）",
-                mode_route: "ルーティング",
-                mode_stack: "集約",
-                needs_routing_suffix: "（ルーティングが必要）…",
-                official_blocked_suffix: "（公式サブスクリプションはルーティングを通りません）",
                 open_app_page: "{app} のページを開く",
                 add_provider: "プロバイダーを追加…",
                 almost_out: "残りわずか",
                 needs_attention: "対応が必要",
-                problem_service_down: "ルーティングサービスが動いていません（ポート {port}）",
-                problem_attach_failed: "{app}：前回の{mode}に再接続できず、直接接続に戻りました",
                 problem_switch_failed: "{app} を切り替えられませんでした：{reason}",
                 problem_more:
                     "ほかに {count} 件の問題があります。CC Switch を開いて確認してください",
                 tooltip_problem: "CC Switch · 対応が必要：{problem}",
                 feedback_switched:
                     "{app} を {name} に切り替えました。反映するには {app} を再起動してください",
-                feedback_stack_default: "{app} のデフォルトのプロバイダーを {name} に変更しました。反映するには {app} を再起動してください",
                 tier_five_hour: "5時間",
                 tier_weekly: "週間",
                 tier_fable: "Fable",
@@ -337,28 +275,14 @@ impl TrayTexts {
                 open_website: "開啟官方網站",
                 lightweight_mode: "輕量模式",
                 quit: "退出 CC Switch",
-                quit_stops_routing: "退出 CC Switch（路由服務會停止）",
-                header_direct: "直連",
-                header_route: "路由",
-                header_failover: "路由 · 故障轉移開啟中",
-                header_stack: "聚合 · 預設供應商",
-                header_stack_default: "聚合 · 預設 {name}",
-                failover_note: "依佇列自動選擇，要調整請到應用頁",
-                mode_route: "路由",
-                mode_stack: "聚合",
-                needs_routing_suffix: "（需要路由）…",
-                official_blocked_suffix: "（官方訂閱不經過路由）",
                 open_app_page: "開啟 {app} 頁面",
                 add_provider: "新增供應商…",
                 almost_out: "快用完",
                 needs_attention: "需要處理",
-                problem_service_down: "路由服務沒在執行（連接埠 {port}）",
-                problem_attach_failed: "{app}：上次的{mode}沒能接上，已回到直連",
                 problem_switch_failed: "{app} 沒切換成功：{reason}",
                 problem_more: "還有 {count} 個問題，開啟 CC Switch 查看",
                 tooltip_problem: "CC Switch · 需要處理：{problem}",
                 feedback_switched: "{app} 已切換到 {name}，重新啟動 {app} 後生效",
-                feedback_stack_default: "{app} 的預設供應商改為 {name}，重新啟動 {app} 後生效",
                 tier_five_hour: "5 小時",
                 tier_weekly: "每週",
                 tier_fable: "Fable",
@@ -388,28 +312,14 @@ impl TrayTexts {
                 open_website: "打开官方网站",
                 lightweight_mode: "轻量模式",
                 quit: "退出 CC Switch",
-                quit_stops_routing: "退出 CC Switch（路由服务会停止）",
-                header_direct: "直连",
-                header_route: "路由",
-                header_failover: "路由 · 故障转移开启中",
-                header_stack: "聚合 · 默认供应商",
-                header_stack_default: "聚合 · 默认 {name}",
-                failover_note: "按队列自动选择，要调整请到应用页",
-                mode_route: "路由",
-                mode_stack: "聚合",
-                needs_routing_suffix: "（需要路由）…",
-                official_blocked_suffix: "（官方订阅不经过路由）",
                 open_app_page: "打开 {app} 页面",
                 add_provider: "添加供应商…",
                 almost_out: "快用完",
                 needs_attention: "需要处理",
-                problem_service_down: "路由服务没在运行（端口 {port}）",
-                problem_attach_failed: "{app}：上次的{mode}没能接上，已回到直连",
                 problem_switch_failed: "{app} 没切换成功：{reason}",
                 problem_more: "还有 {count} 个问题，打开 CC Switch 查看",
                 tooltip_problem: "CC Switch · 需要处理：{problem}",
                 feedback_switched: "{app} 已切换到 {name}，重启 {app} 后生效",
-                feedback_stack_default: "{app} 的默认供应商改为 {name}，重启 {app} 后生效",
                 tier_five_hour: "5 小时",
                 tier_weekly: "每周",
                 tier_fable: "Fable",
@@ -957,114 +867,7 @@ fn cached_usage_view(
         .flatten()
 }
 
-// ─── 「需要路由」判定（镜像前端 `providerNeedsRouting`）──────────────────────────────
-
-const MANAGED_OAUTH_PROVIDER_TYPES: &[&str] = &["github_copilot", "codex_oauth", "xai_oauth"];
-
-/// 官方账号卡（同前端 `isOfficialAccount`）：Codex 早期绑定托管账号的官方卡没有 category，按身份认。
-fn is_official_account(app: &AppType, provider: &Provider) -> bool {
-    provider.category.as_deref() == Some("official")
-        || (*app == AppType::Codex && crate::proxy::providers::is_codex_official_provider(provider))
-}
-
-/// 官方订阅不经过路由（Codex 官方卡除外）：路由 / 聚合下不能选。
-fn blocked_from_routing(app: &AppType, provider: &Provider) -> bool {
-    is_official_account(app, provider)
-        && !crate::services::provider::official_provider_supports_proxy_takeover(app, provider)
-}
-
-/// Codex / Grok Build 配置里当前供应商的 `wire_api`；TOML 读不懂时退回唯一的一条赋值。
-fn codex_wire_api(config_text: &str) -> Option<String> {
-    if let Ok(doc) = config_text.parse::<toml::Value>() {
-        if let Some(active) = doc.get("model_provider").and_then(|v| v.as_str()) {
-            if let Some(wire_api) = doc
-                .get("model_providers")
-                .and_then(|providers| providers.get(active))
-                .and_then(|provider| provider.get("wire_api"))
-                .and_then(|v| v.as_str())
-            {
-                return Some(wire_api.to_string());
-            }
-        }
-        return doc
-            .get("wire_api")
-            .and_then(|v| v.as_str())
-            .map(str::to_string);
-    }
-    let mut found = config_text.lines().filter_map(|line| {
-        let (key, value) = line.split_once('=')?;
-        (key.trim() == "wire_api").then(|| {
-            value
-                .trim()
-                .trim_matches(|c| c == '"' || c == '\'')
-                .to_string()
-        })
-    });
-    let first = found.next()?;
-    found.next().is_none().then_some(first)
-}
-
-fn is_chat_or_anthropic_wire_api(value: &str) -> bool {
-    matches!(
-        value.trim().to_ascii_lowercase().as_str(),
-        "chat"
-            | "chat_completions"
-            | "chat-completions"
-            | "openai_chat"
-            | "openai-chat"
-            | "openai_chat_completions"
-            | "anthropic"
-            | "anthropic_messages"
-            | "anthropic-messages"
-            | "messages"
-            | "claude"
-    )
-}
-
-/// 这家在这个应用下必须经过路由服务才能用（直连写进去也用不了）。和前端
-/// `providerNeedsRouting`（`src/utils/providerCapabilities.ts`）是同一条规则，改一边要改另一边。
-pub(crate) fn provider_needs_routing(app: &AppType, provider: &Provider) -> bool {
-    if is_official_account(app, provider) {
-        return false;
-    }
-    let meta = provider.meta.as_ref();
-    let managed_oauth = meta
-        .and_then(|meta| meta.provider_type.as_deref())
-        .is_some_and(|kind| MANAGED_OAUTH_PROVIDER_TYPES.contains(&kind));
-    let full_url = meta.and_then(|meta| meta.is_full_url) == Some(true);
-    let api_format = meta
-        .and_then(|meta| meta.api_format.as_deref())
-        .filter(|fmt| !fmt.is_empty());
-    match app {
-        AppType::Claude => {
-            managed_oauth || full_url || api_format.is_some_and(|f| f != "anthropic")
-        }
-        AppType::Codex => {
-            managed_oauth
-                || full_url
-                || matches!(api_format, Some("openai_chat" | "anthropic"))
-                || provider
-                    .settings_config
-                    .get("config")
-                    .and_then(|config| config.as_str())
-                    .and_then(codex_wire_api)
-                    .is_some_and(|wire_api| is_chat_or_anthropic_wire_api(&wire_api))
-        }
-        _ => false,
-    }
-}
-
 // ─── 快照 ────────────────────────────────────────────────────────────────────
-
-/// 应用子菜单的样子。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TrayMode {
-    Direct,
-    Route,
-    /// 路由 + 自动故障转移：子菜单只读（#6022）。
-    Failover,
-    Stack,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 struct ProviderEntry {
@@ -1072,26 +875,15 @@ struct ProviderEntry {
     name: String,
     /// 同名时补在名字后面的区分词（备注或网址）。
     hint: Option<String>,
-    needs_routing: bool,
-    official: bool,
-    blocked_from_routing: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 struct AppSnapshot {
     app: AppType,
-    mode: TrayMode,
     /// 按供应商页的顺序（sort_index → created_at → name）。
     providers: Vec<ProviderEntry>,
-    /// 在用的那家（`provider_for(InUse)`）。
     current_id: Option<String>,
-    /// 故障转移队列（按优先级）。
-    queue: Vec<String>,
-    /// 聚合名单。
-    stack_members: Vec<String>,
     quota: Option<QuotaView>,
-    /// 路由服务该在跑却没在跑。
-    service_down: bool,
     needs_attention: bool,
 }
 
@@ -1100,22 +892,10 @@ impl AppSnapshot {
         let id = self.current_id.as_deref()?;
         self.providers.iter().find(|p| p.id == id)
     }
-
-    /// 这个应用现在靠路由服务：路由 / 聚合中。
-    fn uses_service(&self) -> bool {
-        match self.mode {
-            TrayMode::Route | TrayMode::Failover | TrayMode::Stack => true,
-            TrayMode::Direct => false,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 enum TrayProblem {
-    /// 路由服务没在跑，但有应用在用它。
-    ServiceDown { port: u16 },
-    /// 启动时没能接上路由 / 聚合，已退回直连。
-    AttachFailed { app: AppType, stack: bool },
     /// 托盘里的切换没成功。
     SwitchFailed { app: AppType, reason: String },
 }
@@ -1163,29 +943,11 @@ fn provider_hint(provider: &Provider) -> Option<String> {
     (!host.is_empty()).then(|| host.to_string())
 }
 
-fn provider_entry(app: &AppType, provider: &Provider) -> ProviderEntry {
+fn provider_entry(provider: &Provider) -> ProviderEntry {
     ProviderEntry {
         id: provider.id.clone(),
         name: provider.name.clone(),
         hint: provider_hint(provider),
-        needs_routing: provider_needs_routing(app, provider),
-        official: is_official_account(app, provider),
-        blocked_from_routing: blocked_from_routing(app, provider),
-    }
-}
-
-fn tray_mode(app_state: &AppState, app: &AppType) -> TrayMode {
-    if !crate::mode::current::is_proxy(app) {
-        return TrayMode::Direct;
-    }
-    if crate::mode::stack::stack_mode_now(app) {
-        return TrayMode::Stack;
-    }
-    let (_, auto_failover) = app_state.db.get_proxy_flags_sync(app.as_str());
-    if auto_failover {
-        TrayMode::Failover
-    } else {
-        TrayMode::Route
     }
 }
 
@@ -1193,69 +955,32 @@ fn collect_app_snapshot(
     app_state: &AppState,
     texts: &TrayTexts,
     app: &AppType,
-    service_running: Option<bool>,
 ) -> Result<AppSnapshot, AppError> {
     let rows = app_state.db.get_all_providers(app.as_str())?;
-    let providers: Vec<ProviderEntry> = sort_providers(&rows)
+    let providers = sort_providers(&rows)
         .into_iter()
-        .map(|(_, provider)| provider_entry(app, provider))
+        .map(|(_, provider)| provider_entry(provider))
         .collect();
-    // 代理模式下是代理路由到的那家（含故障转移切过去的）。
     let current_id = crate::mode::current::provider_for(
         &app_state.db,
         app,
-        crate::mode::current::Purpose::InUse,
+        crate::mode::current::Purpose::Direct,
     )?
     .filter(|id| rows.contains_key(id));
-    let mode = tray_mode(app_state, app);
-
-    let queue = if mode == TrayMode::Failover {
-        app_state
-            .db
-            .get_failover_queue(app.as_str())?
-            .into_iter()
-            .map(|item| item.provider_id)
-            .filter(|id| rows.contains_key(id))
-            .collect()
-    } else {
-        Vec::new()
-    };
-    let stack_members = if mode == TrayMode::Stack {
-        crate::mode::state::stack(
-            &crate::live::engine::DeviceStore::for_device(),
-            app.as_str(),
-        )?
-        .members
-    } else {
-        Vec::new()
-    };
-
     let quota = current_id.as_deref().and_then(|id| {
         let provider = rows.get(id)?;
         usage_view(&app_state.usage_cache, texts, app, provider, id)
     });
-
-    let mut snapshot = AppSnapshot {
+    Ok(AppSnapshot {
         app: app.clone(),
-        mode,
         providers,
         current_id,
-        queue,
-        stack_members,
         quota,
-        service_down: false,
         needs_attention: false,
-    };
-    snapshot.service_down = service_running == Some(false) && snapshot.uses_service();
-    Ok(snapshot)
+    })
 }
 
 // ─── 问题区的状态 ─────────────────────────────────────────────────────────────
-
-/// 启动流程（接上路由、拉起 Desktop 映射服务）走完之前不报「路由服务没在跑」：那时它本来就还没起来。
-static STARTUP_SETTLED: AtomicBool = AtomicBool::new(false);
-/// 启动时没能接上、已退回直连的应用（托盘自己留一份，界面照样取走它的那份）。
-static ATTACH_FAILURES: Lazy<Mutex<Vec<(AppType, bool)>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
 /// 托盘里切换失败的应用。规格 5.5：处理掉才消失（同一应用之后切换成功、或打开过它的页面），
 /// 不按时间过期。
@@ -1265,7 +990,6 @@ struct SwitchFailure {
 }
 
 static SWITCH_FAILURES: Lazy<Mutex<Vec<SwitchFailure>>> = Lazy::new(|| Mutex::new(Vec::new()));
-/// 上一次建菜单时菜单上会自己过时的那部分，悬停图标 / 路由服务启停时比一下，变了才重建。
 static LAST_STATUS: Lazy<Mutex<MenuStatus>> = Lazy::new(|| Mutex::new(MenuStatus::default()));
 
 fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -1274,30 +998,17 @@ fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-/// 启动流程走完：记下启动时退回直连的应用，重建一次菜单。
+/// 启动流程走完，重建一次菜单。
 pub fn mark_startup_settled(app: &tauri::AppHandle) {
-    {
-        let mut failures = lock(&ATTACH_FAILURES);
-        for failure in crate::mode::controller::startup_attach_failures_snapshot() {
-            if let Ok(app_type) = failure.app_type.parse::<AppType>() {
-                if !failures.iter().any(|(existing, _)| *existing == app_type) {
-                    failures.push((app_type, failure.stack));
-                }
-            }
-        }
-    }
-    STARTUP_SETTLED.store(true, Ordering::Release);
     refresh_tray_menu(app);
 }
 
 /// 清掉某个应用的问题行，返回有没有清掉东西。
 fn clear_app_problems(app: &AppType) -> bool {
-    let mut attach = lock(&ATTACH_FAILURES);
-    let mut switch = lock(&SWITCH_FAILURES);
-    let before = attach.len() + switch.len();
-    attach.retain(|(existing, _)| existing != app);
-    switch.retain(|failure| failure.app != *app);
-    attach.len() + switch.len() != before
+    let mut failures = lock(&SWITCH_FAILURES);
+    let before = failures.len();
+    failures.retain(|failure| failure.app != *app);
+    failures.len() != before
 }
 
 /// 主界面打开了某个应用的页面：这个应用的问题行算处理过了（规格 5.5「打开过对应页面」）。
@@ -1320,61 +1031,23 @@ fn record_switch_failure(app: &AppType, reason: String) {
     });
 }
 
-fn service_running(app_state: &AppState) -> Option<bool> {
-    if !STARTUP_SETTLED.load(Ordering::Acquire) {
-        return None;
-    }
-    app_state.proxy_service.running_now()
-}
-
-/// 问题列表。`modes` 是可见应用现在的模式（重新进入路由的应用不再报「退回直连」）。
-fn collect_problems(
-    service_down_port: Option<u16>,
-    visible: &[(AppType, bool)],
-) -> Vec<TrayProblem> {
-    let mut problems = Vec::new();
-    if let Some(port) = service_down_port {
-        problems.push(TrayProblem::ServiceDown { port });
-    }
-    {
-        let mut failures = lock(&ATTACH_FAILURES);
-        // 已经重新进入路由 / 聚合的应用不再报。
-        failures.retain(|(app, _)| {
-            visible
-                .iter()
-                .find(|(visible_app, _)| visible_app == app)
-                .is_none_or(|(_, direct)| *direct)
-        });
-        for (app, stack) in failures.iter() {
-            if visible.iter().any(|(visible_app, _)| visible_app == app) {
-                problems.push(TrayProblem::AttachFailed {
-                    app: app.clone(),
-                    stack: *stack,
-                });
-            }
-        }
-    }
-    {
-        let failures = lock(&SWITCH_FAILURES);
-        for failure in failures.iter() {
-            if visible.iter().any(|(app, _)| *app == failure.app) {
-                problems.push(TrayProblem::SwitchFailed {
-                    app: failure.app.clone(),
-                    reason: failure.reason.clone(),
-                });
-            }
-        }
-    }
-    problems
+fn collect_problems(visible: &[AppType]) -> Vec<TrayProblem> {
+    lock(&SWITCH_FAILURES)
+        .iter()
+        .filter(|failure| visible.contains(&failure.app))
+        .map(|failure| TrayProblem::SwitchFailed {
+            app: failure.app.clone(),
+            reason: failure.reason.clone(),
+        })
+        .collect()
 }
 
 /// 受影响的应用行尾写「需要处理」（这时不写额度，保持短）。
 fn mark_attention(snapshots: &mut [AppSnapshot], problems: &[TrayProblem]) {
-    for snapshot in snapshots.iter_mut() {
-        snapshot.needs_attention = snapshot.service_down
-            || problems.iter().any(|problem| {
-                matches!(problem, TrayProblem::AttachFailed { app, .. } if *app == snapshot.app)
-            });
+    for snapshot in snapshots {
+        snapshot.needs_attention = problems.iter().any(|problem| {
+            matches!(problem, TrayProblem::SwitchFailed { app, .. } if *app == snapshot.app)
+        });
     }
 }
 
@@ -1387,10 +1060,8 @@ const FEEDBACK_TTL: std::time::Duration = std::time::Duration::from_secs(2 * 60)
 /// 存结构不存文字：语言改了照样按新语言写。
 #[derive(Debug, Clone, PartialEq)]
 enum TrayFeedback {
-    /// Codex / Gemini CLI / Grok Build 直连切换，或 Claude Desktop 切换。
+    /// Codex 切换后需重新启动。
     Switched { app: AppType, name: String },
-    /// 聚合换默认：发布给客户端的模型列表跟着变。
-    StackDefault { app: AppType, name: String },
 }
 
 struct FeedbackRecord {
@@ -1402,21 +1073,11 @@ struct FeedbackRecord {
 
 static FEEDBACK: Lazy<Mutex<Option<FeedbackRecord>>> = Lazy::new(|| Mutex::new(None));
 
-/// 切换成功后要不要说一句：客户端只在启动时读配置的才说；Claude Code 直连、路由 / 故障转移
-/// 换一家立即生效，不说。Claude Desktop 换一家都要重启 Desktop（路由那家的模型列表写在配置
-/// 里，聚合换默认也一样）。
-fn switch_feedback(app: &AppType, mode: TrayMode, name: String) -> Option<TrayFeedback> {
-    match mode {
-        TrayMode::Direct if *app == AppType::Codex => Some(TrayFeedback::Switched {
-            app: app.clone(),
-            name,
-        }),
-        TrayMode::Stack => Some(TrayFeedback::StackDefault {
-            app: app.clone(),
-            name,
-        }),
-        _ => None,
-    }
+fn switch_feedback(app: &AppType, name: String) -> Option<TrayFeedback> {
+    (*app == AppType::Codex).then(|| TrayFeedback::Switched {
+        app: app.clone(),
+        name,
+    })
 }
 
 /// 记下最近一次托盘操作的结果（覆盖上一条）。调用方随后会重建菜单。
@@ -1462,7 +1123,6 @@ pub fn mark_feedback_seen() {
 fn feedback_text(texts: &TrayTexts, feedback: &TrayFeedback) -> String {
     let (template, app, name) = match feedback {
         TrayFeedback::Switched { app, name } => (texts.feedback_switched, app, name),
-        TrayFeedback::StackDefault { app, name } => (texts.feedback_stack_default, app, name),
     };
     fill(
         template,
@@ -1478,7 +1138,6 @@ fn feedback_text(texts: &TrayTexts, feedback: &TrayFeedback) -> String {
 struct MenuStatus {
     problems: Vec<TrayProblem>,
     feedback: Option<TrayFeedback>,
-    routing_in_use: bool,
 }
 
 // ─── 菜单模型（纯数据）────────────────────────────────────────────────────────
@@ -1539,23 +1198,6 @@ fn provider_id_for(app: &AppType, provider_id: &str) -> String {
 
 fn problem_text(texts: &TrayTexts, problem: &TrayProblem) -> String {
     match problem {
-        TrayProblem::ServiceDown { port } => {
-            fill(texts.problem_service_down, &[("port", &port.to_string())])
-        }
-        TrayProblem::AttachFailed { app, stack } => fill(
-            texts.problem_attach_failed,
-            &[
-                ("app", app_display_name(app)),
-                (
-                    "mode",
-                    if *stack {
-                        texts.mode_stack
-                    } else {
-                        texts.mode_route
-                    },
-                ),
-            ],
-        ),
         TrayProblem::SwitchFailed { app, reason } => fill(
             texts.problem_switch_failed,
             &[
@@ -1568,8 +1210,6 @@ fn problem_text(texts: &TrayTexts, problem: &TrayProblem) -> String {
 
 fn problem_id(problem: &TrayProblem) -> String {
     match problem {
-        TrayProblem::ServiceDown { .. } => "nav:settings:routing".to_string(),
-        TrayProblem::AttachFailed { app, .. } => format!("nav:app:{}:attach", app.as_str()),
         TrayProblem::SwitchFailed { app, .. } => format!("nav:app:{}:failed", app.as_str()),
     }
 }
@@ -1578,14 +1218,6 @@ fn problem_id(problem: &TrayProblem) -> String {
 fn app_row_title(texts: &TrayTexts, snapshot: &AppSnapshot) -> String {
     let mut parts: Vec<String> = vec![app_display_name(&snapshot.app).to_string()];
     let current = snapshot.current();
-    let mode_word = match snapshot.mode {
-        TrayMode::Route | TrayMode::Failover => Some(texts.mode_route),
-        TrayMode::Stack => Some(texts.mode_stack),
-        TrayMode::Direct => None,
-    };
-    if let Some(word) = mode_word {
-        parts.push(word.to_string());
-    }
     if let Some(provider) = current {
         parts.push(truncate_chars(&provider.name, MAX_NAME_CHARS));
     }
@@ -1629,97 +1261,21 @@ fn display_names(providers: &[&ProviderEntry]) -> Vec<String> {
         .collect()
 }
 
-fn provider_rows(texts: &TrayTexts, snapshot: &AppSnapshot) -> Vec<TrayEntry> {
-    let app = &snapshot.app;
-    let current = snapshot.current_id.as_deref();
-    let is_current = |p: &ProviderEntry| current == Some(p.id.as_str());
-    match snapshot.mode {
-        TrayMode::Direct => {
-            let listed: Vec<&ProviderEntry> = snapshot.providers.iter().collect();
-            let names = display_names(&listed);
-            listed
-                .iter()
-                .zip(names)
-                .map(|(p, name)| {
-                    if p.needs_routing {
-                        // 直连下不能直接切：打开应用页，弹和主界面同一个「需要路由」对话框。
-                        TrayEntry::item(
-                            format!("nav:needs:{}:{}", app.as_str(), p.id),
-                            format!("{name}{}", texts.needs_routing_suffix),
-                        )
-                    } else {
-                        TrayEntry::check(provider_id_for(app, &p.id), name, true, is_current(p))
-                    }
-                })
-                .collect()
-        }
-        TrayMode::Route => {
-            let listed: Vec<&ProviderEntry> = snapshot.providers.iter().collect();
-            let names = display_names(&listed);
-            listed
-                .iter()
-                .zip(names)
-                .map(|(p, name)| {
-                    if p.blocked_from_routing {
-                        TrayEntry::label(
-                            format!("info:{}:blocked:{}", app.as_str(), p.id),
-                            format!("{name}{}", texts.official_blocked_suffix),
-                        )
-                    } else {
-                        TrayEntry::check(provider_id_for(app, &p.id), name, true, is_current(p))
-                    }
-                })
-                .collect()
-        }
-        TrayMode::Failover => {
-            // 只读：只列队列，勾 = 现在路由到的那家；托盘不再悄悄关掉故障转移（#6022）。
-            let listed: Vec<&ProviderEntry> = snapshot
-                .queue
-                .iter()
-                .filter_map(|id| snapshot.providers.iter().find(|p| p.id == *id))
-                .collect();
-            let names = display_names(&listed);
-            let mut rows = vec![TrayEntry::label(
-                format!("info:{}:failover", app.as_str()),
-                texts.failover_note,
-            )];
-            rows.extend(
-                listed
-                    .iter()
-                    .zip(names)
-                    .enumerate()
-                    .map(|(index, (p, name))| {
-                        TrayEntry::check(
-                            provider_id_for(app, &p.id),
-                            format!("{}. {name}", index + 1),
-                            false,
-                            is_current(p),
-                        )
-                    }),
-            );
-            rows
-        }
-        TrayMode::Stack => {
-            // 只列名单里的成员和能做默认的官方卡（Codex 官方卡不能加入聚合，但能做默认）；点一家 = 设为默认。
-            let listed: Vec<&ProviderEntry> = snapshot
-                .providers
-                .iter()
-                .filter(|p| {
-                    is_current(p)
-                        || (!p.blocked_from_routing
-                            && (snapshot.stack_members.contains(&p.id) || p.official))
-                })
-                .collect();
-            let names = display_names(&listed);
-            listed
-                .iter()
-                .zip(names)
-                .map(|(p, name)| {
-                    TrayEntry::check(provider_id_for(app, &p.id), name, true, is_current(p))
-                })
-                .collect()
-        }
-    }
+fn provider_rows(snapshot: &AppSnapshot) -> Vec<TrayEntry> {
+    let listed: Vec<&ProviderEntry> = snapshot.providers.iter().collect();
+    let names = display_names(&listed);
+    listed
+        .iter()
+        .zip(names)
+        .map(|(provider, name)| {
+            TrayEntry::check(
+                provider_id_for(&snapshot.app, &provider.id),
+                name,
+                true,
+                snapshot.current_id.as_deref() == Some(provider.id.as_str()),
+            )
+        })
+        .collect()
 }
 
 fn app_children(
@@ -1730,23 +1286,7 @@ fn app_children(
     let app = snapshot.app.as_str();
     let mut children = Vec::new();
 
-    let header = match snapshot.mode {
-        TrayMode::Direct => Some(texts.header_direct.to_string()),
-        TrayMode::Route => Some(texts.header_route.to_string()),
-        TrayMode::Failover => Some(texts.header_failover.to_string()),
-        // 聚合：标题写出默认那家（勾着的就是它）；还没有默认时退回泛称。
-        TrayMode::Stack => Some(match snapshot.current() {
-            Some(current) => fill(
-                texts.header_stack_default,
-                &[("name", &truncate_chars(&current.name, MAX_NAME_CHARS))],
-            ),
-            None => texts.header_stack.to_string(),
-        }),
-    };
-    if let Some(header) = header {
-        children.push(TrayEntry::label(format!("info:{app}:header"), header));
-    }
-    children.extend(provider_rows(texts, snapshot));
+    children.extend(provider_rows(snapshot));
 
     // 额度说明行：可点（打开应用页），文字才是正常对比度。
     if let Some(note) = snapshot
@@ -1845,17 +1385,7 @@ fn build_menu_model(
     ));
     menu.push(TrayEntry::Separator);
     menu.push(TrayEntry::item("open_website", texts.open_website));
-    // 不换成系统自带的 quit：它不经过 app.exit(0) 的退出流程，客户端指回直连、停服务只能在
-    // RunEvent::Exit 里限时补做（见 lib.rs 的 cleanup_before_system_exit）。
-    // 有应用在用路由服务时把这个后果写在「退出」上（后果不进说明，写在按钮文字里）。
-    menu.push(TrayEntry::item(
-        "quit",
-        if status.routing_in_use {
-            texts.quit_stops_routing
-        } else {
-            texts.quit
-        },
-    ));
+    menu.push(TrayEntry::item("quit", texts.quit));
     menu
 }
 
@@ -1870,23 +1400,18 @@ fn collect_snapshots(
     app_state: &AppState,
     texts: &TrayTexts,
 ) -> Result<(Vec<AppSnapshot>, Vec<TrayProblem>), AppError> {
-    let settings = crate::settings::get_settings();
-    let visible_apps = settings.visible_apps.clone().unwrap_or_default();
-    let running = service_running(app_state);
+    let visible_apps = crate::settings::get_settings()
+        .visible_apps
+        .unwrap_or_default();
     let mut snapshots = Vec::new();
     for app in TRAY_APPS.iter().filter(|app| visible_apps.is_visible(app)) {
-        snapshots.push(collect_app_snapshot(app_state, texts, app, running)?);
+        snapshots.push(collect_app_snapshot(app_state, texts, app)?);
     }
-
-    let port = snapshots
+    let visible: Vec<AppType> = snapshots
         .iter()
-        .any(|snapshot| snapshot.service_down)
-        .then(|| app_state.db.get_proxy_client_endpoint_sync().1);
-    let visible: Vec<(AppType, bool)> = snapshots
-        .iter()
-        .map(|snapshot| (snapshot.app.clone(), snapshot.mode == TrayMode::Direct))
+        .map(|snapshot| snapshot.app.clone())
         .collect();
-    let problems = collect_problems(port, &visible);
+    let problems = collect_problems(&visible);
     mark_attention(&mut snapshots, &problems);
     Ok((snapshots, problems))
 }
@@ -1899,7 +1424,6 @@ fn collect_status(
     let status = MenuStatus {
         problems,
         feedback: current_feedback(),
-        routing_in_use: routing_in_use(app_state),
     };
     Ok((snapshots, status))
 }
@@ -1916,13 +1440,6 @@ fn collect_model(app_state: &AppState, texts: &TrayTexts) -> Result<TrayModel, A
     Ok(TrayModel { entries, status })
 }
 
-/// 退出会让它们断开的情况：路由服务在跑，且有应用在路由 / 聚合模式（含 Claude Desktop；和
-/// `controller::stop_server_if_unused` 的「在用」同一口径，隐藏的应用也算）。
-fn routing_in_use(app_state: &AppState) -> bool {
-    app_state.proxy_service.running_now() == Some(true)
-        && crate::mode::current::proxy_flags(crate::mode::controller::PROXY_APPS).contains(&true)
-}
-
 // ─── 模型 → 托盘面板 ───────────────────────────────────────────────────────────
 
 /// 托盘面板（`tray_panel`）要的数据。文字都在这里按托盘语言写好；每一行带原生菜单的事件 id，
@@ -1934,8 +1451,6 @@ pub struct PanelModel {
     pub feedback: Option<String>,
     pub apps: Vec<PanelApp>,
     pub lightweight: bool,
-    /// 有应用在用路由服务时「退出」的后果，写在退出按钮的提示里。
-    pub quit_hint: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1952,12 +1467,6 @@ pub struct PanelApp {
     pub name: &'static str,
     /// 在用那家的名字。
     pub current: Option<String>,
-    /// 直连 / 路由 / 聚合。
-    pub mode: &'static str,
-    /// 同一模式的机器可读值（`direct` / `route` / `stack`），面板按它给模式名上主题色。
-    pub mode_kind: &'static str,
-    /// 子面板标题下的说明（「路由 · 故障转移开启中」等）。
-    pub header: Option<String>,
     pub attention: Option<&'static str>,
     pub quota: Option<PanelQuota>,
     /// 还没有供应商：点这一行去添加。
@@ -2062,11 +1571,9 @@ fn cached_reset_credits(
     }
 }
 
-/// 菜单 id 里带的供应商 id：`prov:<应用>:<id>`、`nav:needs:<应用>:<id>`、`info:<应用>:blocked:<id>`。
+/// 菜单 id 里带的供应商 id：`prov:<应用>:<id>`。
 fn row_provider_id<'a>(id: &'a str, app: &str) -> Option<&'a str> {
     id.strip_prefix(&format!("prov:{app}:"))
-        .or_else(|| id.strip_prefix(&format!("nav:needs:{app}:")))
-        .or_else(|| id.strip_prefix(&format!("info:{app}:blocked:")))
         .filter(|id| !id.is_empty())
 }
 
@@ -2076,12 +1583,10 @@ fn panel_rows(
     snapshot: &AppSnapshot,
     rows: &indexmap::IndexMap<String, Provider>,
     now: chrono::DateTime<chrono::Local>,
-) -> (Option<String>, Vec<PanelRow>) {
+) -> Vec<PanelRow> {
     let app = snapshot.app.as_str();
-    let header_id = format!("info:{app}:header");
     let children = app_children(texts, snapshot, now);
-    let mut header = None;
-    let rows = children
+    children
         .into_iter()
         .filter_map(|entry| {
             let (id, text, enabled, checked) = match entry {
@@ -2104,10 +1609,6 @@ fn panel_rows(
                     checked,
                 } => (id, text, enabled, checked),
             };
-            if id == header_id {
-                header = Some(text);
-                return None;
-            }
             let provider = row_provider_id(&id, app).and_then(|provider_id| {
                 let provider = rows.get(provider_id)?;
                 let source = tray_usage_source(&snapshot.app, provider);
@@ -2146,8 +1647,7 @@ fn panel_rows(
                 provider,
             })
         })
-        .collect();
-    (header, rows)
+        .collect()
 }
 
 pub(crate) fn collect_panel_model(app_state: &AppState) -> Result<PanelModel, AppError> {
@@ -2159,7 +1659,7 @@ pub(crate) fn collect_panel_model(app_state: &AppState) -> Result<PanelModel, Ap
     for snapshot in &snapshots {
         let app = snapshot.app.as_str();
         let providers = app_state.db.get_all_providers(app)?;
-        let (header, rows) = panel_rows(&app_state.usage_cache, &texts, snapshot, &providers, now);
+        let rows = panel_rows(&app_state.usage_cache, &texts, snapshot, &providers, now);
         let credits = snapshot
             .current_id
             .as_deref()
@@ -2176,17 +1676,6 @@ pub(crate) fn collect_panel_model(app_state: &AppState) -> Result<PanelModel, Ap
             app: app.to_string(),
             name: app_display_name(&snapshot.app),
             current: snapshot.current().map(|p| p.name.clone()),
-            mode: match snapshot.mode {
-                TrayMode::Direct => texts.header_direct,
-                TrayMode::Route | TrayMode::Failover => texts.mode_route,
-                TrayMode::Stack => texts.mode_stack,
-            },
-            mode_kind: match snapshot.mode {
-                TrayMode::Direct => "direct",
-                TrayMode::Route | TrayMode::Failover => "route",
-                TrayMode::Stack => "stack",
-            },
-            header,
             attention: snapshot.needs_attention.then_some(texts.needs_attention),
             quota,
             add_id: snapshot
@@ -2213,9 +1702,6 @@ pub(crate) fn collect_panel_model(app_state: &AppState) -> Result<PanelModel, Ap
             .map(|feedback| feedback_text(&texts, feedback)),
         apps,
         lightweight: crate::lightweight::is_lightweight_mode(),
-        quit_hint: status
-            .routing_in_use
-            .then(|| texts.quit_stops_routing.to_string()),
     })
 }
 
@@ -2534,7 +2020,6 @@ pub fn native_menu_on_left_click(native: bool) -> bool {
     native && cfg!(not(target_os = "windows"))
 }
 
-/// 悬停到托盘图标时：问题区该出现 / 该消失了（路由服务停了、又起来了）、反馈行显示过了或到点了，
 /// 就重建菜单。只在变了时重建，菜单还没打开，不会被关掉。
 pub fn refresh_tray_if_problems_changed(app: &tauri::AppHandle) {
     static LAST_CHECK: Mutex<Option<std::time::Instant>> = Mutex::new(None);
@@ -2548,7 +2033,6 @@ pub fn refresh_tray_if_problems_changed(app: &tauri::AppHandle) {
     schedule_tray_status_check(app);
 }
 
-/// 路由服务启动 / 停止之后：圆点、问题区、「退出」的后果可能要跟着变。在后台线程比对，
 /// 变了才重建（调用方可能在异步任务里，也可能正等着主线程）。
 pub fn schedule_tray_status_check(app: &tauri::AppHandle) {
     let app = app.clone();
@@ -2576,14 +2060,12 @@ fn refresh_tray_if_status_changed(app: &tauri::AppHandle) {
 pub struct TrayNavigation {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub app: Option<String>,
-    /// 设置分组（`routing`）
+    /// 设置分组
     #[serde(skip_serializing_if = "Option::is_none")]
     pub section: Option<String>,
-    /// `needsRoute`：弹「需要路由」对话框；`add`：开始添加供应商
+    /// `add`：开始添加供应商
     #[serde(skip_serializing_if = "Option::is_none")]
     pub intent: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub provider_id: Option<String>,
 }
 
 impl TrayNavigation {
@@ -2596,13 +2078,12 @@ impl TrayNavigation {
 static PENDING_NAVIGATION: Lazy<Mutex<Option<TrayNavigation>>> = Lazy::new(|| Mutex::new(None));
 
 /// 解析 `nav:…` 菜单 id：`nav:main`、`nav:settings:<分组>`、`nav:app:<应用>[:…]`、
-/// `nav:add:<应用>`、`nav:needs:<应用>:<供应商 id>`。
+/// `nav:add:<应用>`。
 fn parse_nav_id(id: &str) -> Option<TrayNavigation> {
     let rest = id.strip_prefix("nav:")?;
     let mut parts = rest.splitn(3, ':');
     let kind = parts.next()?;
     let target = parts.next();
-    let tail = parts.next();
     let app = |value: &str| {
         value
             .parse::<AppType>()
@@ -2622,12 +2103,6 @@ fn parse_nav_id(id: &str) -> Option<TrayNavigation> {
         "add" => TrayNavigation {
             app: Some(app(target?)?),
             intent: Some("add".to_string()),
-            ..Default::default()
-        },
-        "needs" => TrayNavigation {
-            app: Some(app(target?)?),
-            intent: Some("needsRoute".to_string()),
-            provider_id: Some(tail.filter(|id| !id.is_empty())?.to_string()),
             ..Default::default()
         },
         _ => return None,
@@ -2705,24 +2180,12 @@ pub fn handle_provider_tray_event(app: &tauri::AppHandle, event_id: &str) -> boo
     let provider_id = provider_id.to_string();
     tauri::async_runtime::spawn_blocking(move || {
         match handle_provider_click(&app_handle, &app_type, &provider_id) {
-            Ok(ClickOutcome::Switched { mode, name }) => {
+            Ok(ClickOutcome::Switched { name }) => {
                 clear_app_problems(&app_type);
-                if let Some(feedback) = switch_feedback(&app_type, mode, name) {
+                if let Some(feedback) = switch_feedback(&app_type, name) {
                     record_feedback(&app_handle, feedback);
                 }
                 emit_switched(&app_handle, &app_type, &provider_id);
-            }
-            Ok(ClickOutcome::NeedsRoute) => {
-                navigate(
-                    &app_handle,
-                    TrayNavigation {
-                        app: Some(app_type.as_str().to_string()),
-                        intent: Some("needsRoute".to_string()),
-                        provider_id: Some(provider_id.clone()),
-                        ..Default::default()
-                    },
-                );
-                return;
             }
             Ok(ClickOutcome::Unchanged) => {}
             Err(e) => {
@@ -2737,16 +2200,14 @@ pub fn handle_provider_tray_event(app: &tauri::AppHandle, event_id: &str) -> boo
 }
 
 enum ClickOutcome {
-    /// 切过去了；`mode` 是点击时的模式，决定要不要出反馈行。
-    Switched { mode: TrayMode, name: String },
-    /// 已经在用 / 故障转移开着（只读）：什么都不做。
+    /// 已切换供应商。
+    Switched {
+        name: String,
+    },
     Unchanged,
-    /// 直连下点了需要路由的那家：不直接切。
-    NeedsRoute,
 }
 
 /// 点一家供应商：切换照旧走 `ProviderService::switch`（里面先拿切换锁再看模式）。不再先关掉
-/// 自动故障转移（#6022）；点已勾着的那家不再写一次客户端文件。
 fn handle_provider_click(
     app: &tauri::AppHandle,
     app_type: &AppType,
@@ -2759,50 +2220,25 @@ fn handle_provider_click(
     let current = crate::mode::current::provider_for(
         &state.db,
         app_type,
-        crate::mode::current::Purpose::InUse,
+        crate::mode::current::Purpose::Direct,
     )?;
     if current.as_deref() == Some(provider_id) {
-        return Ok(ClickOutcome::Unchanged);
-    }
-    let mode = tray_mode(state, app_type);
-    if mode == TrayMode::Failover {
-        log::info!(
-            "{} 的故障转移开着，托盘只读，不切换",
-            app_display_name(app_type)
-        );
         return Ok(ClickOutcome::Unchanged);
     }
     let provider = state
         .db
         .get_provider_by_id(provider_id, app_type.as_str())?
         .ok_or_else(|| AppError::Message(format!("供应商 {provider_id} 不存在")))?;
-    if mode == TrayMode::Direct && provider_needs_routing(app_type, &provider) {
-        return Ok(ClickOutcome::NeedsRoute);
-    }
     crate::services::ProviderService::switch(state, app_type.clone(), provider_id)?;
     Ok(ClickOutcome::Switched {
-        mode,
         name: provider.name,
     })
 }
 
 fn emit_switched(app: &tauri::AppHandle, app_type: &AppType, provider_id: &str) {
-    let proxy_enabled = crate::mode::current::is_proxy(app_type);
-    let auto_failover = app
-        .try_state::<AppState>()
-        .map(|state| state.db.get_proxy_flags_sync(app_type.as_str()).1)
-        .unwrap_or(false);
-    let event_data = serde_json::json!({
-        "appType": app_type.as_str(),
-        "proxyEnabled": proxy_enabled,
-        "autoFailoverEnabled": auto_failover,
-        "providerId": provider_id
-    });
-    if let Err(e) = app.emit("proxy-flags-changed", event_data.clone()) {
-        log::error!("发射 proxy-flags-changed 事件失败: {e}");
-    }
-    if let Err(e) = app.emit("provider-switched", event_data) {
-        log::error!("发射 provider-switched 事件失败: {e}");
+    let event_data = serde_json::json!({ "appType": app_type.as_str(), "providerId": provider_id });
+    if let Err(error) = app.emit("provider-switched", event_data) {
+        log::error!("发射 provider-switched 事件失败: {error}");
     }
 }
 
@@ -2934,7 +2370,7 @@ pub(crate) async fn refresh_all_usage_in_tray(app: &tauri::AppHandle) {
         let current_id = match crate::mode::current::provider_for(
             &app_state.db,
             app_type,
-            crate::mode::current::Purpose::InUse,
+            crate::mode::current::Purpose::Direct,
         ) {
             Ok(Some(id)) => id,
             Ok(None) => continue,
@@ -3174,35 +2610,6 @@ mod tests {
             );
         }
         assert_eq!(map_locale_to_tray_language(""), "zh");
-    }
-
-    #[test]
-    fn mode_names_follow_the_v7_terms_in_every_language() {
-        let zh = zh();
-        assert_eq!(
-            (zh.header_direct, zh.mode_route, zh.mode_stack),
-            ("直连", "路由", "聚合")
-        );
-        assert_eq!(zh.header_failover, "路由 · 故障转移开启中");
-        let tw = TrayTexts::from_language("zh-TW");
-        assert_eq!((tw.header_direct, tw.mode_stack), ("直連", "聚合"));
-        let en = en();
-        assert_eq!(
-            (en.header_direct, en.mode_route, en.mode_stack),
-            ("Direct", "Routing", "Aggregation")
-        );
-        let ja = TrayTexts::from_language("ja");
-        assert_eq!(ja.mode_route, "ルーティング");
-        for texts in [zh, tw, en, ja] {
-            // 托盘不用 emoji 表达状态（Windows 菜单里彩色 emoji 会变成单色轮廓）。
-            for text in [
-                texts.almost_out,
-                texts.needs_attention,
-                texts.official_blocked_suffix,
-            ] {
-                assert!(text.chars().all(|c| (c as u32) < 0x1F000), "{text}");
-            }
-        }
     }
 
     // ─── 额度文字 ───
@@ -3774,30 +3181,6 @@ mod tests {
         );
     }
 
-    // ─── 「需要路由」判定（和前端 providerNeedsRouting 对照）───
-
-    fn provider(meta: serde_json::Value, settings: serde_json::Value) -> Provider {
-        serde_json::from_value(serde_json::json!({
-            "id": "p1",
-            "name": "P1",
-            "settingsConfig": settings,
-            "meta": meta,
-        }))
-        .unwrap()
-    }
-
-    #[test]
-    fn codex_wire_api_falls_back_to_a_single_assignment_when_toml_is_broken() {
-        assert_eq!(
-            codex_wire_api("wire_api = \"chat\"\nbroken = [").as_deref(),
-            Some("chat")
-        );
-        assert_eq!(
-            codex_wire_api("wire_api = \"chat\"\nwire_api = \"responses\"\nx = ["),
-            None
-        );
-    }
-
     // ─── 菜单模型 ───
 
     fn entry(id: &str, name: &str) -> ProviderEntry {
@@ -3805,22 +3188,15 @@ mod tests {
             id: id.to_string(),
             name: name.to_string(),
             hint: None,
-            needs_routing: false,
-            official: false,
-            blocked_from_routing: false,
         }
     }
 
-    fn snapshot(app: AppType, mode: TrayMode, providers: Vec<ProviderEntry>) -> AppSnapshot {
+    fn snapshot(app: AppType, providers: Vec<ProviderEntry>) -> AppSnapshot {
         AppSnapshot {
             app,
-            mode,
             current_id: providers.first().map(|p| p.id.clone()),
             providers,
-            queue: Vec::new(),
-            stack_members: Vec::new(),
             quota: None,
-            service_down: false,
             needs_attention: false,
         }
     }
@@ -3860,149 +3236,19 @@ mod tests {
     }
 
     #[test]
-    fn direct_submenu_sends_needs_routing_providers_to_the_app_page() {
-        let mut copilot = entry("copilot", "GitHub Copilot");
-        copilot.needs_routing = true;
-        let app = snapshot(
-            AppType::Claude,
-            TrayMode::Direct,
-            vec![entry("kimi", "Kimi For Coding"), copilot],
-        );
-        let children = children_of(&model(&[], &[app]), &AppType::Claude);
-        assert_eq!(
-            texts_of(&children),
-            [
-                "直连",
-                "Kimi For Coding",
-                "GitHub Copilot（需要路由）…",
-                "---",
-                "打开 Claude Code 页面"
-            ]
-        );
-        assert!(matches!(
-            &children[0],
-            TrayEntry::Item { enabled: false, .. }
-        ));
-        assert!(matches!(
-            &children[1],
-            TrayEntry::Check { id, checked: true, enabled: true, .. } if id == "prov:claude:kimi"
-        ));
-        assert!(matches!(
-            &children[2],
-            TrayEntry::Item { id, enabled: true, .. } if id == "nav:needs:claude:copilot"
-        ));
-        assert!(matches!(&children[4], TrayEntry::Item { id, .. } if id == "nav:app:claude"));
-    }
-
-    #[test]
-    fn failover_submenu_is_read_only_and_lists_only_the_queue() {
-        let mut app = snapshot(
-            AppType::Claude,
-            TrayMode::Failover,
-            vec![
-                entry("a", "DeepSeek"),
-                entry("b", "智谱 GLM Coding Plan"),
-                entry("c", "OpenRouter"),
-            ],
-        );
-        app.queue = vec!["a".to_string(), "b".to_string()];
-        let children = children_of(&model(&[], &[app]), &AppType::Claude);
-        assert_eq!(
-            texts_of(&children),
-            [
-                "路由 · 故障转移开启中",
-                "按队列自动选择，要调整请到应用页",
-                "1. DeepSeek",
-                "2. 智谱 GLM Coding Plan",
-                "---",
-                "打开 Claude Code 页面"
-            ]
-        );
-        for row in &children[1..4] {
-            assert!(
-                matches!(
-                    row,
-                    TrayEntry::Item { enabled: false, .. }
-                        | TrayEntry::Check { enabled: false, .. }
-                ),
-                "{row:?}"
-            );
-        }
-        assert!(matches!(
-            &children[2],
-            TrayEntry::Check { checked: true, .. }
-        ));
-    }
-
-    #[test]
-    fn stack_submenu_lists_members_and_the_codex_official_card() {
-        let mut official = entry("official", "OpenAI Official");
-        official.official = true;
-        let mut app = snapshot(
-            AppType::Codex,
-            TrayMode::Stack,
-            vec![
-                entry("deepseek", "DeepSeek"),
-                entry("kimi", "Kimi For Coding"),
-                entry("other", "Not In Stack"),
-                official,
-            ],
-        );
-        app.stack_members = vec!["deepseek".to_string(), "kimi".to_string()];
-        let menu = model(&[], &[app]);
-        assert_eq!(text_of(&menu[2]), "Codex · 聚合 · DeepSeek");
-        let children = children_of(&menu, &AppType::Codex);
-        assert_eq!(
-            texts_of(&children),
-            [
-                "聚合 · 默认 DeepSeek",
-                "DeepSeek",
-                "Kimi For Coding",
-                "OpenAI Official",
-                "---",
-                "打开 Codex 页面"
-            ]
-        );
-    }
-
-    #[test]
-    fn problem_area_keeps_two_rows_then_says_how_many_more() {
-        let problems = [
-            TrayProblem::ServiceDown { port: 15721 },
-            TrayProblem::AttachFailed {
-                app: AppType::Claude,
-                stack: false,
-            },
-            TrayProblem::SwitchFailed {
-                app: AppType::Codex,
-                reason: "config.toml 格式有误".to_string(),
-            },
-        ];
+    fn switch_failure_is_shown_on_the_affected_app() {
+        let problems = [TrayProblem::SwitchFailed {
+            app: AppType::Codex,
+            reason: "config.toml 格式有误".to_string(),
+        }];
         let menu = model(&problems, &[]);
-        assert_eq!(
-            texts_of(&menu[..4]),
-            [
-                "路由服务没在运行（端口 15721）",
-                "Claude Code：上次的路由没能接上，已回到直连",
-                "还有 1 个问题，打开 CC Switch 查看",
-                "---"
-            ]
-        );
-        let switch = model(&problems[2..], &[]);
-        assert_eq!(
-            text_of(&switch[0]),
-            "Codex 没切换成功：config.toml 格式有误"
-        );
-        assert!(matches!(&switch[0], TrayEntry::Item { id, .. } if id == "nav:app:codex:failed"));
+        assert_eq!(text_of(&menu[0]), "Codex 没切换成功：config.toml 格式有误");
+        assert!(matches!(&menu[0], TrayEntry::Item { id, .. } if id == "nav:app:codex:failed"));
     }
 
     #[test]
     fn quota_title_and_almost_out_suffix_on_the_app_row() {
-        let mut app = snapshot(
-            AppType::Claude,
-            TrayMode::Direct,
-            vec![entry("official", "Claude Official")],
-        );
+        let mut app = snapshot(AppType::Claude, vec![entry("official", "Claude Official")]);
         let quota = make_quota(
             "claude",
             true,
@@ -4018,11 +3264,7 @@ mod tests {
     #[test]
     fn app_row_title_writes_every_tier_including_the_roomy_five_hour_one() {
         // #8011：火山三档里 5 小时剩得最多，只留剩余最少两档时它总被挤掉。
-        let mut app = snapshot(
-            AppType::Claude,
-            TrayMode::Direct,
-            vec![entry("volc", "火山方舟")],
-        );
+        let mut app = snapshot(AppType::Claude, vec![entry("volc", "火山方舟")]);
         let volcengine = usage_result(
             true,
             vec![
@@ -4061,72 +3303,15 @@ mod tests {
     }
 
     #[test]
-    fn stack_header_falls_back_to_the_generic_word_without_a_default() {
-        let mut app = snapshot(
-            AppType::Claude,
-            TrayMode::Stack,
-            vec![entry("deepseek", "DeepSeek")],
-        );
-        app.current_id = None;
-        app.stack_members = vec!["deepseek".to_string()];
-        let children = children_of(&model(&[], &[app.clone()]), &AppType::Claude);
-        assert_eq!(text_of(&children[0]), "聚合 · 默认供应商");
-        app.current_id = Some("deepseek".to_string());
-        let menu = build_menu_model(&en(), &MenuStatus::default(), &[app], false, now());
-        let children = children_of(&menu, &AppType::Claude);
-        assert_eq!(text_of(&children[0]), "Aggregation · Default: DeepSeek");
-    }
-
-    #[test]
-    fn quit_says_the_routing_service_stops_only_while_it_is_in_use() {
-        let quit_text = |texts: &TrayTexts, routing: bool| {
-            let status = MenuStatus {
-                routing_in_use: routing,
-                ..Default::default()
-            };
-            let menu = build_menu_model(texts, &status, &[], false, now());
-            match menu.last() {
-                Some(TrayEntry::Item { id, text, .. }) if id == "quit" => text.clone(),
-                other => panic!("last entry is not quit: {other:?}"),
-            }
-        };
-        assert_eq!(quit_text(&zh(), false), "退出 CC Switch");
-        assert_eq!(quit_text(&zh(), true), "退出 CC Switch（路由服务会停止）");
-        assert_eq!(
-            quit_text(&en(), true),
-            "Quit CC Switch (stops the routing service)"
-        );
-        for language in ["zh", "zh-TW", "en", "ja", "tr"] {
-            let texts = TrayTexts::from_language(language);
-            assert_ne!(texts.quit, texts.quit_stops_routing, "{language}");
-            assert!(
-                texts.quit_stops_routing.starts_with(texts.quit),
-                "{language}"
-            );
-            assert!(texts.header_stack_default.contains("{name}"), "{language}");
-            assert!(texts.tooltip_problem.contains("{problem}"), "{language}");
-            for template in [texts.feedback_switched, texts.feedback_stack_default] {
-                assert!(
-                    template.contains("{app}") && template.contains("{name}"),
-                    "{language}: {template}"
-                );
-            }
-        }
-    }
-
-    #[test]
     fn tooltip_names_the_first_problem_and_is_plain_otherwise() {
         assert_eq!(tray_tooltip(&zh(), &[]), "CC Switch");
-        let problems = [
-            TrayProblem::ServiceDown { port: 15721 },
-            TrayProblem::SwitchFailed {
-                app: AppType::Codex,
-                reason: "boom".to_string(),
-            },
-        ];
+        let problems = [TrayProblem::SwitchFailed {
+            app: AppType::Codex,
+            reason: "boom".to_string(),
+        }];
         assert_eq!(
             tray_tooltip(&zh(), &problems),
-            "CC Switch · 需要处理：路由服务没在运行（端口 15721）"
+            "CC Switch · 需要处理：Codex 没切换成功：boom"
         );
         let long = [TrayProblem::SwitchFailed {
             app: AppType::Codex,
@@ -4196,15 +3381,6 @@ mod tests {
     #[test]
     fn nav_ids_parse_into_navigation_requests() {
         assert_eq!(
-            parse_nav_id("nav:needs:claude:pkg:with:colons"),
-            Some(TrayNavigation {
-                app: Some("claude".to_string()),
-                intent: Some("needsRoute".to_string()),
-                provider_id: Some("pkg:with:colons".to_string()),
-                ..Default::default()
-            })
-        );
-        assert_eq!(
             parse_nav_id("nav:app:pi:quota"),
             Some(TrayNavigation {
                 app: Some("pi".to_string()),
@@ -4219,61 +3395,28 @@ mod tests {
                 ..Default::default()
             })
         );
-        assert_eq!(
-            parse_nav_id("nav:settings:routing"),
-            Some(TrayNavigation {
-                section: Some("routing".to_string()),
-                ..Default::default()
-            })
-        );
         assert_eq!(parse_nav_id("nav:main"), Some(TrayNavigation::default()));
-        assert_eq!(parse_nav_id("nav:needs:claude"), None);
+        assert_eq!(parse_nav_id("nav:needs:claude:p1"), None);
         assert_eq!(parse_nav_id("nav:app:nope"), None);
-        for retired in [
-            "claude-desktop",
-            "gemini",
-            "grokbuild",
-            "openclaw",
-            "hermes",
-            "mcode",
-            "kimi",
-            "omp",
-        ] {
-            assert_eq!(parse_nav_id(&format!("nav:app:{retired}")), None);
-            assert_eq!(parse_nav_id(&format!("nav:add:{retired}")), None);
-            assert_eq!(parse_nav_id(&format!("nav:needs:{retired}:p1")), None);
-        }
-
         assert_eq!(parse_nav_id("prov:claude:x"), None);
-        let json = serde_json::to_value(parse_nav_id("nav:needs:codex:p1").unwrap()).unwrap();
-        assert_eq!(
-            json,
-            serde_json::json!({"app": "codex", "intent": "needsRoute", "providerId": "p1"})
-        );
     }
 
     #[test]
-    fn problems_drop_attach_failures_once_the_app_routes_again() {
-        lock(&ATTACH_FAILURES).clear();
-        lock(&SWITCH_FAILURES).clear();
-        lock(&ATTACH_FAILURES).push((AppType::Claude, false));
-        record_switch_failure(&AppType::Codex, "boom".to_string());
-        let visible = [(AppType::Claude, true), (AppType::Codex, true)];
-        assert_eq!(collect_problems(None, &visible).len(), 2);
-        // Claude Code 重新进入路由：「退回直连」的问题行消失。
-        let rerouted = [(AppType::Claude, false), (AppType::Codex, true)];
-        assert_eq!(
-            collect_problems(Some(15721), &rerouted),
-            [
-                TrayProblem::ServiceDown { port: 15721 },
-                TrayProblem::SwitchFailed {
-                    app: AppType::Codex,
-                    reason: "boom".to_string()
-                }
-            ]
+    fn provider_submenu_switches_directly() {
+        let app = snapshot(
+            AppType::Claude,
+            vec![entry("kimi", "Kimi For Coding"), entry("glm", "GLM")],
         );
-        assert!(clear_app_problems(&AppType::Codex));
-        assert!(!clear_app_problems(&AppType::Codex));
-        assert!(collect_problems(None, &rerouted).is_empty());
+        let children = children_of(&model(&[], &[app]), &AppType::Claude);
+        assert_eq!(
+            texts_of(&children),
+            ["Kimi For Coding", "GLM", "---", "打开 Claude Code 页面"]
+        );
+        assert!(
+            matches!(&children[0], TrayEntry::Check { id, checked: true, enabled: true, .. } if id == "prov:claude:kimi")
+        );
+        assert!(
+            matches!(&children[1], TrayEntry::Check { id, checked: false, enabled: true, .. } if id == "prov:claude:glm")
+        );
     }
 }

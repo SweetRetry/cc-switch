@@ -32,14 +32,10 @@ import { isPiFamilyApp } from "@/config/appConfig";
 import {
   buildAdditiveSections,
   buildLaunchSections,
-  buildSwitchSections,
+  buildDirectSections,
   type CardPresentation,
   type ProviderSection,
-  type SwitchModeInput,
 } from "@/components/providers/presentation";
-
-/** 切换式应用（Claude Code / Codex / Gemini CLI / Grok Build）的模式状态和动作，由供应商页传入。 */
-export type SwitchModeProps = Omit<SwitchModeInput, "app" | "t" | "providers">;
 
 const verticalDragModifiers: Modifier[] = [
   ({ transform }) => ({ ...transform, x: 0 }),
@@ -63,8 +59,6 @@ interface ProviderListProps {
   onCreate?: () => void;
   /** OpenClaw 的默认模型、Hermes 的当前供应商 */
   onSetAsDefault?: (provider: Provider, modelId?: string) => void;
-  /** 切换式应用必传：按模式 tab 算卡片 */
-  switchMode?: SwitchModeProps;
   isLoading?: boolean;
 }
 
@@ -84,7 +78,6 @@ export function ProviderList({
   onOpenTerminal,
   onCreate,
   onSetAsDefault,
-  switchMode,
   isLoading = false,
 }: ProviderListProps) {
   const { t } = useTranslation();
@@ -177,15 +170,13 @@ export function ProviderList({
   });
 
   const sections = useMemo<ProviderSection[]>(() => {
-    if (switchMode) {
-      // 队列剔掉已不存在的供应商。
-      const known = new Set(sortedProviders.map((p) => p.id));
-      return buildSwitchSections({
-        ...switchMode,
+    if (appId === "claude" || appId === "codex") {
+      return buildDirectSections({
         app: appId,
         t,
         providers: sortedProviders,
-        queue: switchMode.queue.filter((id) => known.has(id)),
+        currentProviderId,
+        onSwitch,
       });
     }
     if (appId === "agy") {
@@ -230,7 +221,6 @@ export function ProviderList({
       },
     });
   }, [
-    switchMode,
     appId,
     t,
     sortedProviders,

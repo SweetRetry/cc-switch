@@ -70,33 +70,6 @@ export const SKILLS_APP_IDS: AppId[] = [
   "agy",
 ];
 
-export type ProxyAppId = Extract<AppId, "claude" | "codex">;
-
-/** Apps with a complete local gateway + failover data plane. */
-export const PROXY_APP_IDS: ProxyAppId[] = ["claude", "codex"];
-
-export function isProxyAppId(appId: string): appId is ProxyAppId {
-  return (PROXY_APP_IDS as string[]).includes(appId);
-}
-
-/** 支持直连、路由和聚合模式的应用。 */
-export type ModeAppId = ProxyAppId;
-
-export const MODE_APP_IDS: ModeAppId[] = [...PROXY_APP_IDS];
-
-export function isModeAppId(appId: string): appId is ModeAppId {
-  return (MODE_APP_IDS as string[]).includes(appId);
-}
-
-/** 支持 Stack 模式的应用（后端 `mode::stack::supports_stack` 的镜像）。 */
-export type StackAppId = ModeAppId;
-
-export const STACK_APP_IDS: StackAppId[] = ["claude", "codex"];
-
-export function isStackAppId(appId: string): appId is StackAppId {
-  return (STACK_APP_IDS as string[]).includes(appId);
-}
-
 export type AdditiveAppId = Extract<AppId, "opencode" | "pi">;
 
 export const ADDITIVE_APP_IDS: AdditiveAppId[] = ["opencode", "pi"];

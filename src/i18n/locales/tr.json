@@ -362,16 +362,6 @@
     "removeProvider": "Sağlayıcıyı Kaldır",
     "removeProviderMessage": "\"{{name}}\" sağlayıcısını yapılandırmadan kaldırmak istediğinizden emin misiniz?\n\nKaldırma işleminden sonra bu sağlayıcı artık etkin olmayacak ancak yapılandırma verileri CC Switch’te saklanacak. İstediğiniz zaman yeniden ekleyebilirsiniz.",
     "piDefaultProviderWarning": "Pi'nin genel varsayılanı şu anda bu sağlayıcıyı işaret ediyor. Devam ederseniz Pi mevcut başka bir modeli deneyecektir; Bir sağlayıcıyı seçmek için /model'i veya başka bir sağlayıcıda oturum açmak için /login'i kullanın.",
-    "proxy": {
-      "title": "Yerel Yönlendirmeyi Etkinleştir",
-      "message": "Yerel yönlendirme gelişmiş bir özelliktir. Lütfen etkinleştirmeden önce nasıl çalıştığını anladığınızdan emin olun.\n\nDoğru yapılandırma için ilgili belgelere veya sağlayıcınıza danışmanızı öneririz.",
-      "confirm": "Anladım, etkinleştir"
-    },
-    "failover": {
-      "title": "Yedek Sağlayıcıya Geçişyi Etkinleştir",
-      "message": "Yedek sağlayıcıya geçiş gelişmiş bir özelliktir. Lütfen etkinleştirmeden önce nasıl çalıştığını anladığınızdan emin olun.\n\nÖncelikle yedek sağlayıcıya geçiş kuyruğunda sağlayıcı önceliklerini yapılandırmanızı öneririz.",
-      "confirm": "Anladım, etkinleştir"
-    },
     "unifyCodexHistory": {
       "title": "Birleşik Codex oturum geçmişi",
       "message": "Etkinleştirildiğinde Codex CLI’nin devam edilebilir oturum listesinde resmî abonelik ve üçüncü taraf oturumları birlikte görünür (Codex masaüstü uygulaması yakın tarihli bir güncellemeden beri tüm oturumları gösterebilir ve bu ayardan etkilenmez). Not: Diğer arka uç encrypted_content içindeki akıl yürütme verilerinin şifresini çözemediği için eski bir oturuma farklı bir sağlayıcıyla devam etmek başarısız olabilir.\n\nMevcut resmî oturum geçmişinizi de paylaşılan listeye taşıyabilirsiniz (önce ~/.cc-switch/backups konumuna yedeklenir; bu ayarı kapatırken geri yükleyebilirsiniz).",
@@ -420,9 +410,8 @@
     "tabGeneral": "Genel",
     "tabAuth": "Kimlik doğrulama",
     "tabAdvanced": "Gelişmiş",
-    "tabProxy": "Yönlendirme",
     "authCenter": {
-      "description": "Sağlayıcı olarak GitHub Copilot, ChatGPT ve xAI aboneliklerini kullanın. Yönlendirme hizmeti kimlik bilgilerini enjekte eder, böylece bu sağlayıcılar Yönlendirme modunda çalışır (Codex'in resmî oturum açma entegrasyonu hariç). Antigravity hesapları agy'nin resmî oturum açma hesabını değiştirir.",
+      "description": "Bağlı hesapları ve abonelik kotalarını yönetin. Codex resmi kartları bir ChatGPT hesabını kullanabilir. Antigravity hesapları uygulamanın resmi oturumunu değiştirir.",
       "beta": "beta",
       "copilotDescription": "GitHub Copilot hesaplarını yönetin",
       "codexOauthDescription": "ChatGPT hesaplarını yönetin",
@@ -432,22 +421,6 @@
       "configDir": {
         "title": "Yapılandırma Dizini",
         "description": "Claude, Codex ve Gemini yapılandırmaları için depolama yollarını yönetin"
-      },
-      "proxy": {
-        "title": "Yerel Yönlendirme",
-        "description": "Yönlendirme hizmeti geçişini kontrol edin, durumu ve bağlantı noktası bilgilerini görüntüleyin",
-        "enableFeature": "Ana Sayfada Yönlendirme Geçişini Göster",
-        "enableFeatureDescription": "Etkinleştirildiğinde yönlendirme ve yedek sağlayıcıya geçiş geçişleri ana sayfanın üst kısmında görünecektir",
-        "enableStackMode": "Birleştirme modu anahtarını ana sayfada göster",
-        "enableStackModeDescription": "Açık olduğunda, Claude Code ve Codex için ana sayfa anahtarı Birleştirme moduna dönüşür: OpenCode'deki gibi birkaç sağlayıcı ekleyin ve bunların tüm modelleri istemcinin model listesinde görünür (Codex'nin önce yeniden başlatılması gerekir). Yedek sağlayıcıya geçiş yok. Bu ve yerel yönlendirme anahtarı birbirini dışlar; geçiş, önce Claude Code ve Codex uygulamasını doğrudan yönlendirmeye gönderir",
-        "enableFailoverToggle": "Yedek Sağlayıcıya Geçiş Geçişini Ana Sayfada Göster",
-        "enableFailoverToggleDescription": "Etkinleştirildiğinde, yedek sağlayıcıya geçiş geçişi ana sayfanın üst kısmında bağımsız olarak görünecektir",
-        "running": "Çalışıyor",
-        "stopped": "Durduruldu"
-      },
-      "failover": {
-        "title": "Otomatik yedek sağlayıcıya geçiş",
-        "description": "Yedek sağlayıcıya geçiş kuyruğunu ve devre kesici stratejisini yapılandırma"
       },
       "pricing": {
         "title": "Maliyet Fiyatlandırması",
@@ -1036,7 +1009,7 @@
     "saving": "Kaydediliyor...",
     "globalProxy": {
       "label": "Küresel Vekil",
-      "hint": "Tüm istekleri proxy olarak gönderin (API, Beceri indirme vb.). Yerel yönlendirme etkinleştirildiğinde uygulama trafiği de bu proxy üzerinden yönlendirilir. Doğrudan bağlantı için boş bırakın.",
+      "hint": "API kontrolleri ve Skills indirmeleri dahil CC Switch istekleri için proxy kullanın. Doğrudan bağlantı için boş bırakın.",
       "username": "Kullanıcı adı (isteğe bağlı)",
       "password": "Şifre (isteğe bağlı)",
       "test": "Bağlantıyı Test Et",
@@ -1062,16 +1035,12 @@
     "sections": {
       "general": "Genel",
       "appConfig": "Uygulama yapılandırması",
-      "routing": "Yerel yönlendirme",
       "network": "Ağ",
       "data": "Veri",
       "about": "Hakkında"
     },
     "appConfig": {
       "configDir": "Yapılandırma dizini"
-    },
-    "routing": {
-      "service": "Hizmet"
     },
     "data": {
       "location": "Konum"
@@ -1169,82 +1138,6 @@
     "current": {
       "readFailed": "Pi'nin sağlayıcı yapılandırması okunamadı",
       "stateUnavailableHint": "CC Switch, Pi'nin sağlayıcı yapılandırmasını okuyabilene kadar sağlayıcı değişiklikleri devre dışı bırakılır."
-    },
-    "prompts": {
-      "globalTab": "Kütüphane",
-      "systemTab": "Sistem istemi",
-      "templatesTab": "Şablonlar",
-      "usePromptSuccess": "Global AGENTS.md güncellendi",
-      "stopUsingSuccess": "Global AGENTS.md kaldırıldı",
-      "systemAppend": "Sistem ekleme",
-      "systemAppendDescription": "Pi'nin yerleşik temel isteminden sonra eklendi",
-      "systemOverride": "Sistem değişimi",
-      "systemOverrideDescription": "Pi'nin yerleşik temel isteminin yerine geçer",
-      "systemOverrideWarning": "SYSTEM.md, Pi'nin yerleşik temel isteminin yerini alır. Temel talimatların tam kontrolüne ihtiyacınız olmadığı sürece APPEND_SYSTEM.md'yi kullanın.",
-      "recommended": "Önerilen",
-      "configuredEmpty": "Yapılandırılmış ancak boş",
-      "notConfigured": "Yapılandırılmadı",
-      "unavailable": "Kullanılamıyor",
-      "instructionPlaceholder": "Pi için indirim",
-      "blankInstruction": "Boş olmayan bir içerik girin. Kullanmayı durdurmak için sol alttaki Dosyayı sil'e tıklayın",
-      "saveAndConfigure": "Kaydet ve yapılandır",
-      "activateOverrideTitle": "{{filename}} yapılandırılsın mı?",
-      "activateOverrideMessage": "{{filename}} oluşturmak, Pi'nin yerleşik temel isteminin yerine geçer. Pi hâlâ kendi kurallarına göre içerik, AGENTS.md, Beceriler ve diğer kaynakları eklemeye devam ediyor.",
-      "fileSaved": "{{filename}} kaydedildi",
-      "saveFailed": "Pi talimat dosyası kaydedilemedi",
-      "deleteFailed": "Pi talimat dosyası silinemedi",
-      "reloadNotice": "Açık Pi oturumları değişiklikleri anında yüklemez; oturum boştayken /reload komutunu çalıştırın. Yeni oturumlar otomatik olarak okur.",
-      "templatesDescription": "Kaydedilen şablonlar Pi içinde /command-name olarak kullanılabilir. Ayrıca etkinleştirmeniz gerekmez.",
-      "newTemplate": "Yeni şablon",
-      "editTemplate": "Düzenle /{{slug}}",
-      "templateCommand": "Eğik çizgi komutu",
-      "templateSlug": "Tek kelime, ör. gözden geçirmek",
-      "templateSlugInvalid": "Tek bir kelime kullanın: harfler, rakamlar, - _ . — / \\ : * ? gibi boşluk veya karakter yok",
-      "templateSlugExists": "/{{slug}} zaten mevcut; başka bir isim seç",
-      "templateDescription": "Notlar",
-      "templateDescriptionPlaceholder": "İsteğe bağlı, şablonun açıklamasına yazılır",
-      "templateContent": "Şablon metni",
-      "templateContentPlaceholder": "Pi'nin genişleyeceğine dair işaretleme",
-      "templateSyntax": "Şablon metni yazma",
-      "templateSyntaxDescription": "Bağımsız değişkenler için $1, $2, $@ veya $ARGUMENTS kullanın; ön maddeyle başlayabilirsiniz (açıklama, argüman-ipucu).",
-      "createTemplate": "Şablon oluştur",
-      "templateCreated": "Oluşturuldu /{{slug}}",
-      "templateSaved": "/{{slug}} kaydedildi",
-      "templateLoadFailed": "Pi bilgi istemi şablonları yüklenemedi",
-      "templateSaveFailed": "Pi bilgi istemi şablonu kaydedilemedi",
-      "templateDeleteFailed": "Pi bilgi istemi şablonu silinemedi",
-      "searchTemplates": "Komut veya metin arayın",
-      "noTemplates": "Henüz şablon yok",
-      "noTemplatesDescription": "Kaydettikten sonra /command yazarak Pi'de çalıştırın.",
-      "noTemplateResults": "\"{{query}}\" ile eşleşen şablon komutu, not veya metin yok",
-      "kindLabel": "Pi bilgi istemi türü",
-      "libraryLabel": "Pi bilgi istemi kitaplığı",
-      "systemFilesLabel": "Pi sistem bilgi istemi dosyaları",
-      "templatesLabel": "Pi bilgi istemi şablonları",
-      "externalTitle": "AGENTS.md, CC Switch dışında değiştirildi",
-      "externalDetail": "İçeriği ({{size}}) her kitaplık isteminden farklıdır, dolayısıyla hiçbiri etkin olarak gösterilmez. Başka bir tane etkinleştirilmeden önce kitaplığa kaydedilir.",
-      "saveToLibrary": "Kitaplığa kaydet",
-      "reloadAfterDelete": "Açık Pi oturumları, boştayken /reload komutunu çalıştırdığınızda değişikliği alır.",
-      "configuredSize": "Yapılandırılmış · {{size}}",
-      "create": "Oluştur",
-      "createFile": "{{filename}}'yi oluşturun",
-      "editFile": "{{filename}}'yi düzenleyin",
-      "saveAndConfigureEllipsis": "Kaydet ve yapılandır",
-      "deleteFile": "Dosyayı sil",
-      "appendDeleted": "APPEND_SYSTEM.md silindi; Pi artık onu eklemiyor",
-      "overrideDeleted": "SYSTEM.md silindi; Pi yerleşik temel istemine geri döndü",
-      "deletedUndoable": "Geri al, dosyayı olduğu gibi geri yazar.",
-      "deletedBlank": "Dosya boş olduğundan bu işlem geri alınamaz.",
-      "fileRestored": "~/.pi/agent/{{filename}} geri yazdı",
-      "templateSlugRequired": "Bir komut adı girin, ör. gözden geçirmek",
-      "templateSaveTo": "{{path}} konumuna kaydedildi",
-      "templateRename": "/{{from}}'den /{{to}}'ye yeniden adlar kaydediliyor",
-      "searchTemplatesLabel": "Şablonlarda ara",
-      "copyCommand": "Komutu kopyala",
-      "copiedCommand": "Kopyalandı /{{slug}}",
-      "templateDeletedUndo": "Silindi /{{slug}}; Pi artık bu komuta sahip değil",
-      "templateDeletedSub": "Geri al, istemleri/{{slug}}.md dosyasını olduğu gibi geri yazar.",
-      "templateRestored": "~/.pi/agent/prompts/{{slug}}.md geri yazdı"
     }
   },
   "appSwitcher": {
@@ -1648,7 +1541,7 @@
     "authField": "Kimlik Doğrulama Alanı",
     "authFieldAuthToken": "ANTHROPIC_AUTH_TOKEN (Varsayılan)",
     "authFieldApiKey": "ANTHROPIC_API_KEY",
-    "authFieldHint": "Doğrudan modda bu, settings.json'a yazılan değişken adıdır; Yönlendirme yoluyla AUTH_TOKEN, Taşıyıcı olarak yukarı yönde ve API_KEY, x-api-key olarak gönderilir.",
+    "authFieldHint": "settings.json dosyasına yazılan kimlik doğrulama değişkeni. AUTH_TOKEN Bearer kimlik doğrulamasını, API_KEY ise x-api-key üstbilgisini kullanır.",
     "apiHintResponses": "💡 OpenAI Yanıtlarını doldurun API uyumlu hizmet uç noktası, sondaki eğik çizgiden kaçının",
     "anthropicDefaultHaikuModel": "Varsayılan Haiku Modeli",
     "anthropicDefaultSonnetModel": "Varsayılan Sonnet Modeli",
@@ -1932,10 +1825,10 @@
     "subagentModelPlaceholder": "Ana modeli takip etmek için boş bırakın",
     "subagentReasoningEffortLabel": "Alt-ajanın muhakeme çabası",
     "subagentReasoningEffortDefault": "Varsayılan efor",
-    "subagentModelHint": "Codex alt ajanlarının varsayılan olarak kullandığı model ve akıl yürütme çabası. Boş ana ajanyı takip eder; bir model tek başına kendi varsayılan eforunu kullanır. Birleştirme modunda yoksayılır; orada Birleştirme sekmesinin ayarlarındaki alt ajan modeli kullanılır.",
-    "subagentModelNotInCatalog": "Bu model model listesinde yok: Codex bağlam penceresini alamıyor ve yönlendirme istekleri Chat / Anthropic'ye dönüştürdüğünde bunun yerini varsayılan model alıyor.",
+    "subagentModelHint": "Codex alt ajanları için varsayılan model ve akıl yürütme düzeyi. Ana ajanı izlemek için boş bırakın. Yalnızca model seçilirse modelin varsayılan düzeyi kullanılır.",
+    "subagentModelNotInCatalog": "Bu model model listesinde yok. Codex bağlam penceresini okuyamaz.",
     "autoReviewModelLabel": "Otomatik inceleme modeli",
-    "autoReviewModelHint": "Otomatik onay (Benim yerime onayla) açıkken bir işlemin devam edip edemeyeceğine karar veren Codex modeli. Onay istekleri konuşmayla aynı sağlayıcıya gönderilir; bu nedenle yalnızca bu kartın model listesindeki modeller seçilebilir. Birleştirme modunda bu ayar yok sayılır ve Birleştirme sekmesindeki Otomatik inceleme modeli kullanılır. Değişikliklerden sonra Codex'i yeniden başlatın.",
+    "autoReviewModelHint": "Codex otomatik onay (Approve for me) için bu modeli kullanır. Onay istekleri konuşmayla aynı sağlayıcıya gider. Bu kartın model listesinden bir model seçin. Değişikliklerden sonra Codex’i yeniden başlatın.",
     "autoReviewModelCodexDefault": "Codex varsayılanı (codex-auto-review)",
     "autoReviewModelMainDefault": "Ana model kendini inceler (varsayılan)",
     "autoReviewModelNoList": "Bu kartta model listesi yok: Codex onayları yalnızca ChatGPT hesaplarına yönlendirme yapan bazı aktarım hizmetlerinin kabul ettiği resmî codex-auto-review modeliyle inceler; diğerleri 404 döndürür. Bir model seçmek için yukarıdaki listeye model ekleyin.",
@@ -2792,6 +2685,11 @@
     }
   },
   "prompts": {
+    "viewerTitle": "İstem dosyası",
+    "viewerHelp": "Seçili uygulamanın genel istem dosyasını görüntüleyin. Harici bir düzenleyicide düzenleyip yenileyin.",
+    "fileContent": "İstem dosyası içeriği",
+    "contentCopied": "İstem içeriği kopyalandı",
+    "pathUnavailable": "Dosya yolu kullanılamıyor",
     "add": "İstem Ekle",
     "addTitle": "İstem ekle · {{appName}}",
     "editTitle": "İstemi düzenle",
@@ -2821,11 +2719,11 @@
     "confirm": {},
     "appSelect": "Uygulamayı seçin",
     "helpTitle": "İstemler nasıl etkili olur?",
-    "helpText": "Her uygulamanın aynı anda etkinleştirilmiş bir istemi vardır ve bu, hedef dosya haline gelir. Başka bir yerde yapılan düzenlemeler, bu sayfayı bir sonraki açışınızda etkinleştirilmiş istemin içine alınır; Henüz burada olmayan dosya içeriği, başka bir bilgi istemi etkinleştirilmeden önce \"Orijinal bilgi istemi\" olarak kaydedilir.",
+    "helpText": "Seçili uygulamanın genel istem dosyasını görüntüleyin. Harici bir düzenleyicide düzenleyip yenileyin.",
     "helpHermesTitle": "SOUL.md nasıl etkili olur?",
     "helpHermesText": "SOUL.md, Hermes'in kişiliğidir; aynı anda bir tanesi etkinleştirilir. Başka bir yerde yapılan düzenlemeler, bu sayfayı bir sonraki açışınızda etkin olana aktarılır; Henüz burada olmayan dosya içeriği, başka bir bilgi istemi etkinleştirilmeden önce \"Orijinal bilgi istemi\" olarak kaydedilir.",
     "helpPiTitle": "Pi istemleri nasıl etkili olur?",
-    "helpPiText": "Aynı anda bir kitaplık istemi etkinleştirilir ve AGENTS.md olur. Sistem bilgi istemi dosyaları, mevcut oldukları anda etkili olur ve şablonlar Pi'de /command yazılarak çalıştırılır; her ikisinin de etkinleştirilmesi gerekmez.",
+    "helpPiText": "Seçili uygulamanın genel istem dosyasını görüntüleyin. Harici bir düzenleyicide düzenleyip yenileyin.",
     "moreActions": "Daha fazla hızlı işlem",
     "importCurrent": "Geçerli {{file}}'yi içe aktar",
     "importReason": {
@@ -3540,210 +3438,6 @@
       "takeoverRequired": "Önce {{app}}'yi devralın, ardından yedek sağlayıcıya geçişyi etkinleştirin"
     }
   },
-  "proxy": {
-    "panel": {
-      "serviceAddress": "Hizmet Adresi",
-      "addressCopied": "Adres kopyalandı",
-      "currentProvider": "Mevcut Sağlayıcı:",
-      "waitingFirstRequest": "Mevcut Sağlayıcı: İlk istek bekleniyor...",
-      "stoppedTitle": "Yönlendirme Hizmeti Durduruldu",
-      "stoppedDescription": "Hizmeti başlatmak için yukarıdaki düğmeyi kullanın",
-      "openSettings": "Yönlendirme Hizmetini Yapılandırma",
-      "stats": {
-        "activeConnections": "Aktif Bağlantılar",
-        "totalRequests": "Toplam İstekler",
-        "successRate": "Başarı Oranı",
-        "uptime": "Çalışma süresi"
-      }
-    },
-    "settings": {
-      "title": "Yönlendirme Hizmeti Ayarları",
-      "description": "Yerel yönlendirme sunucusu dinleme adresini, bağlantı noktasını ve çalışma zamanı parametrelerini yapılandırın. Değişiklikler kaydedildikten hemen sonra geçerli olur.",
-      "alert": {
-        "autoApply": "Değişiklikler, manuel olarak yeniden başlatmaya gerek kalmadan çalışan yönlendirme hizmetiyle otomatik olarak eşitle edilecektir."
-      },
-      "basic": {
-        "title": "Temel Ayarlar",
-        "description": "Yönlendirme hizmeti dinleme adresini ve bağlantı noktasını yapılandırın."
-      },
-      "advanced": {
-        "title": "Gelişmiş Parametreler",
-        "description": "İstek kararlılığını ve günlüğe kaydetmeyi kontrol edin."
-      },
-      "timeout": {
-        "title": "Zaman Aşımı Ayarları",
-        "description": "Akışlı ve akışsız istekler için zaman aşımını yapılandırın."
-      },
-      "fields": {
-        "listenAddress": {
-          "label": "Adresi Dinle",
-          "placeholder": "127.0.0.1",
-          "description": "Yönlendirme sunucusunun dinlediği IP adresi (önerilen: 127.0.0.1)"
-        },
-        "listenPort": {
-          "label": "Bağlantı Noktasını Dinle",
-          "placeholder": "15721",
-          "description": "Yönlendirme sunucusunun dinlediği port numarası (1024 ~ 65535)"
-        },
-        "maxRetries": {
-          "label": "Maksimum Yeniden Deneme Sayısı",
-          "placeholder": "3",
-          "description": "İstek başarısızlığında yeniden deneme sayısı (0 ~ 10)"
-        },
-        "requestTimeout": {
-          "label": "İstek Zaman Aşımı (sn)",
-          "placeholder": "0 (sınırsız) veya 300",
-          "description": "Tek bir istek için maksimum bekleme süresi (0 = sınırsız veya 10 ~ 600 saniye)"
-        },
-        "enableLogging": {
-          "label": "Kayıt Talebi Kullanımı",
-          "description": "Yönlendirme isteği kullanımını ve durumunu yerel istatistik veritabanına yazın"
-        },
-        "streamingFirstByteTimeout": {
-          "label": "Akış İlk Bayt Zaman Aşımı (sn)",
-          "description": "İlk veri öbeği için beklenecek maksimum süre"
-        },
-        "streamingIdleTimeout": {
-          "label": "Akış Boşta Kalma Zaman Aşımı (sn)",
-          "description": "Veri parçaları arasındaki maksimum aralık"
-        },
-        "nonStreamingTimeout": {
-          "label": "Yayın Dışı Zaman Aşımı (sn)",
-          "description": "Akış dışı istekler için toplam zaman aşımı"
-        }
-      },
-      "validation": {
-        "addressInvalid": "Lütfen geçerli bir IP adresi girin",
-        "portMin": "Bağlantı noktası 1024'ten büyük olmalıdır",
-        "portMax": "Bağlantı noktası 65535'ten küçük olmalıdır",
-        "retryMin": "Yeniden deneme sayısı negatif olamaz",
-        "retryMax": "Yeniden deneme sayısı 10'u aşamaz",
-        "timeoutNonNegative": "Zaman aşımı negatif olamaz",
-        "timeoutMax": "Zaman aşımı 600 saniyeyi aşamaz",
-        "timeoutRange": "Lütfen 0 veya 10-600 arasında bir değer girin",
-        "streamingTimeoutMin": "Zaman aşımı en az 5 saniye olmalıdır",
-        "streamingTimeoutMax": "Zaman aşımı 300 saniyeyi aşamaz"
-      },
-      "actions": {
-        "save": "Yapılandırmayı Kaydet"
-      },
-      "toast": {
-        "saved": "Yönlendirme yapılandırması kaydedildi",
-        "saveFailed": "Kaydetme başarısız oldu: {{error}}"
-      },
-      "invalidPort": "Geçersiz bağlantı noktası, lütfen 1024-65535 arasında bir sayı girin",
-      "invalidAddress": "Geçersiz adres. Bir IPv4 (ör. 127.0.0.1), IPv6 (ör. ::1) veya localhost girin",
-      "configSaved": "Yönlendirme yapılandırması kaydedildi",
-      "configSaveFailed": "Yapılandırma kaydedilemedi",
-      "restartRequired": "Adres veya bağlantı noktası değişikliklerinin etkili olması için yönlendirme hizmetini yeniden başlatın"
-    },
-    "switchFailed": "Geçiş başarısız oldu: {{error}}",
-    "takeover": {
-      "ariaLabel": "{{appLabel}} yerel yönlendirme",
-      "hint": "Yönlendirilecek uygulamaları seçin — etkinleştirildiğinde, söz konusu uygulamadan gelen istekler yerel yönlendirme üzerinden iletilecektir",
-      "enabled": "{{app}} yönlendirme etkin",
-      "disabled": "{{app}} yönlendirme devre dışı",
-      "failed": "Yönlendirme değiştirilemedi: {{detail}}",
-      "tooltip": {
-        "active": "{{appLabel}} yönlendiriyor - {{address}}:{{port}}\nSağlayıcıları değiştirmek yalnızca rotayı değiştirir; doğrudan sağlayıcı kalır",
-        "broken": "{{appLabel}} yönlendirme yapıyor ancak yönlendirme hizmeti çalışmıyor",
-        "inactive": "{{appLabel}}'nin isteklerini yerel yönlendirme yoluyla yönlendirin"
-      }
-    },
-    "stackMode": {
-      "enabled": "{{app}} artık Birleştirme modunda",
-      "exitedToDirect": "{{apps}} direkt moda geri döndü",
-      "ariaLabel": "{{appLabel}} Birleştirme modu",
-      "failoverUnavailable": "{{appLabel}}, yedek sağlayıcıya geçiş özelliği olmayan Birleştirme modundadır. Kuyruk ve ayarlar korunur ve yönlendirme modunda tekrar uygulanır",
-      "codexStale": {
-        "authTitle": "Codex önceki hesabı hâlâ önbelleğe alabilir; yeni oturum açma bilgilerini yüklemek için arka plan sunucusunu yeniden başlatın",
-        "title": "Codex hala eski bir model listesi kullanıyor, dolayısıyla mevcut modeller gösterilmiyor",
-        "unverifiedTitle": "Geçişten önce açık olan Codex uygulamaları önceki hesabı veya model listesini kullanmaya devam edebilir",
-        "unverifiedHint": "CC Switch, masaüstü uygulamasının veya düzenleyici uzantılarının çalışıp çalışmadığını anlayamıyor. Açık değillerse bu bildirimi kapatın.",
-        "daemon": "CLI: kodeksi yeniden açmak yeterli değil; arka plan arka plan programının yeniden başlatılması gerekiyor.",
-        "others": "Masaüstü uygulaması: tamamen çıkın ve yeniden açın (macOS'de ⌘Q; pencereyi kapatmak yeterli değildir). Editör uzantıları: editör penceresini yeniden açın.",
-        "restart": "Codex arka plan programını yeniden başlatın",
-        "confirmTitle": "Codex arka plan programı yeniden başlatılsın mı?",
-        "confirmMessage": "Terminallerinizdeki her kodeks oturumu bu arka plan programını paylaşır, dolayısıyla yürütülen görevler kesintiye uğrayacaktır. Mevcut hesabı ve model listesini yüklemek için kodeksi daha sonra yeniden açın.",
-        "confirm": "Yeniden başlat",
-        "restarted": "Codex arka plan programı yeniden başlatıldı. Geçerli hesabı ve model listesini yüklemek için kodeksi yeniden açın",
-        "notRunning": "Codex arka plan programı çalışmıyor. Bir sonraki başlatılışında mevcut giriş ve model listesini yükleyecektir",
-        "failed": "Codex arka plan programı yeniden başlatılamadı: {{error}}"
-      }
-    },
-    "failover": {
-      "proxyRequired": "Yedek sağlayıcıya geçişyi yapılandırmak için yönlendirme hizmeti başlatılmalıdır",
-      "autoSwitch": "Otomatik yedek sağlayıcıya geçiş",
-      "autoSwitchDescription": "Etkinleştirildiğinde, hemen P1 kuyruğuna geçer ve arıza durumunda otomatik olarak kuyruktaki bir sonraki sağlayıcıyı dener"
-    },
-    "failoverQueue": {
-      "title": "Yedek Sağlayıcıya Geçiş Sırası",
-      "description": "Her uygulamanın sağlayıcıları için yedek sağlayıcıya geçiş sırasını yönetin",
-      "info": "Otomatik yedek sağlayıcıya geçiş etkinleştirildiğinde, istekler kuyruk öncelik sırasını takip eder (önce P1). Arıza durumunda sistem kuyruktaki bir sonraki sağlayıcıyı deneyecektir.",
-      "selectProvider": "Kuyruğa eklenecek sağlayıcıyı seçin",
-      "noAvailableProviders": "Eklenecek sağlayıcı yok",
-      "empty": "Yedek sağlayıcıya geçiş kuyruğu boş. Otomatik yedek sağlayıcıya geçişyi etkinleştirmek için sağlayıcıları ekleyin.",
-      "orderHint": "Kuyruk sırası, Ana sayfadaki sağlayıcı listesi sırası ile eşleşir. Önceliği değiştirmek için Ana sayfadaki sağlayıcıları yeniden sıralayın.",
-      "dragHint": "Yedek sağlayıcıya geçiş sırasını ayarlamak için sağlayıcıları sürükleyin. Düşük sayılar daha yüksek önceliğe sahiptir.",
-      "toggleEnabled": "Etkinleştir/Devre Dışı Bırak",
-      "addSuccess": "Yedek sağlayıcıya geçiş kuyruğuna eklendi",
-      "addFailed": "Eklenemedi",
-      "removeSuccess": "Yedek sağlayıcıya geçiş kuyruğundan kaldırıldı",
-      "removeFailed": "Kaldırılamadı",
-      "reorderSuccess": "Sıra sırası güncellendi",
-      "reorderFailed": "Sipariş güncellenemedi",
-      "toggleFailed": "Durum güncellenemedi"
-    },
-    "autoFailover": {
-      "info": "Yedek sağlayıcıya geçiş kuyruğunda birden fazla sağlayıcı varsa, istekler başarısız olduğunda sistem bunları öncelik sırasına göre deneyecektir. Sağlayıcı ardışık arıza eşiğine ulaştığında devre kesici açılacak ve geçici olarak atlayacaktır.",
-      "configSaved": "Otomatik yedek sağlayıcıya geçiş yapılandırması kaydedildi",
-      "configSaveFailed": "Kaydedilemedi",
-      "validationFailed": "Aşağıdaki alanlar geçerli aralığın dışında: {{fields}}",
-      "retrySettings": "Yeniden Deneme ve Zaman Aşımı Ayarları",
-      "failureThreshold": "Arıza Eşiği",
-      "failureThresholdHint": "Bu kadar çok ardışık arızadan sonra devre kesiciyi açın (önerilen: 3-10)",
-      "timeout": "Kurtarma Bekleme Süresi (saniye)",
-      "timeoutHint": "Devre açıldıktan sonra kurtarmayı denemeden önce bu kadar bekleyin (önerilen: 30-120)",
-      "circuitBreakerSettings": "Devre Kesici Ayarları",
-      "successThreshold": "Kurtarma Başarı Eşiği",
-      "successThresholdHint": "Yarı açık durumdaki bunca başarının ardından devre kesiciyi kapatın",
-      "errorRate": "Hata Oranı Eşiği (%)",
-      "errorRateHint": "Hata oranı bu değeri aştığında devre kesiciyi açın",
-      "minRequests": "Minimum İstekler",
-      "minRequestsHint": "Hata oranını hesaplamadan önce minimum istekler",
-      "explanationTitle": "Nasıl Çalışır?",
-      "failureThresholdLabel": "Arıza Eşiği",
-      "failureThresholdExplain": "Bu kadar çok ardışık arızadan sonra devre kesici açılarak sağlayıcının geçici olarak kullanılamaz hale gelmesine neden olur",
-      "timeoutLabel": "Kurtarma Bekleme Süresi",
-      "timeoutExplain": "Devre açıldıktan sonra yarı açık durumu denemeden önce bu kadar bekleyin",
-      "successThresholdLabel": "Kurtarma Başarı Eşiği",
-      "successThresholdExplain": "Yarı açık durumda, bu kadar çok başarının ardından devre kesiciyi kapatın ve sağlayıcıyı tekrar kullanılabilir hale getirin",
-      "errorRateLabel": "Hata Oranı Eşiği",
-      "errorRateExplain": "Arıza eşiğine ulaşılmasa bile hata oranı bu değeri aştığında devre kesiciyi açın",
-      "maxRetries": "Maksimum Yeniden Deneme Sayısı",
-      "timeoutSettings": "Zaman Aşımı Ayarları",
-      "streamingFirstByte": "Akış İlk Bayt Zaman Aşımı",
-      "streamingIdle": "Akış Boşta Kalma Zaman Aşımı",
-      "nonStreaming": "Yayın Dışı Zaman Aşımı",
-      "maxRetriesHint": "İstek hatası durumunda yeniden deneme sayısı (0-10)",
-      "streamingFirstByteHint": "İlk veri öbeği için maksimum bekleme süresi, aralık 1-120 saniye, varsayılan 60 saniye",
-      "streamingIdleHint": "Veri parçaları arasındaki maksimum aralık, aralık 60-600 saniye, devre dışı bırakmak için 0 (akış ortasında durmaları önler)",
-      "nonStreamingHint": "Akış dışı istekler için toplam zaman aşımı, aralık 60-1200 saniye, varsayılan 600 saniye (10 dakika)"
-    },
-    "logging": {
-      "enabled": "Günlük kaydı etkinleştirildi",
-      "disabled": "Günlük kaydı devre dışı bırakıldı",
-      "failed": "Günlük kaydı değiştirilemedi"
-    },
-    "server": {
-      "started": "Yönlendirme hizmeti başlatıldı - {{address}}:{{port}}",
-      "startFailed": "Yönlendirme hizmeti başlatılamadı: {{detail}}",
-      "stopped": "Yönlendirme hizmeti durduruldu",
-      "stopFailed": "Yönlendirme hizmeti durdurulamadı: {{detail}}"
-    },
-    "stoppedWithRestore": "Yönlendirme hizmeti durduruldu; tüm uygulamalar doğrudan bağlantılara geri döndü",
-    "stopWithRestoreFailed": "Durdurma başarısız oldu: {{detail}}"
-  },
   "streamCheck": {
     "reachable": "{{providerName}}'ye ulaşılabilir ({{responseTimeMs}}ms)",
     "reachableSlow": "{{providerName}}'ye ulaşılabilir ancak yavaş ({{responseTimeMs}}ms)",
@@ -4130,112 +3824,6 @@
     "webUi": "Web kullanıcı arayüzü",
     "viewUsage": "Bu uygulamanın kullanımını görüntüle"
   },
-  "mode": {
-    "tabsLabel": "Bağlantı modu",
-    "names": {
-      "direct": "Doğrudan",
-      "route": "Yönlendirme",
-      "stack": "Birleştirme"
-    },
-    "active": "aktif",
-    "activeTitle": "{{mode}} aktif",
-    "noProvider": "Yok",
-    "failover": "Yedek sağlayıcıya geçiş",
-    "routeSettings": "Yönlendirme ayarları",
-    "routeSettingsTitle": "Yönlendirme ayarları",
-    "moreRouteSettings": "Daha fazla yönlendirme ayarı",
-    "stackSettings": {
-      "title": "Birleştirme ayarları",
-      "subagentDescription": "Alt aracılar varsayılan olarak ana modeli izler. Birleştirilmiş bir model seçerseniz ana aracının başlattığı alt aracılar da varsayılan olarak onu kullanır (ana aracı başlatırken model belirtirse bu geçerli olur). Codex'i yeniden başlatmanız gerekmez: yeni konuşmalar bu ayarı kullanır, açık konuşmalar önceki ayarla devam eder.",
-      "subagentModel": "Alt aracı modeli",
-      "followMain": "Ana modeli izle",
-      "subagentEffort": "Alt aracı akıl yürütme çabası",
-      "effortModelDefault": "Model varsayılanı",
-      "effortModelDefaultNamed": "Model varsayılanı ({{effort}})",
-      "unavailableOption": "{{model}} (artık birleştirmede değil)",
-      "unavailable": "Seçilen model artık birleştirmede bulunmuyor (sağlayıcı kaldırıldı veya modeli yayımlamayı durdurdu); bu nedenle alt aracılar şimdilik ana modeli izliyor. Modeli yeniden eklediğinizde tekrar kullanılabilir.",
-      "noModels": "Henüz birleştirilmiş model yayımlanmamış. Önce birleştirmeye sağlayıcı ekleyin.",
-      "classicOff": "Alt ajan ana ajandan farklı bir sağlayıcıda çalıştığı için Codex'in yeni alt ajan araçları görevi, yalnızca ana ajanın sağlayıcısının okuyabileceği şekilde şifreler; alt ajan görevin içeriğini alamaz. Bu araçları kullanmak için aşağıdaki \"Birleştirme modunda klasik alt ajan araçları\" seçeneğini açın.",
-      "autoReviewModel": "Otomatik inceleme modeli",
-      "autoReviewDescription": "Otomatik onay (Benim yerime onayla) açıkken bir işlemin devam edip edemeyeceğine karar veren Codex modeli. Başka bir sağlayıcının birleştirilmiş modeli olabilir. Değişikliklerden sonra Codex'i yeniden başlatın.",
-      "autoReviewDefaultOfficial": "Resmî Otomatik İnceleme (varsayılan)",
-      "autoReviewDefaultMain": "Ana model kendini inceler (varsayılan)",
-      "autoReviewUnavailable": "Seçilen model artık birleştirmede bulunmuyor (sağlayıcı kaldırıldı veya modeli yayımlamayı durdurdu); bu nedenle onaylarda şimdilik varsayılan inceleyici kullanılıyor. Modeli yeniden eklediğinizde tekrar kullanılabilir.",
-      "saveFailed": "Kaydetme başarısız: {{error}}"
-    },
-    "queueMoved": "{{name}}, {{position}} konumuna taşındı.",
-    "status": {
-      "directLead": "Doğrudan etkin · şuraya bağlı:",
-      "routeLead": "Yönlendirme etkin",
-      "byQueue": "sıraya göre",
-      "stackLead": "Birleştirme etkin · varsayılan",
-      "stackValue": "{{name}} · {{count}} sağlayıcı daha, {{models}} model"
-    },
-    "notice": {
-      "serviceDown": "{{app}}, {{mode}} modundadır ancak yönlendirme hizmeti çalışmadığından istekler başarısız olur.",
-      "startService": "Hizmeti başlat",
-      "backToDirect": "Doğrudan bağlantıya dön",
-      "attachFailed": "{{mode}} önceki başlangıçta yeniden bağlanamadığı için {{app}} doğrudan bağlantıya döndü."
-    },
-    "toast": {
-      "enteredRoute": "{{app}} artık yönlendirme yapıyor → {{provider}}.",
-      "enteredStack": "{{app}}, Birleştirme moduna geçti. Birleştirilen modelleri /model içinde görmek için {{app}} uygulamasını yeniden başlatın.",
-      "enteredStackLive": "{{app}}, Birleştirme moduna geçti. Birleştirilen modeller artık /model içinde.",
-      "enteredStackDesktop": "{{app}} Birleştirme moduna geçti. Birleştirilmiş modelleri model listesinde görmek için {{app}} uygulamasını yeniden başlatın.",
-      "exited": "Direkt olarak geri dön: {{app}} artık doğrudan {{provider}}'ye bağlanıyor.",
-      "routeRemembered": "{{provider}} sağlayıcısı, istemci Yönlendirme veya Birleştirme üzerinden bağlandığında kullanılmak üzere kaydedildi.",
-      "routeTargetChanged": "Yönlendirme hedefi {{provider}} olarak ayarlandı.",
-      "routeSwitched": "Yönlendirme {{provider}} sağlayıcısına geçirildi. Yeni istekler bu sağlayıcıyı kullanacak.",
-      "stackDefaultChanged": "Birleştirme varsayılanı {{provider}} olarak ayarlandı. Seçili birleştirilmiş modeller kendi sağlayıcılarını kullanmaya devam eder.",
-      "clientConfigChanged": " İstemci yapılandırması da değişti. Güncel yapılandırmayı yüklemek için {{app}} uygulamasını yeniden başlatın.",
-      "defaultRemembered": "Birleştirme'ya geçtiğinizde {{provider}} varsayılan sağlayıcı olacaktır.",
-      "restartHint": "Uygulamak için {{app}}'yi yeniden başlatın.",
-      "failed": "Geçiş yapılamadı: {{detail}}"
-    },
-    "dialog": {
-      "routeTitle": "{{app}} için yönlendirme kullanılsın mı?",
-      "stackTitle": "{{app}} için Birleştirme kullanılsın mı?",
-      "switchTitle": "{{app}}, \"{{from}}\" yerine \"{{to}}\" olarak değiştirilsin mi?",
-      "routeLead": "İstekler önce bu makinedeki CC Switch üzerinden, ardından seçtiğiniz sağlayıcıya iletilir.",
-      "stackLead": "Varsayılan sağlayıcı, önek olmadan istekleri alır.",
-      "routeTo": "Şuraya yönlendir",
-      "stackDefault": "Varsayılan sağlayıcı",
-      "officialOption": "{{name}} (resmi)",
-      "stackOfficialNote": "Resmi bir abonelik kullanıyorsanız resmi hesabı varsayılan sağlayıcı olarak ayarlayın.",
-      "routeNoteFile": "{{file}}'deki adresi ve anahtarı yeniden yazar. Gerçek anahtar CC Switch’te kalır; diğer ayarlara dokunulmaz.",
-      "routeNoteSwitch": "Sağlayıcıları daha sonra Yönlendirme sekmesinde değiştirmek, yapılandırma dosyasını yeniden yazmaz.",
-      "routeNoteKeepRunning": "CC Switch'yi çalışır durumda tutun. Çıkmak doğrudan yapılandırmayı geri yazar; bir sonraki başlangıçta yeniden bağlanır.",
-      "desktopRouteNoteModels": "Claude Desktop'ın model listesinde yönlendirilen sağlayıcının modelleri gösterilir; yönlendirilen sağlayıcıyı değiştirmek yapılandırma dosyasını yeniden yazar.",
-      "desktopRouteNoteRestart": "{{app}} yapılandırmasını yalnızca başlatılırken okur: onayladıktan sonra {{app}} uygulamasını yeniden başlatın.",
-      "desktopRouteNoteKeepRunning": "{{app}} isteklerinin gönderilebilmesi için CC Switch'i açık tutun.",
-      "stackNoteMembers": "{{names}}, /model içinde ccs- önekiyle gösterilen {{count}} modellerini ekler.",
-      "desktopStackNoteMembers": "{{names}}, Claude Desktop'ın model listesine \"Sağlayıcı / model\" biçiminde {{count}} model ekler.",
-      "stackNoteEmpty": "Henüz başka sağlayıcı eklenmediğinden yalnızca varsayılan kullanılabilir. Daha sonra Birleştirme sekmesine daha fazlasını ekleyebilirsiniz.",
-      "stackNoteNoFailover": "Birleştirmenın yedek sağlayıcıya geçiş özelliği yoktur. Kuyruk ve ayarları tutulur ve yönlendirme ile geri gelir.",
-      "stackNoteRestartCodex": "Toplu modelleri görmek için {{app}}'yi yeniden başlatın; masaüstü uygulamasından tamamen çıkın ve yeniden açın.",
-      "stackSubagentLead": "Alt aracılar varsayılan olarak ana modeli izler; isterseniz birleştirilmiş bir model seçebilirsiniz (bunu daha sonra Birleştirme ayarlarından değiştirebilirsiniz).",
-      "leaveStackNote": "ccs- ile başlayan birleştirme modelleri /model'den kaybolur. Birleştirme listesi korunur ve birleştirmeye geri döndüğünüzde geri gelir. Bunlardan birini kullanıyorsanız /model'de normal bir model seçin.",
-      "desktopLeaveStackNote": "Yeniden başlatmanın ardından birleştirilmiş modeller Claude Desktop'ın model listesinden kaldırılır. Birleştirme listesi korunur ve Birleştirme moduna yeniden geçtiğinizde modeller geri gelir. Bu modellerden birini kullanıyorsanız normal bir model seçin.",
-      "exitTitle": "{{app}} doğrudan bağlantıya geri dönsün mü? ({{from}})",
-      "exitLead": "{{app}} doğrudan {{provider}} sağlayıcısına bağlanacak; istekler artık CC Switch üzerinden geçmeyecek.",
-      "exitNoteFile": "{{file}} dosyasındaki adres ve anahtar yeniden {{provider}} sağlayıcısınınkilerle değiştirilir; diğer ayarlara dokunulmaz.",
-      "exitNoteRouteKept": "Yönlendirme hedefi, yedek sırası ve ayarlar korunur; yönlendirmeyi bir sonraki başlatışınızda yeniden etkinleşir.",
-      "desktopExitNoteRouteKept": "Yönlendirme hedefi korunur; yönlendirmeyi bir sonraki başlatışınızda yeniden etkinleşir.",
-      "confirmDirect": "Doğrudan bağlantıya dön",
-      "confirmRoute": "Yönlendirmeyi başlat",
-      "confirmStack": "Birleştirme moduna geç",
-      "needsRouteTitle": "{{provider}}'nin yönlendirmeye ihtiyacı var",
-      "needsRouteLead": "{{provider}}: {{reason}}. Doğrudan geçiş yaparsanız {{app}} onu kullanamayacaktır.",
-      "switchAnyway": "Yine de doğrudan geçiş yap",
-      "routeAndUse": "Yönlendirmeyi başlatın ve kullanın"
-    },
-    "help": {
-      "title": "Bağlantı modları nasıl farklılık gösterir?",
-      "direct": "Doğrudan: CC Switch isteklerinize müdahale etmez; istemci, seçtiğiniz sağlayıcıyla kendi yerel özelliklerini kullanarak doğrudan iletişim kurar.",
-      "route": "Yönlendirme: İstekler bu bilgisayardaki CC Switch üzerinden geçer; anında sağlayıcı değiştirme, yedek sağlayıcıya geçiş, biçim dönüştürme ve diğer gelişmiş özellikleri kullanabilirsiniz.",
-      "stack": "Birleştirme: Farklı sağlayıcıların modelleri /model içinde birlikte listelenir; istemci içinde modeller arasında kesintisiz geçiş yapabilirsiniz."
-    }
-  },
   "providerCard": {
     "status": {
       "inUse": "Kullanımda",
@@ -4282,7 +3870,8 @@
       "currentCannotRemove": "Kullanılan sağlayıcı kaldırılamaz. Önce başka birini etkinleştirin.",
       "inUseCannotDelete": "Kullanılan sağlayıcı silinemez. Önce diğerine geçin.",
       "directDefaultCannotDelete": "Yönlendirmeden çıkıldığında bu sağlayıcıya dönülür; bu nedenle silinemez. Önce doğrudan bağlantı sayfasında başka bir sağlayıcı için \"Doğrudan bağlantıya dön ve kullan\" seçeneğini seçin.",
-      "noFailover": "Resmi hesaplar yedek sağlayıcıya geçiş kuyruğuna katılamaz: İstemcinin kendi oturum açma bilgilerini kullanırlar ve diğer sağlayıcılarla dönüşümlü olarak çalışamazlar."
+      "noFailover": "Resmi hesaplar yedek sağlayıcıya geçiş kuyruğuna katılamaz: İstemcinin kendi oturum açma bilgilerini kullanırlar ve diğer sağlayıcılarla dönüşümlü olarak çalışamazlar.",
+      "directUnsupported": "Bu sağlayıcı doğrudan bağlantıyı desteklemiyor. İstemcinin yerel API protokolünü destekleyen bir sağlayıcı seçin."
     },
     "section": {
       "queue": "Sıra · önceliğe göre ({{count}})",
@@ -4302,42 +3891,6 @@
       "available": "Mevcut · {{count}}",
       "stackNoDefault": "Henüz varsayılan sağlayıcı yok. Birleştirme'ya geçerken birini seçersiniz."
     }
-  },
-  "routingSettings": {
-    "service": "Hizmet",
-    "serviceName": "Yönlendirme hizmeti",
-    "serviceHelp": "Yönlendirme ve Birleştirme modlarında istekler, sağlayıcıya ulaşmadan önce bu makinedeki yönlendirme hizmetinden geçer. Bir uygulama bu modlardan birine girdiğinde veya Claude Desktop model eşlemeyi kullandığında otomatik olarak başlar.",
-    "runningFor": "Çalışıyor · çalışma süresi {{uptime}}",
-    "uptimeHours": "{{hours}} sa {{minutes}} dk",
-    "uptimeMinutes": "{{minutes}} dk",
-    "stopped": "Durduruldu",
-    "totalRequests": "İstekler",
-    "successRate": "Başarı oranı",
-    "activeConnections": "Aktif bağlantılar",
-    "start": "Başlat",
-    "stop": "Durdur",
-    "stopBlocked": "Bazı uygulamalar hâlâ yönlendirme hizmetini kullanıyor. Önce bunları doğrudan yönlendirmeye çevirin.",
-    "listen": "Dinleme adresi ve portu",
-    "address": "Dinleme adresi",
-    "addressHint": "Önerilen: 127.0.0.1",
-    "port": "Dinleme portu",
-    "saveAndRestart": "Hizmeti kaydedin ve yeniden başlatın",
-    "clientHost": "Bağlantı adresi",
-    "clientHostHint": "İstemcilerin bağlandığı yer. Boş: dinleme adresi",
-    "clientHostInvalid": "İstemcilerin ulaşabileceği bir IP adresi veya ana bilgisayar adı girin",
-    "clientHostHelp": "CC Switch ana bilgisayarı istemci yapılandırmalarına yazar (Claude Desktop'nin ağ geçidi URL'si dahil). Dinleme adresinden türetmek için boş bırakın. İstemciler bu makineye geridöngü yoluyla erişemediğinde bunu ayarlayın; WSL2 içindeki Claude Desktop oturumları (NAT modu): dinleme adresini 0.0.0.0 olarak ayarlayın ve WSL'nin ulaşabileceği bir Windows IP girin (vEthernet (WSL) bağdaştırıcı adresi gibi) ve bağlantı noktasının güvenlik duvarı üzerinden geçmesine izin verin.",
-    "logging": "İstek kullanımını kaydet",
-    "loggingHelp": "Kapalıyken Kullanım, yönlendirilen istekler için istek başına ayrıntıya sahip değildir.",
-    "usingApps": "Yönlendirmeyi kullanan uygulamalar · {{count}}",
-    "noApps": "Hiçbir uygulama yönlendirmeyi kullanmıyor. Bunu bir uygulamanın sayfasındaki Yönlendirme veya Birleştirme sekmesinden girin.",
-    "routeDetail": "{{name}}'ye Yönlendirme",
-    "stackDetail": "Varsayılan {{name}}",
-    "goTo": "Aç",
-    "exitAll": "Tümünü doğrudan bağlantıya döndür",
-    "exitAllTitle": "Tüm uygulamalar doğrudan bağlantıya döndürülsün mü?",
-    "exitAllMessage": "Yönlendirme veya Birleştirme modundaki uygulamaların doğrudan yapılandırmaları geri yazılır, ardından yönlendirme hizmeti durur. Rota hedefleri, kuyruklar ve birleştirme listeleri tutulur.",
-    "exitAllConfirm": "Tümünü doğrudan bağlantıya döndür",
-    "failoverHelp": "Her uygulamanın zaman aşımlarını, yeniden denemelerini ve devre kesicilerini buradan ayarlayın. Kuyruklar her uygulamanın Yönlendirme sekmesinde yönetilir."
   },
   "quota": {
     "tierShort": "{{label}} {{value}}%",

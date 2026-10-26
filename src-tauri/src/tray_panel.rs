@@ -11,7 +11,7 @@
 //!   网页画兼容的毛玻璃。
 //!
 //! 面板只换了外观：每一行沿用原生菜单的事件 id，点击走 `tray::handle_tray_menu_event`，
-//! 切换、路由、故障转移的行为和原生菜单一致。窗口懒创建，之后只隐藏不销毁；失焦即隐藏。
+//! 供应商切换的行为和原生菜单一致。窗口懒创建，之后只隐藏不销毁；失焦即隐藏。
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;

@@ -380,12 +380,6 @@ export interface Settings {
   launchOnStartup?: boolean;
   // 静默启动（程序启动时不显示主窗口）
   silentStartup?: boolean;
-  // 是否启用主页面本地代理功能（默认关闭）
-  enableLocalProxy?: boolean;
-  // 是否在主页面显示 Stack 模式开关（默认关闭）。和 enableLocalProxy 二选一，只影响 Claude Code、Codex
-  enableStackMode?: boolean;
-  // User has confirmed the local proxy first-run notice
-  proxyConfirmed?: boolean;
   // User has confirmed the usage query first-run notice
   usageConfirmed?: boolean;
   usageDashboardRefreshIntervalMs?: number;
@@ -393,8 +387,6 @@ export interface Settings {
   usageDisplay?: UsageDisplaySettings;
   // 会话用量自动扫描开关（默认开启=自动模式；关闭后仅手动同步时扫描会话日志，代理记账不受影响）
   sessionAutoSyncEnabled?: boolean;
-  // Whether to show the failover toggle independently on the main page
-  enableFailoverToggle?: boolean;
   // 启动时检查已安装的命令行应用有没有新版本（默认关）
   checkToolUpdatesOnStartup?: boolean;
   // 点托盘图标出原生菜单，不出托盘面板（macOS / Windows；Linux 一律原生菜单；默认关，没写过视为关，即用托盘面板）
@@ -406,18 +398,6 @@ export interface Settings {
   unifyCodexSessionHistory?: boolean;
   // User opted in (enable dialog checkbox) to migrate existing official sessions
   unifyCodexMigrateExisting?: boolean;
-  // Codex aggregation: every catalog row uses the classic (v1) sub-agent tools,
-  // so a sub-agent on another provider can read its task (on by default)
-  codexStackClassicTools?: boolean;
-  // Codex aggregation: default sub-agent model (a published `ccs-<key>/<model>` id)
-  // and its reasoning effort. Unset = sub-agents follow the main model.
-  codexStackSubagentModel?: string;
-  codexStackSubagentReasoningEffort?: string;
-  // Codex aggregation: Auto Review (approval reviewer) model, a published
-  // `ccs-<key>/<model>` id. Unset = Codex's default reviewer.
-  codexStackAutoReviewModel?: string;
-  // User has confirmed the failover toggle first-run notice
-  failoverConfirmed?: boolean;
   // User has confirmed the first-run welcome notice
   firstRunNoticeConfirmed?: boolean;
   // User has confirmed the one-time "new layout" dialog shown to upgrading users

@@ -6,9 +6,9 @@
 //! - Codex API (非流式和流式)
 //! - Gemini API (非流式和流式)
 
-use crate::proxy::providers::transform::chat_completion_body;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::borrow::Cow;
 
 fn openai_cache_read_tokens(usage: &Value) -> u32 {
     // 每环要求「存在且非 0」：显式 0 按未上报处理，链继续向后找（#8041：
@@ -1319,5 +1319,40 @@ mod tests {
         assert_eq!(usage.cache_read_tokens, 0);
         assert_eq!(usage.cache_creation_tokens, 0);
         assert_eq!(usage.model, None);
+    }
+}
+
+fn is_chat_completion_envelope(body: &Value) -> bool {
+    !body.get("choices").is_some_and(Value::is_array)
+        && body
+            .get("data")
+            .and_then(|data| data.get("choices"))
+            .is_some_and(Value::is_array)
+}
+
+pub(crate) fn unwrap_chat_completion_envelope(body: Value) -> Value {
+    if !is_chat_completion_envelope(&body) {
+        return body;
+    }
+    let Value::Object(mut outer) = body else {
+        unreachable!("envelope check requires an object");
+    };
+    let Some(Value::Object(mut completion)) = outer.remove("data") else {
+        unreachable!("envelope check requires an object `data`");
+    };
+    for (key, value) in outer {
+        // 顶层 `choices` 此时只可能是非数组的占位值，不能盖掉 `data` 里的真值
+        if key != "choices" && !value.is_null() {
+            completion.insert(key, value);
+        }
+    }
+    Value::Object(completion)
+}
+
+pub(crate) fn chat_completion_body(body: &Value) -> Cow<'_, Value> {
+    if is_chat_completion_envelope(body) {
+        Cow::Owned(unwrap_chat_completion_envelope(body.clone()))
+    } else {
+        Cow::Borrowed(body)
     }
 }

@@ -1,13 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { promptsApi, type AppId, type Prompt } from "@/lib/api";
+import { promptsApi, type AppId } from "@/lib/api";
 
-/**
- * 提示词页之外读提示词的地方（应用页页头的「提示词：X ›」、提示词页应用下拉里的条数）。
- * 提示词页自己的列表走 usePromptActions；写完后 invalidate `promptKeys.all`，这里跟着刷新。
- */
 export const promptKeys = {
-  all: ["prompts"] as const,
-  list: (app: AppId) => ["prompts", "list", app] as const,
+  content: (app: AppId) => ["prompts", "content", app] as const,
   location: (app: AppId) => ["prompts", "location", app] as const,
 };
 
@@ -20,30 +15,12 @@ export const PROMPT_APP_IDS: AppId[] = [
   "agy",
 ];
 
-/** 应用页对应的提示词应用；不支持提示词的返回 null。 */
-export function promptAppOf(app: AppId): AppId | null {
-  return PROMPT_APP_IDS.includes(app) ? app : null;
-}
-
-export function usePromptListQuery(app: AppId | null, enabled = true) {
-  return useQuery({
-    queryKey: promptKeys.list(app ?? "claude"),
-    queryFn: () => promptsApi.getPrompts(app as AppId),
-    enabled: enabled && app !== null,
-  });
-}
-
-export function usePromptFileLocationQuery(app: AppId) {
+export function usePromptFileLocationQuery(app: AppId, enabled = true) {
   return useQuery({
     queryKey: promptKeys.location(app),
     queryFn: () => promptsApi.getFileLocation(app),
+    enabled,
+    refetchOnWindowFocus: "always",
     staleTime: 30_000,
   });
-}
-
-export function enabledPromptOf(
-  prompts: Record<string, Prompt> | undefined,
-): Prompt | undefined {
-  if (!prompts) return undefined;
-  return Object.values(prompts).find((prompt) => prompt.enabled);
 }

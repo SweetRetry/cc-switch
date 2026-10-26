@@ -25,7 +25,6 @@ import { APP_IDS } from "@/config/appConfig";
 import { AppGlyph } from "@/components/shell/AppGlyph";
 import { ProviderIcon } from "@/components/ProviderIcon";
 import { cn } from "@/lib/utils";
-import type { AppMode } from "@/types/proxy";
 import {
   CHANGED_EVENT,
   SHOW_EVENT,
@@ -237,13 +236,6 @@ function QuotaBlock({
 
 // ─── 主面板的应用行 ───────────────────────────────────────────────────────────
 
-// 模式名用主界面的模式色（与 ModeTabs 的 MODE_TONE.text 同一组 token），一眼分出直连 / 路由 / 聚合。
-const MODE_TEXT: Record<AppMode, string> = {
-  direct: "text-direct-text",
-  route: "text-route-text",
-  stack: "text-stack-text",
-};
-
 function AppRow({
   app,
   texts,
@@ -297,16 +289,7 @@ function AppRow({
           )}
         </span>
         <span className="block truncate text-xs text-muted-foreground">
-          {app.addId ? (
-            app.addText
-          ) : (
-            <>
-              {app.current && `${app.current} · `}
-              <span className={cn("font-medium", MODE_TEXT[app.modeKind])}>
-                {app.mode}
-              </span>
-            </>
-          )}
+          {app.addId ? app.addText : app.current}
         </span>
       </span>
       {app.addId ? (
@@ -421,7 +404,7 @@ function SubPanel({
       <div className="shrink-0 px-4 pb-2 pt-3">
         <div className="truncate text-[14px] font-semibold">{app.name}</div>
         <div className="truncate text-xs text-muted-foreground">
-          {app.header ?? texts.switchProvider}
+          {texts.switchProvider}
         </div>
       </div>
       <div className="tp-scroll min-h-0 flex-1 px-1.5 pb-1.5">
@@ -1082,7 +1065,6 @@ export function TrayPanel() {
             <FooterButton
               icon={<Power className="h-4 w-4" />}
               text={texts.quit}
-              title={state.quitHint ?? undefined}
               onClick={() => action("quit")}
             />
           </div>

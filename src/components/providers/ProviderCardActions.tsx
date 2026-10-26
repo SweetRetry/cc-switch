@@ -1,22 +1,16 @@
 import type * as React from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ArrowDown,
-  ArrowUp,
   ChevronRight,
   CircleDot,
-  ListMinus,
-  ListPlus,
   Loader2,
   Minus,
   MoreHorizontal,
   Pencil,
   Play,
-  Plug,
   Plus,
   Power,
   PowerOff,
-  Route,
   SquareTerminal,
   type LucideIcon,
 } from "lucide-react";
@@ -45,18 +39,12 @@ import type {
 
 const DOT: Record<CardTone | "muted", string> = {
   direct: "bg-direct",
-  route: "bg-route",
-  stack: "bg-stack",
   muted: "bg-fg-3",
 };
 
 /** 主操作位只放图标，名字由 HoverTip 悬停即显（key 见 presentation.ts）。 */
 const BUTTON_ICON: Record<string, LucideIcon> = {
   switch: Play,
-  exitAndUse: Plug,
-  routeHere: Route,
-  queueAdd: ListPlus,
-  queueRemove: ListMinus,
   add: Plus,
   remove: Minus,
   enable: Power,
@@ -79,8 +67,8 @@ interface ProviderCardActionsProps {
 }
 
 /**
- * 卡片右侧（v7）：主操作位（状态文字或按钮）→ 上移 / 下移（故障转移队列）→ 打开终端（Claude Code）
- * → 编辑 → ⋯。次要操作都在 ⋯ 里：跟当前模式有关的（聚合页、OpenClaw / OpenCode 的「设为默认」）在
+ * 卡片右侧（v7）：主操作位（状态文字或按钮）→ 打开终端（Claude Code）
+ * → 编辑 → ⋯。次要操作都在 ⋯ 里：跟当前模式有关的（OpenCode 的「设为默认」）在
  * 最前，然后是复制、检测连通、配置用量查询、删除。
  * 按钮一律纯图标 + HoverTip；有禁用原因时改由 DisabledReason 的说明卡报原因。
  */
@@ -97,7 +85,7 @@ export function ProviderCardActions({
   openTerminalIsolated,
 }: ProviderCardActionsProps) {
   const { t } = useTranslation();
-  const { status, buttons, move, menuItems = [] } = presentation;
+  const { status, buttons, menuItems = [] } = presentation;
 
   return (
     <div className="flex shrink-0 items-center gap-2">
@@ -117,41 +105,6 @@ export function ProviderCardActions({
           <PrimaryButton key={button.key} button={button} />
         ))}
       </div>
-
-      {move && (
-        <div className="flex items-center">
-          <HoverTip
-            content={t("providerCard.action.moveUp", { name: providerName })}
-          >
-            <Button
-              variant="quiet"
-              size="icon-compact"
-              aria-label={t("providerCard.action.moveUp", {
-                name: providerName,
-              })}
-              disabled={!move.onUp}
-              onClick={move.onUp}
-            >
-              <ArrowUp className="h-4 w-4" strokeWidth={1.5} />
-            </Button>
-          </HoverTip>
-          <HoverTip
-            content={t("providerCard.action.moveDown", { name: providerName })}
-          >
-            <Button
-              variant="quiet"
-              size="icon-compact"
-              aria-label={t("providerCard.action.moveDown", {
-                name: providerName,
-              })}
-              disabled={!move.onDown}
-              onClick={move.onDown}
-            >
-              <ArrowDown className="h-4 w-4" strokeWidth={1.5} />
-            </Button>
-          </HoverTip>
-        </div>
-      )}
 
       {onOpenTerminal && (
         <HoverTip

@@ -310,13 +310,9 @@ impl AppType {
         matches!(self, AppType::OpenCode | AppType::Pi)
     }
 
-    pub fn supports_local_proxy(&self) -> bool {
+    /// Whether client writes use device-local ownership and crash recovery.
+    pub fn uses_managed_live_state(&self) -> bool {
         matches!(self, AppType::Claude | AppType::Codex)
-    }
-
-    /// 是否支持设备级的直连和路由模式。
-    pub fn has_route_mode(&self) -> bool {
-        self.supports_local_proxy()
     }
 
     /// Return an iterator over managed app types

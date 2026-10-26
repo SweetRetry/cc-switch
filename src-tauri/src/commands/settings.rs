@@ -74,14 +74,6 @@ pub async fn save_settings(
     let unify_codex_changed =
         merged.unify_codex_session_history != existing.unify_codex_session_history;
     let unify_codex_enabled = merged.unify_codex_session_history;
-    // 经典子 agent 开关、聚合子 agent 模型/强度和聚合自动审批模型都只影响 Stack 模式下
-    // 写给 Codex 的内容。
-    let stack_settings_changed = merged.codex_stack_classic_tools
-        != existing.codex_stack_classic_tools
-        || merged.codex_stack_subagent_model != existing.codex_stack_subagent_model
-        || merged.codex_stack_subagent_reasoning_effort
-            != existing.codex_stack_subagent_reasoning_effort
-        || merged.codex_stack_auto_review_model != existing.codex_stack_auto_review_model;
     let tray_style_changed = merged.native_tray_menu != existing.native_tray_menu;
     crate::settings::update_settings(merged).map_err(|e| e.to_string())?;
 
@@ -90,27 +82,6 @@ pub async fn save_settings(
         crate::tray::apply_tray_style(&app);
     }
 
-    // 立即重写，失败时回滚设置，免得界面显示已改好、客户端还是旧的。
-    if stack_settings_changed {
-        if let Err(err) = crate::mode::controller::resync_codex_stack_catalog(state.inner()).await {
-            log::warn!("Codex 聚合设置变更后重写客户端配置失败，回滚设置: {err}");
-            let mut rollback = crate::settings::get_settings();
-            rollback.codex_stack_classic_tools = existing.codex_stack_classic_tools;
-            rollback.codex_stack_subagent_model = existing.codex_stack_subagent_model.clone();
-            rollback.codex_stack_subagent_reasoning_effort =
-                existing.codex_stack_subagent_reasoning_effort.clone();
-            rollback.codex_stack_auto_review_model = existing.codex_stack_auto_review_model.clone();
-            if let Err(rollback_err) = crate::settings::update_settings(rollback) {
-                log::error!("回滚 Codex 聚合设置失败: {rollback_err}");
-            }
-            return Err(format!(
-                "聚合设置未生效（Codex 配置重写失败） (The aggregation setting did not take effect: rewriting the Codex config failed): {err}"
-            ));
-        }
-    }
-
-    // 统一会话开关变更时立即重写当前官方 Codex 供应商的 live 配置，
-    // 不必等下一次切换才生效。
     if unify_codex_changed {
         // live 重写失败时回滚设置并把保存整体报失败：若设置保持已切换状态，
         // live 仍跑旧桶，后续的历史迁移/还原会让会话再次分裂（开启=历史
@@ -258,11 +229,6 @@ pub async fn restart_app(app: AppHandle) -> Result<bool, String> {
     // 在后台延迟重启，让函数有时间返回响应
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        // 本命令用于 app_config_dir 变更后的重启：新实例会切到新数据库，拿不到
-        // 旧库里的 Live 备份，无法恢复被接管的 Live 配置。因此必须趁旧实例的
-        // 事件循环仍存活，在这里同步完成恢复（保留代理状态，新实例启动时自动
-        // 重新接管）。
-        crate::cleanup_before_exit(&app).await;
         // 与自更新共用 restart_process，而不是 app.restart()：macOS 上经
         // LaunchServices 启动，新窗口才能回到前台。
         crate::restart_process(&app);
@@ -326,27 +292,23 @@ pub async fn install_update_and_restart(app: AppHandle) -> Result<bool, String> 
         // NIM_DELETE，会残留死图标——与托盘"退出"路径相同的问题）。
         // 因此清理只能放在 install 前执行，且必须显式移除托盘图标。
         crate::save_window_state_before_exit(&app);
-        crate::cleanup_before_exit(&app).await;
         crate::remove_tray_icon_before_exit(&app);
         crate::destroy_single_instance_lock(&app);
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        update.install(bytes).map_err(|e| {
-            format!(
-                "Windows 更新安装失败: {e}。已执行退出前清理，代理或 Live 接管可能已暂停；请重启应用或重新开启代理后再试。"
-            )
-        })?;
+        update
+            .install(bytes)
+            .map_err(|e| format!("Windows 更新安装失败: {e}。请重启应用后重试。"))?;
         Ok(true)
     }
 
     #[cfg(not(target_os = "windows"))]
     {
-        // macOS/Linux install() 会返回；先安装，避免安装失败时误停代理/撤回接管。
+        // macOS/Linux install() returns before restarting the process.
         update
             .install(bytes)
             .map_err(|e| format!("安装更新失败: {e}"))?;
 
         crate::save_window_state_before_exit(&app);
-        crate::cleanup_before_exit(&app).await;
 
         log::info!("应用更新安装完成，正在重启应用");
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
@@ -738,72 +700,6 @@ mod tests {
 #[tauri::command]
 pub async fn get_auto_launch_status() -> Result<bool, String> {
     crate::auto_launch::is_auto_launch_enabled().map_err(|e| format!("获取开机自启状态失败: {e}"))
-}
-
-/// 获取整流器配置
-#[tauri::command]
-pub async fn get_rectifier_config(
-    state: tauri::State<'_, crate::AppState>,
-) -> Result<crate::proxy::types::RectifierConfig, String> {
-    state.db.get_rectifier_config().map_err(|e| e.to_string())
-}
-
-/// 设置整流器配置
-#[tauri::command]
-pub async fn set_rectifier_config(
-    state: tauri::State<'_, crate::AppState>,
-    config: crate::proxy::types::RectifierConfig,
-) -> Result<bool, String> {
-    state
-        .db
-        .set_rectifier_config(&config)
-        .map_err(|e| e.to_string())?;
-    Ok(true)
-}
-
-/// 获取优化器配置
-#[tauri::command]
-pub async fn get_optimizer_config(
-    state: tauri::State<'_, crate::AppState>,
-) -> Result<crate::proxy::types::OptimizerConfig, String> {
-    state.db.get_optimizer_config().map_err(|e| e.to_string())
-}
-
-/// 设置优化器配置
-#[tauri::command]
-pub async fn set_optimizer_config(
-    state: tauri::State<'_, crate::AppState>,
-    config: crate::proxy::types::OptimizerConfig,
-) -> Result<bool, String> {
-    state
-        .db
-        .set_optimizer_config(&config)
-        .map_err(|e| e.to_string())?;
-    Ok(true)
-}
-
-/// 获取 Copilot 优化器配置
-#[tauri::command]
-pub async fn get_copilot_optimizer_config(
-    state: tauri::State<'_, crate::AppState>,
-) -> Result<crate::proxy::types::CopilotOptimizerConfig, String> {
-    state
-        .db
-        .get_copilot_optimizer_config()
-        .map_err(|e| e.to_string())
-}
-
-/// 设置 Copilot 优化器配置
-#[tauri::command]
-pub async fn set_copilot_optimizer_config(
-    state: tauri::State<'_, crate::AppState>,
-    config: crate::proxy::types::CopilotOptimizerConfig,
-) -> Result<bool, String> {
-    state
-        .db
-        .set_copilot_optimizer_config(&config)
-        .map_err(|e| e.to_string())?;
-    Ok(true)
 }
 
 /// 获取日志配置

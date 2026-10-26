@@ -13,7 +13,6 @@ import {
   Info,
   KeyRound,
   LayoutGrid,
-  Route,
   Server,
   Settings,
   SlidersHorizontal,
@@ -36,7 +35,7 @@ import {
   resolveSidebarToday,
   type SidebarTodayItem,
 } from "@/components/usage/format";
-import { useSidebarStatus, type AppNavStatus } from "@/hooks/useSidebarStatus";
+import { useSidebarStatus } from "@/hooks/useSidebarStatus";
 import { HoverTip } from "@/components/ui/hover-tip";
 import { DRAG_REGION_ATTR, DRAG_REGION_STYLE, isMac } from "@/lib/platform";
 import { cn } from "@/lib/utils";
@@ -155,7 +154,6 @@ function MainDirectory({
   const { data: settings } = useSettingsQuery();
   const { hasUpdate } = useUpdate();
   const {
-    appStatus,
     todayCost,
     todayTokens,
     todayRequests,
@@ -241,7 +239,6 @@ function MainDirectory({
               key={app}
               app={app}
               selected={onAppPage && activeApp === app}
-              status={appStatus(app)}
               onSelect={() => onSelectApp(app)}
             />
           ))}
@@ -295,39 +292,16 @@ function MainDirectory({
   );
 }
 
-function modeTag(
-  status: AppNavStatus,
-  t: (key: string) => string,
-): { label: string; className: string } | null {
-  if (status.mode === "route") {
-    return {
-      label: t("nav.mode.route"),
-      className: "bg-route-soft text-route-text",
-    };
-  }
-  if (status.mode === "stack") {
-    return {
-      label: t("nav.mode.stack"),
-      className: "bg-stack-soft text-stack-text",
-    };
-  }
-  return null;
-}
-
 function AppNavItem({
   app,
   selected,
-  status,
   onSelect,
 }: {
   app: AppId;
   selected: boolean;
-  status: AppNavStatus;
   onSelect: () => void;
 }) {
-  const { t } = useTranslation();
   const name = APP_DISPLAY_NAME[app];
-  const tag = modeTag(status, t);
   const badgeBg = selected ? "bg-selected" : "bg-sidebar";
 
   return (
@@ -342,26 +316,6 @@ function AppNavItem({
     >
       <AppGlyph app={app} size={16} badgeClassName={badgeBg} />
       <span className="min-w-0 flex-1 truncate">{name}</span>
-      {status.alert ? (
-        <span
-          role="img"
-          aria-label={t("nav.needsAttention")}
-          className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger"
-        />
-      ) : (
-        // 选中的应用不再显示模式标签：页头下面的模式行已经写明
-        tag &&
-        !selected && (
-          <span
-            className={cn(
-              "h-[18px] whitespace-nowrap rounded-full px-1.5 text-badge leading-[18px]",
-              tag.className,
-            )}
-          >
-            {tag.label}
-          </span>
-        )
-      )}
     </button>
   );
 }
@@ -498,7 +452,6 @@ function NavItem({
 const SETTINGS_ITEMS: { section: SettingsSection; icon: IconComponent }[] = [
   { section: "general", icon: SlidersHorizontal },
   { section: "appConfig", icon: Folder },
-  { section: "routing", icon: Route },
   { section: "network", icon: Globe },
   { section: "data", icon: Database },
   { section: "about", icon: Info },

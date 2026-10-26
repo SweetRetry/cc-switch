@@ -129,15 +129,6 @@ pub fn view(state: &AppState, settings_config: &Value) -> Result<EditorView, App
 
 /// live 里的独有字段是谁带进来的：接上代理时是代理契约，否则是直连指针指向的供应商。
 fn live_exclusive_owner(state: &AppState) -> Result<Option<ClaudeProjection>, AppError> {
-    let mode = crate::mode::current::mode_state(&AppType::Claude);
-    if mode.attached {
-        if let Some(contract) = mode.contract {
-            return Ok(Some(ClaudeProjection {
-                exclusive: contract.exclusive,
-                ..ClaudeProjection::default()
-            }));
-        }
-    }
     Ok(
         crate::mode::current::direct_provider(&state.db, &AppType::Claude)?
             .map(|row| ClaudeProjection::of(&row.settings_config)),

@@ -1,6 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { AppId } from "@/lib/api/types";
-import type { AppMode } from "@/types/proxy";
 
 /** 托盘面板的数据（后端 `tray_panel::TrayPanelState`）。 */
 export interface PanelTexts {
@@ -68,9 +67,6 @@ export interface PanelApp {
   app: AppId;
   name: string;
   current: string | null;
-  mode: string;
-  modeKind: AppMode;
-  header: string | null;
   attention: string | null;
   quota: PanelQuota | null;
   addId: string | null;
@@ -84,7 +80,6 @@ export interface TrayPanelState {
   feedback: string | null;
   apps: PanelApp[];
   lightweight: boolean;
-  quitHint: string | null;
 }
 
 /** 这次弹出的方位（后端 `tray_panel::PanelPlacement`），坐标为逻辑像素。 */

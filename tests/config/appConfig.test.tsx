@@ -5,7 +5,6 @@ import {
   isAdditiveAppId,
   SKILLS_APP_IDS,
   MCP_APP_IDS,
-  isProxyAppId,
 } from "@/config/appConfig";
 
 describe("appConfig provider lifecycle", () => {
@@ -27,7 +26,6 @@ describe("Antigravity capabilities", () => {
     expect(SKILLS_APP_IDS).toContain("agy");
     expect(MCP_APP_IDS).toContain("agy");
     expect(isAdditiveAppId("agy")).toBe(false);
-    expect(isProxyAppId("agy")).toBe(false);
   });
 });
 

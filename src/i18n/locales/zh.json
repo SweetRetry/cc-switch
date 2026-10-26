@@ -383,16 +383,6 @@
     "removeProvider": "移除供应商",
     "removeProviderMessage": "确定要从配置中移除供应商 \"{{name}}\" 吗？\n\n移除后该供应商将不再生效，但配置数据会保留在 CC Switch 中，您可以随时重新添加。",
     "piDefaultProviderWarning": "Pi 的全局默认项当前指向此供应商。继续后，Pi 会尝试其他可用模型；你可以在 Pi 中使用 /model 重新选择，或使用 /login 登录其他供应商。",
-    "proxy": {
-      "title": "启用本地路由服务",
-      "message": "本地路由是一项高级功能，启用前请确保您已了解其工作原理。\n\n建议先查阅相关文档或咨询您的供应商，以获取正确的配置方式。",
-      "confirm": "我已了解，继续启用"
-    },
-    "failover": {
-      "title": "启用故障转移功能",
-      "message": "故障转移是一项高级功能，启用前请确保您已了解其工作原理。\n\n建议先在故障转移队列中配置好供应商优先级。",
-      "confirm": "我已了解，继续启用"
-    },
     "unifyCodexHistory": {
       "title": "统一 Codex 会话历史",
       "message": "开启后，Codex CLI 的 resume 列表会把官方订阅与第三方的会话合并显示（Codex 桌面版更新后已经可以显示全部会话，不受影响）。注意：跨供应商继续旧会话时，可能因对方后端无法解密 encrypted_content 推理内容而失败。\n\n可选择同时把现有官方会话历史迁入共享列表（迁移前自动备份到 ~/.cc-switch/backups，关闭开关时可选择恢复）。",
@@ -441,9 +431,8 @@
     "tabGeneral": "通用",
     "tabAuth": "认证",
     "tabAdvanced": "高级",
-    "tabProxy": "路由",
     "authCenter": {
-      "description": "把 GitHub Copilot、ChatGPT、xAI 订阅当作供应商用。凭据由路由服务注入，相关供应商要在路由模式下使用（Codex 官方登录绑定除外）。Antigravity 账号用来切换 agy 的官方登录。",
+      "description": "管理已关联的账号与订阅额度。Codex 官方供应商可绑定 ChatGPT 账号。Antigravity 账号用于切换应用的官方登录。",
       "beta": "Beta",
       "copilotDescription": "管理 GitHub Copilot 账号",
       "codexOauthDescription": "管理 ChatGPT 账号",
@@ -453,22 +442,6 @@
       "configDir": {
         "title": "配置文件目录",
         "description": "管理 Claude、Codex 和 Gemini 的配置存储路径"
-      },
-      "proxy": {
-        "title": "本地路由",
-        "description": "控制路由服务开关、查看状态与端口信息",
-        "enableFeature": "在主页面显示本地路由开关",
-        "enableFeatureDescription": "开启后，主页面顶部将显示路由和故障转移开关",
-        "enableStackMode": "在主页面显示聚合模式开关",
-        "enableStackModeDescription": "开启后，Claude Code 和 Codex 的主页面开关换成聚合模式：像 OpenCode 一样添加多家供应商，它们的模型都会出现在客户端的模型列表里（Codex 需要重启后生效），不做故障转移。和本地路由开关二选一，切换时已开启的 Claude Code、Codex 会先退回直连",
-        "enableFailoverToggle": "在主页面显示故障转移开关",
-        "enableFailoverToggleDescription": "开启后，主页面顶部将独立显示故障转移开关",
-        "running": "运行中",
-        "stopped": "已停止"
-      },
-      "failover": {
-        "title": "自动故障转移",
-        "description": "配置故障转移队列和熔断策略"
       },
       "pricing": {
         "title": "成本定价",
@@ -1057,7 +1030,7 @@
     "saving": "正在保存...",
     "globalProxy": {
       "label": "全局代理",
-      "hint": "代理所有请求（API、Skills 下载等）。开启本地路由时，应用的请求也会经过此代理。留空表示直连。",
+      "hint": "代理 CC Switch 发出的请求，包括 API 检查和 Skills 下载。留空表示直连。",
       "username": "用户名（可选）",
       "password": "密码（可选）",
       "test": "测试连接",
@@ -1083,16 +1056,12 @@
     "sections": {
       "general": "通用",
       "appConfig": "应用配置",
-      "routing": "本地路由",
       "network": "网络",
       "data": "数据",
       "about": "关于"
     },
     "appConfig": {
       "configDir": "配置目录"
-    },
-    "routing": {
-      "service": "服务"
     },
     "data": {
       "location": "存储位置"
@@ -1190,82 +1159,6 @@
     "current": {
       "readFailed": "无法读取 Pi 供应商配置",
       "stateUnavailableHint": "CC Switch 读取到 Pi 供应商配置前，供应商变更已暂时禁用。"
-    },
-    "prompts": {
-      "globalTab": "提示库",
-      "systemTab": "系统提示",
-      "templatesTab": "模板",
-      "usePromptSuccess": "已写入全局 AGENTS.md",
-      "stopUsingSuccess": "已移除全局 AGENTS.md",
-      "systemAppend": "系统提示追加",
-      "systemAppendDescription": "追加在 Pi 内置的基础提示之后",
-      "systemOverride": "系统提示替换",
-      "systemOverrideDescription": "替换 Pi 内置的基础提示",
-      "systemOverrideWarning": "SYSTEM.md 会替换 Pi 内置的基础提示；不需要完全控制基础指令时，用 APPEND_SYSTEM.md。",
-      "recommended": "推荐",
-      "configuredEmpty": "已配置但为空",
-      "notConfigured": "未配置",
-      "unavailable": "读取失败",
-      "instructionPlaceholder": "给 Pi 的 Markdown 内容",
-      "blankInstruction": "请输入非空白内容；不想用了就点左下角「删除文件」",
-      "saveAndConfigure": "保存并配置",
-      "activateOverrideTitle": "配置 {{filename}}？",
-      "activateOverrideMessage": "创建 {{filename}} 会替换 Pi 内置基础提示。上下文、AGENTS.md 和 Skills 等仍由 Pi 按自身规则加入。",
-      "fileSaved": "{{filename}} 已保存",
-      "saveFailed": "保存 Pi 指令文件失败",
-      "deleteFailed": "删除 Pi 指令文件失败",
-      "reloadNotice": "已打开的 Pi 不会自动热更新，空闲时运行 /reload；新启动的 Pi 会自动读取。",
-      "templatesDescription": "模板保存后可在 Pi 中通过 /命令名 调用，无需启用。",
-      "newTemplate": "新建模板",
-      "editTemplate": "编辑 /{{slug}}",
-      "templateCommand": "斜杠命令",
-      "templateSlug": "一个词，例如 review",
-      "templateSlugInvalid": "只能是一个词：字母、数字、- _ .，不能有空格或 / \\ : * ? 等字符",
-      "templateSlugExists": "已经有 /{{slug}} 了，换一个名字",
-      "templateDescription": "备注",
-      "templateDescriptionPlaceholder": "可选，写进模板开头的 description",
-      "templateContent": "模板正文",
-      "templateContentPlaceholder": "输入 Pi 将展开的 Markdown",
-      "templateSyntax": "模板正文怎么写",
-      "templateSyntaxDescription": "可用 $1、$2、$@ 或 $ARGUMENTS 替换参数；开头可以写 frontmatter（description、argument-hint）。",
-      "createTemplate": "创建模板",
-      "templateCreated": "已创建 /{{slug}}",
-      "templateSaved": "/{{slug}} 已保存",
-      "templateLoadFailed": "读取 Pi 提示词模板失败",
-      "templateSaveFailed": "保存 Pi 提示词模板失败",
-      "templateDeleteFailed": "删除 Pi 提示词模板失败",
-      "searchTemplates": "搜索命令或正文",
-      "noTemplates": "还没有模板",
-      "noTemplatesDescription": "保存后在 Pi 里输入 /命令名 调用。",
-      "noTemplateResults": "没有命令名、备注或正文匹配“{{query}}”的模板",
-      "kindLabel": "Pi 的提示词类型",
-      "libraryLabel": "Pi 的提示库",
-      "systemFilesLabel": "Pi 的系统提示文件",
-      "templatesLabel": "Pi 的提示词模板",
-      "externalTitle": "AGENTS.md 在 CC Switch 之外改过",
-      "externalDetail": "内容（{{size}}）和提示库里的每一条都不同，所以没有哪条显示为已启用；启用别的之前会先存进提示库。",
-      "saveToLibrary": "存进提示库",
-      "reloadAfterDelete": "已打开的 Pi 空闲时运行 /reload 后生效。",
-      "configuredSize": "已配置 · {{size}}",
-      "create": "创建",
-      "createFile": "创建 {{filename}}",
-      "editFile": "编辑 {{filename}}",
-      "saveAndConfigureEllipsis": "保存并配置",
-      "deleteFile": "删除文件",
-      "appendDeleted": "已删除 APPEND_SYSTEM.md，Pi 不再追加这段内容",
-      "overrideDeleted": "已删除 SYSTEM.md，Pi 改回使用内置的基础提示",
-      "deletedUndoable": "撤销会把文件原样写回。",
-      "deletedBlank": "这个文件原本是空的，所以不能撤销。",
-      "fileRestored": "已写回 ~/.pi/agent/{{filename}}",
-      "templateSlugRequired": "填写命令名，例如 review",
-      "templateSaveTo": "保存到 {{path}}",
-      "templateRename": "保存后 /{{from}} 改名为 /{{to}}",
-      "searchTemplatesLabel": "搜索模板",
-      "copyCommand": "复制命令名",
-      "copiedCommand": "已复制 /{{slug}}",
-      "templateDeletedUndo": "已删除 /{{slug}}，Pi 里不再有这个命令",
-      "templateDeletedSub": "撤销会把 prompts/{{slug}}.md 原样写回。",
-      "templateRestored": "已写回 ~/.pi/agent/prompts/{{slug}}.md"
     }
   },
   "appSwitcher": {
@@ -1669,7 +1562,7 @@
     "authField": "认证字段",
     "authFieldAuthToken": "ANTHROPIC_AUTH_TOKEN（默认）",
     "authFieldApiKey": "ANTHROPIC_API_KEY",
-    "authFieldHint": "直连时是写进 settings.json 的变量名；经过路由时，AUTH_TOKEN 以 Bearer、API_KEY 以 x-api-key 发给上游。",
+    "authFieldHint": "写入 settings.json 的认证变量名。AUTH_TOKEN 使用 Bearer 认证，API_KEY 使用 x-api-key 请求头。",
     "apiHintResponses": "💡 填写兼容 OpenAI Responses API 的服务端点地址，不要以斜杠结尾",
     "anthropicDefaultHaikuModel": "Haiku 默认模型",
     "anthropicDefaultSonnetModel": "Sonnet 默认模型",
@@ -1953,10 +1846,10 @@
     "subagentModelPlaceholder": "留空则跟随主模型",
     "subagentReasoningEffortLabel": "子代理推理强度",
     "subagentReasoningEffortDefault": "默认强度",
-    "subagentModelHint": "Codex 派出的子代理默认用的模型和推理强度。留空时沿用主代理的；只填模型时用该模型自己的默认强度。聚合模式下不生效，改用聚合页签「聚合设置」里的子代理模型。",
-    "subagentModelNotInCatalog": "该模型不在模型列表中：Codex 拿不到它的上下文窗口；经路由转成 Chat / Anthropic 协议时会被换成默认模型。",
+    "subagentModelHint": "Codex 子代理默认使用的模型和推理强度。留空时跟随主代理；只填模型时使用该模型自己的默认推理强度。",
+    "subagentModelNotInCatalog": "该模型不在模型列表中，Codex 无法读取它的上下文窗口。",
     "autoReviewModelLabel": "自动审批模型",
-    "autoReviewModelHint": "Codex 开了自动审批（Approve for me）时，判断操作能不能放行用的模型。审批请求和主对话发给同一家，所以只能选这张卡模型列表里的。聚合模式下不生效，改用聚合页签「聚合设置」里的自动审批模型。改完需要重启 Codex。",
+    "autoReviewModelHint": "Codex 开启自动审批时用于判断操作能否放行的模型。审批请求和主对话发往同一家供应商，只能选择此卡模型列表中的模型。修改后需重启 Codex。",
     "autoReviewModelCodexDefault": "Codex 默认（codex-auto-review）",
     "autoReviewModelMainDefault": "主模型自己审批（默认）",
     "autoReviewModelNoList": "这张卡没有模型列表：Codex 会用官方的 codex-auto-review 审批，只有部分转发 ChatGPT 账号的中转认它，不认就会报 404。在上面的模型列表里加上模型后就能选。",
@@ -2813,6 +2706,11 @@
     }
   },
   "prompts": {
+    "viewerTitle": "提示词文件",
+    "viewerHelp": "查看当前应用的全局提示词文件。修改请使用外部编辑器，修改后点击刷新。",
+    "fileContent": "提示词文件正文",
+    "contentCopied": "已复制提示词正文",
+    "pathUnavailable": "无法获取文件路径",
     "add": "添加提示词",
     "addTitle": "添加提示词 · {{appName}}",
     "editTitle": "编辑提示词",
@@ -2842,11 +2740,11 @@
     "confirm": {},
     "appSelect": "选择应用",
     "helpTitle": "提示词怎么生效",
-    "helpText": "每个应用同时只启用一条，它就是目标文件的内容。在别处改了文件，下次打开本页时会收进启用中的那条；文件里有本页没有的内容，启用前先存成「原始提示词」。",
+    "helpText": "查看当前应用的全局提示词文件。修改请使用外部编辑器，修改后点击刷新。",
     "helpHermesTitle": "SOUL.md 怎么生效",
     "helpHermesText": "SOUL.md 是 Hermes 的人设，同时只启用一条。在别处改了文件，下次打开本页时会收进启用中的那条；文件里有本页没有的内容，启用前先存成「原始提示词」。",
     "helpPiTitle": "Pi 的提示词怎么生效",
-    "helpPiText": "提示库同时只启用一条，它就是 AGENTS.md 的内容。系统提示文件存在就生效，模板在 Pi 里输入 /命令名 调用，这两类都不用启用。",
+    "helpPiText": "查看当前应用的全局提示词文件。修改请使用外部编辑器，修改后点击刷新。",
     "moreActions": "提示词的更多操作",
     "importCurrent": "导入当前的 {{file}}",
     "importReason": {
@@ -3561,210 +3459,6 @@
       "takeoverRequired": "请先接管 {{app}}，再启用故障转移"
     }
   },
-  "proxy": {
-    "panel": {
-      "serviceAddress": "服务地址",
-      "addressCopied": "地址已复制",
-      "currentProvider": "当前 Provider：",
-      "waitingFirstRequest": "当前 Provider：等待首次请求…",
-      "stoppedTitle": "路由服务已停止",
-      "stoppedDescription": "使用上方开关即可启动服务",
-      "openSettings": "配置路由服务",
-      "stats": {
-        "activeConnections": "活跃连接",
-        "totalRequests": "总请求数",
-        "successRate": "成功率",
-        "uptime": "运行时间"
-      }
-    },
-    "settings": {
-      "title": "路由服务设置",
-      "description": "配置本地路由服务器的监听地址、端口和运行参数，保存后立即生效。",
-      "alert": {
-        "autoApply": "保存后将自动同步到正在运行的路由服务，无需手动重启。"
-      },
-      "basic": {
-        "title": "基础设置",
-        "description": "配置路由服务监听的地址与端口。"
-      },
-      "advanced": {
-        "title": "高级参数",
-        "description": "控制请求的稳定性和日志记录。"
-      },
-      "timeout": {
-        "title": "超时设置",
-        "description": "配置流式和非流式请求的超时时间。"
-      },
-      "fields": {
-        "listenAddress": {
-          "label": "监听地址",
-          "placeholder": "127.0.0.1",
-          "description": "路由服务器监听的 IP 地址（推荐 127.0.0.1）"
-        },
-        "listenPort": {
-          "label": "监听端口",
-          "placeholder": "15721",
-          "description": "路由服务器监听的端口号（1024 ~ 65535）"
-        },
-        "maxRetries": {
-          "label": "最大重试次数",
-          "placeholder": "3",
-          "description": "请求失败时的重试次数（0 ~ 10）"
-        },
-        "requestTimeout": {
-          "label": "请求超时（秒）",
-          "placeholder": "0（不限）或 300",
-          "description": "单个请求的最大等待时间（0 表示不限制，或设置 10 ~ 600 秒）"
-        },
-        "enableLogging": {
-          "label": "记录请求用量",
-          "description": "将路由请求的用量与状态写入本地统计数据库"
-        },
-        "streamingFirstByteTimeout": {
-          "label": "流式首字超时（秒）",
-          "description": "等待首个数据块的最大时间"
-        },
-        "streamingIdleTimeout": {
-          "label": "流式静默超时（秒）",
-          "description": "数据块之间的最大间隔"
-        },
-        "nonStreamingTimeout": {
-          "label": "非流式超时（秒）",
-          "description": "非流式请求的总超时时间"
-        }
-      },
-      "validation": {
-        "addressInvalid": "请输入有效的IP地址",
-        "portMin": "端口必须大于1024",
-        "portMax": "端口必须小于65535",
-        "retryMin": "重试次数不能为负",
-        "retryMax": "重试次数不能超过10",
-        "timeoutNonNegative": "超时时间不能为负数",
-        "timeoutMax": "超时时间最多600秒",
-        "timeoutRange": "请输入 0 或 10-600 之间的数值",
-        "streamingTimeoutMin": "超时时间至少5秒",
-        "streamingTimeoutMax": "超时时间最多300秒"
-      },
-      "actions": {
-        "save": "保存配置"
-      },
-      "toast": {
-        "saved": "路由配置已保存",
-        "saveFailed": "保存失败: {{error}}"
-      },
-      "invalidPort": "端口无效，请输入 1024-65535 之间的数字",
-      "invalidAddress": "地址无效，请输入 IPv4（如 127.0.0.1）、IPv6（如 ::1）或 localhost",
-      "configSaved": "路由配置已保存",
-      "configSaveFailed": "保存配置失败",
-      "restartRequired": "修改地址或端口后需要重启路由服务才能生效"
-    },
-    "switchFailed": "切换失败: {{error}}",
-    "takeover": {
-      "ariaLabel": "{{appLabel}} 本地路由",
-      "hint": "选择要路由的应用，启用后该应用的请求将通过本地路由转发",
-      "enabled": "{{app}} 路由已启用",
-      "disabled": "{{app}} 路由已关闭",
-      "failed": "切换路由状态失败: {{detail}}",
-      "tooltip": {
-        "active": "{{appLabel}} 路由中 - {{address}}:{{port}}\n切换供应商只改路由，直连供应商不变",
-        "broken": "{{appLabel}} 路由中，但路由服务未运行",
-        "inactive": "路由 {{appLabel}} 的请求，让该应用请求走本地路由"
-      }
-    },
-    "stackMode": {
-      "enabled": "{{app}} 已进入聚合模式",
-      "exitedToDirect": "{{apps}} 已退回直连",
-      "ariaLabel": "{{appLabel}} 聚合模式",
-      "failoverUnavailable": "{{appLabel}} 在聚合模式下不做故障转移。队列和设置保留，回到路由模式后恢复",
-      "codexStale": {
-        "authTitle": "Codex 可能仍缓存着切换前的账号；重启后台服务才能载入新登录",
-        "title": "Codex 还在用旧的模型列表，切换后的模型不会出现",
-        "unverifiedTitle": "切换前就开着的 Codex 可能还在用之前的账号或模型列表",
-        "unverifiedHint": "CC Switch 看不到桌面版和编辑器插件是否在运行；没开着的话直接关掉这条提示即可。",
-        "daemon": "命令行：重开 codex 不够，要重启后台的守护进程。",
-        "others": "桌面版：要彻底退出再重开（macOS 上按 ⌘Q，只关窗口不行）；编辑器插件要重开编辑器窗口。",
-        "restart": "重启 Codex 守护进程",
-        "confirmTitle": "重启 Codex 守护进程？",
-        "confirmMessage": "所有终端里的 codex 共用这个守护进程，正在运行的任务会被中断。重启之后重新打开 codex，载入最新的账号和模型列表。",
-        "confirm": "重启",
-        "restarted": "Codex 守护进程已重启，重新打开 codex 以载入最新账号和模型列表",
-        "notRunning": "Codex 守护进程没有在运行，下次启动时会载入当前登录和模型列表",
-        "failed": "重启 Codex 守护进程失败：{{error}}"
-      }
-    },
-    "failover": {
-      "proxyRequired": "需要先启动路由服务才能配置故障转移",
-      "autoSwitch": "自动故障转移",
-      "autoSwitchDescription": "开启后将立即切换到队列 P1，并在请求失败时自动切换到队列中的下一个供应商"
-    },
-    "failoverQueue": {
-      "title": "故障转移队列",
-      "description": "管理各应用的供应商故障转移顺序",
-      "info": "启用自动故障转移后，将按队列优先级选择供应商（P1 优先）。当请求失败时，系统会按队列顺序依次尝试下一个供应商。",
-      "selectProvider": "选择供应商添加到队列",
-      "noAvailableProviders": "没有可添加的供应商",
-      "empty": "故障转移队列为空。添加供应商以启用自动故障转移。",
-      "orderHint": "队列顺序与首页供应商列表顺序一致，可在首页拖拽调整顺序。",
-      "dragHint": "拖拽供应商可调整故障转移顺序，序号越小优先级越高。",
-      "toggleEnabled": "启用/禁用",
-      "addSuccess": "已添加到故障转移队列",
-      "addFailed": "添加失败",
-      "removeSuccess": "已从故障转移队列移除",
-      "removeFailed": "移除失败",
-      "reorderSuccess": "队列顺序已更新",
-      "reorderFailed": "更新顺序失败",
-      "toggleFailed": "状态更新失败"
-    },
-    "autoFailover": {
-      "info": "当故障转移队列中配置了多个供应商时，系统会在请求失败时按优先级顺序依次尝试。当某个供应商连续失败达到阈值时，熔断器会打开并在一段时间内跳过该供应商。",
-      "configSaved": "自动故障转移配置已保存",
-      "configSaveFailed": "保存失败",
-      "validationFailed": "以下字段超出有效范围: {{fields}}",
-      "retrySettings": "重试与超时设置",
-      "failureThreshold": "失败阈值",
-      "failureThresholdHint": "连续失败多少次后打开熔断器（建议: 3-10）",
-      "timeout": "恢复等待时间（秒）",
-      "timeoutHint": "熔断器打开后，等待多久后尝试恢复（建议: 30-120）",
-      "circuitBreakerSettings": "熔断器设置",
-      "successThreshold": "恢复成功阈值",
-      "successThresholdHint": "半开状态下成功多少次后关闭熔断器",
-      "errorRate": "错误率阈值 (%)",
-      "errorRateHint": "错误率超过此值时打开熔断器",
-      "minRequests": "最小请求数",
-      "minRequestsHint": "计算错误率前的最小请求数",
-      "explanationTitle": "工作原理",
-      "failureThresholdLabel": "失败阈值",
-      "failureThresholdExplain": "连续失败达到此次数时，熔断器打开，该供应商暂时不可用",
-      "timeoutLabel": "恢复等待时间",
-      "timeoutExplain": "熔断器打开后，等待此时间后尝试半开状态",
-      "successThresholdLabel": "恢复成功阈值",
-      "successThresholdExplain": "半开状态下，成功达到此次数时关闭熔断器，供应商恢复可用",
-      "errorRateLabel": "错误率阈值",
-      "errorRateExplain": "错误率超过此值时，即使未达到失败阈值也会打开熔断器",
-      "maxRetries": "最大重试次数",
-      "timeoutSettings": "超时配置",
-      "streamingFirstByte": "流式首字节超时",
-      "streamingIdle": "流式静默超时",
-      "nonStreaming": "非流式超时",
-      "maxRetriesHint": "请求失败时的重试次数（0-10）",
-      "streamingFirstByteHint": "等待首个数据块的最大时间，范围 1-120 秒，默认 60 秒",
-      "streamingIdleHint": "数据块之间的最大间隔，范围 60-600 秒，填 0 禁用（防止中途卡住）",
-      "nonStreamingHint": "非流式请求的总超时时间，范围 60-1200 秒，默认 600 秒（10 分钟）"
-    },
-    "logging": {
-      "enabled": "日志记录已启用",
-      "disabled": "日志记录已关闭",
-      "failed": "切换日志状态失败"
-    },
-    "server": {
-      "started": "路由服务已启动 - {{address}}:{{port}}",
-      "startFailed": "启动路由服务失败: {{detail}}",
-      "stopped": "路由服务已停止",
-      "stopFailed": "停止路由服务失败：{{detail}}"
-    },
-    "stoppedWithRestore": "路由服务已关闭，所有应用已退回直连",
-    "stopWithRestoreFailed": "停止失败: {{detail}}"
-  },
   "streamCheck": {
     "reachable": "{{providerName}} 连通正常 ({{responseTimeMs}}ms)",
     "reachableSlow": "{{providerName}} 连通但较慢 ({{responseTimeMs}}ms)",
@@ -4151,112 +3845,6 @@
     "webUi": "Web UI",
     "viewUsage": "查看此应用的用量"
   },
-  "mode": {
-    "tabsLabel": "连接模式",
-    "names": {
-      "direct": "直连",
-      "route": "路由",
-      "stack": "聚合"
-    },
-    "active": "生效中",
-    "activeTitle": "{{mode}}生效中",
-    "noProvider": "未选择",
-    "failover": "故障转移",
-    "routeSettings": "路由设置",
-    "routeSettingsTitle": "路由设置",
-    "moreRouteSettings": "更多路由设置",
-    "stackSettings": {
-      "title": "聚合设置",
-      "subagentDescription": "子代理默认跟随主模型。选一个聚合里的模型后，主代理派出的子代理默认用它（主代理派单时自己指定了模型的除外）。不用重启 Codex，新开的对话就会用上；已经开着的对话仍按原来的设置。",
-      "subagentModel": "子代理模型",
-      "followMain": "跟随主模型",
-      "subagentEffort": "子代理推理强度",
-      "effortModelDefault": "模型默认",
-      "effortModelDefaultNamed": "模型默认（{{effort}}）",
-      "unavailableOption": "{{model}}（已不在聚合里）",
-      "unavailable": "所选模型已不在聚合名单里（成员被移除或模型不再发布），子代理暂时跟随主模型；加回来后自动恢复。",
-      "noModels": "聚合名单里还没有发布的模型，先把供应商加入聚合。",
-      "classicOff": "子代理和主代理不在同一家，Codex 新版的子 agent 工具会把任务加密，只有主代理那家解得开，子代理会收不到任务。必须打开下面的「聚合模式下子 agent 用经典工具」。",
-      "autoReviewModel": "自动审批模型",
-      "autoReviewDescription": "Codex 开了自动审批（Approve for me）时，判断操作能不能放行用的模型，可以选聚合里别家的模型。改完需要重启 Codex。",
-      "autoReviewDefaultOfficial": "官方 Auto Review（默认）",
-      "autoReviewDefaultMain": "主模型自己审批（默认）",
-      "autoReviewUnavailable": "所选模型已不在聚合名单里（成员被移除或模型不再发布），审批暂时用默认模型；加回来后自动恢复。",
-      "saveFailed": "保存失败：{{error}}"
-    },
-    "queueMoved": "{{name}} 移到第 {{position}} 位。",
-    "status": {
-      "directLead": "直连生效中 · 直接连接",
-      "routeLead": "路由生效中",
-      "byQueue": "按队列",
-      "stackLead": "聚合生效中 · 默认",
-      "stackValue": "{{name}} · 另有 {{count}} 家共 {{models}} 个模型"
-    },
-    "notice": {
-      "serviceDown": "{{app}} 处于{{mode}}模式，但路由服务没有运行，请求会失败。",
-      "startService": "启动服务",
-      "backToDirect": "回到直连",
-      "attachFailed": "上次的{{mode}}模式没能接上，{{app}} 已回到直连。"
-    },
-    "toast": {
-      "enteredRoute": "{{app}} 已开始路由 → {{provider}}。",
-      "enteredStack": "{{app}} 已切换到聚合模式。重启 {{app}} 后，聚合的模型出现在 /model 里。",
-      "enteredStackLive": "{{app}} 已切换到聚合模式，聚合的模型已出现在 /model 里。",
-      "enteredStackDesktop": "{{app}} 已切换到聚合模式。重启 {{app}} 后，聚合的模型出现在模型列表里。",
-      "exited": "已回到直连：{{app}} 现在直接连接 {{provider}}。",
-      "routeRemembered": "已记住供应商 {{provider}}，客户端接入路由或聚合后使用。",
-      "routeTargetChanged": "路由目标已设为 {{provider}}。",
-      "routeSwitched": "路由已切换至 {{provider}}，后续新请求将使用该供应商。",
-      "stackDefaultChanged": "聚合默认供应商已设为 {{provider}}；已选聚合模型仍使用各自的供应商。",
-      "clientConfigChanged": "客户端配置也已更新；重启 {{app}} 以加载更新后的配置。",
-      "defaultRemembered": "切换到聚合模式后，默认供应商是 {{provider}}。",
-      "restartHint": "重启 {{app}} 后生效。",
-      "failed": "切换失败：{{detail}}"
-    },
-    "dialog": {
-      "routeTitle": "让 {{app}} 使用路由模式？",
-      "stackTitle": "让 {{app}} 使用聚合模式？",
-      "switchTitle": "把 {{app}} 从「{{from}}」切换到「{{to}}」？",
-      "routeLead": "请求会先经过本机的 CC Switch，再转给你选的供应商。",
-      "stackLead": "默认供应商承接不带前缀的请求。",
-      "routeTo": "路由到",
-      "stackDefault": "默认供应商",
-      "officialOption": "{{name}}（官方）",
-      "stackOfficialNote": "如果你在用官方订阅，请把官方账号设为默认供应商。",
-      "routeNoteFile": "会改写 {{file}} 里的地址和密钥；真实密钥留在 CC Switch 里，其他设置不动。",
-      "routeNoteSwitch": "之后在「路由」页签里换供应商，不再改写配置文件。",
-      "routeNoteKeepRunning": "CC Switch 需要保持运行；退出时自动写回直连，下次启动再接上。",
-      "desktopRouteNoteModels": "Claude Desktop 的模型列表换成路由那家的模型；之后换路由那家会改写配置文件。",
-      "desktopRouteNoteRestart": "{{app}} 只在启动时读配置，确认后要重启 {{app}} 才生效。",
-      "desktopRouteNoteKeepRunning": "CC Switch 需要保持运行，{{app}} 的请求才能转出去。",
-      "stackNoteMembers": "另有 {{names}} 共 {{count}} 个模型，会以 ccs- 前缀出现在 /model 里。",
-      "desktopStackNoteMembers": "另有 {{names}} 共 {{count}} 个模型，会加进 Claude Desktop 的模型列表，显示为「供应商 / 模型」。",
-      "stackNoteEmpty": "还没有添加其他供应商，切换后只有默认供应商；可以之后在「聚合」页签里添加。",
-      "stackNoteNoFailover": "聚合模式不做故障转移；队列和设置会保留，回到路由模式后恢复。",
-      "stackNoteRestartCodex": "需要重启 {{app}} 才能看到聚合的模型；桌面版要彻底退出后重新打开。",
-      "stackSubagentLead": "子代理默认跟随主模型，也可以选聚合里的一个模型（之后在「聚合设置」里随时能改）。",
-      "leaveStackNote": "以 ccs- 开头的聚合模型会从 /model 里消失；聚合名单不会删，切回聚合模式就回来。正在用其中某个的话，要在 /model 里换回普通模型。",
-      "desktopLeaveStackNote": "聚合的模型会从 Claude Desktop 的模型列表撤下，重启后生效；聚合名单不会删，切回聚合模式就回来。正在用其中某个的话，要换回普通模型。",
-      "exitTitle": "把 {{app}} 从「{{from}}」切回直连？",
-      "exitLead": "{{app}} 会直接连接 {{provider}}，请求不再经过 CC Switch。",
-      "exitNoteFile": "会把 {{file}} 里的地址和密钥改回 {{provider}} 的，其他设置不动。",
-      "exitNoteRouteKept": "路由目标、故障转移队列和设置都会保留，下次开始路由时恢复。",
-      "desktopExitNoteRouteKept": "路由目标会保留，下次开始路由时恢复。",
-      "confirmDirect": "回到直连",
-      "confirmRoute": "开始路由",
-      "confirmStack": "切换到聚合模式",
-      "needsRouteTitle": "{{provider}} 需要路由",
-      "needsRouteLead": "{{provider}}：{{reason}}。直连切换过去，{{app}} 会无法使用它。",
-      "switchAnyway": "仍然直连切换",
-      "routeAndUse": "开始路由并使用它"
-    },
-    "help": {
-      "title": "连接模式的区别",
-      "direct": "直连：CC Switch 不经手任何请求，客户端直接连所选供应商，体验最原生。",
-      "route": "路由：请求经本机 CC Switch 转发，可热切换供应商，并支持故障转移、格式转换等高级功能。",
-      "stack": "聚合：多家供应商的模型同列在 /model，在客户端内即可无感切换。"
-    }
-  },
   "providerCard": {
     "status": {
       "inUse": "使用中",
@@ -4302,7 +3890,8 @@
       "defaultCannotRemove": "默认那家不能移除，先把别家设为默认。",
       "inUseCannotDelete": "正在用的这家不能删除，先切到别家。",
       "directDefaultCannotDelete": "退出路由后会回到这家，所以不能删除。先在直连页对别家点「回到直连并使用」，再删除。",
-      "noFailover": "官方账号不进故障转移队列：它用客户端自己的登录，不能和别家轮换。"
+      "noFailover": "官方账号不进故障转移队列：它用客户端自己的登录，不能和别家轮换。",
+      "directUnsupported": "此供应商不支持直连，请使用兼容客户端原生协议的供应商。"
     },
     "section": {
       "queue": "队列 · 按优先级（{{count}}）",
@@ -4322,42 +3911,6 @@
       "available": "可添加 · {{count}}",
       "stackNoDefault": "还没有默认供应商；切换到聚合模式时选一家。"
     }
-  },
-  "routingSettings": {
-    "service": "服务",
-    "serviceName": "路由服务",
-    "serviceHelp": "路由模式和聚合模式下，请求先经过本机的路由服务再转给供应商。进入这两种模式时会自动启动。",
-    "runningFor": "运行中 · 已运行 {{uptime}}",
-    "uptimeHours": "{{hours}} 小时 {{minutes}} 分",
-    "uptimeMinutes": "{{minutes}} 分钟",
-    "stopped": "已停止",
-    "totalRequests": "总请求数",
-    "successRate": "成功率",
-    "activeConnections": "活跃连接",
-    "start": "启动",
-    "stop": "停止",
-    "stopBlocked": "还有应用在用路由服务，先让它们回到直连。",
-    "listen": "监听地址与端口",
-    "address": "监听地址",
-    "addressHint": "推荐 127.0.0.1",
-    "port": "监听端口",
-    "saveAndRestart": "保存并重启服务",
-    "clientHost": "连接地址",
-    "clientHostHint": "客户端连路由用的地址；留空按监听地址",
-    "clientHostInvalid": "请输入客户端能访问到的 IP 地址或主机名",
-    "clientHostHelp": "CC Switch 写进客户端配置的代理主机（含 Claude Desktop 的网关地址）。留空时按监听地址推导。客户端无法通过本机回环访问时填写，例如 WSL2（NAT 模式）里的 Claude Desktop 会话：把监听地址设为 0.0.0.0，在这里填 WSL 能访问到的 Windows IP（如 vEthernet (WSL) 网卡的地址），并在防火墙中放行端口。",
-    "logging": "记录请求用量",
-    "loggingHelp": "关闭后，用量统计里没有经路由的请求明细。",
-    "usingApps": "正在使用路由的应用 · {{count}}",
-    "noApps": "没有应用在用路由。在应用页的「路由」或「聚合」页签里进入。",
-    "routeDetail": "路由到 {{name}}",
-    "stackDetail": "默认 {{name}}",
-    "goTo": "前往",
-    "exitAll": "全部回到直连",
-    "exitAllTitle": "让所有应用回到直连？",
-    "exitAllMessage": "在路由和聚合模式下的应用都会写回直连配置，然后停止路由服务。路由目标、队列和聚合名单会保留。",
-    "exitAllConfirm": "全部回到直连",
-    "failoverHelp": "这里调各应用的超时、重试和熔断。队列在各应用页的「路由」页签里管理。"
   },
   "quota": {
     "tierShort": "{{label}} {{value}}%",

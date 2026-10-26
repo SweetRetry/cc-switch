@@ -265,26 +265,18 @@ pub(crate) struct CodexEditorPlan {
 
 /// live 现在归谁：接上代理时是契约，否则是直连指针那家。
 struct LiveOwner {
-    mode: crate::mode::state::ModeState,
     direct: Option<Provider>,
 }
 
 impl LiveOwner {
     fn read(state: &AppState) -> Result<Self, AppError> {
         Ok(Self {
-            mode: crate::mode::current::mode_state(&AppType::Codex),
             direct: crate::mode::current::direct_provider(&state.db, &AppType::Codex)?,
         })
     }
 
     fn owner(&self) -> Owner<'_> {
-        match (&self.mode.contract, self.mode.attached) {
-            (Some(contract), true) => Owner::Contract {
-                contract,
-                route: None,
-            },
-            _ => self.direct.as_ref().map_or(Owner::None, Owner::Provider),
-        }
+        self.direct.as_ref().map_or(Owner::None, Owner::Provider)
     }
 }
 

@@ -1,5 +1,4 @@
 import type { AppId } from "@/lib/api";
-import type { Provider } from "@/types";
 import {
   PRESET_FAMILIES,
   PRESET_REGION_KEYS,
@@ -9,7 +8,6 @@ import {
   type PresetRegionKey,
 } from "@/config/presetFamilies";
 import { PRESET_SEARCH_ALIASES } from "@/config/presetSearchAliases";
-import { providerNeedsRouting } from "@/utils/providerCapabilities";
 import type { AnyPreset, PresetEntry } from "./ProviderPresetSelector";
 
 type Translate = (key: string) => unknown;
@@ -420,39 +418,6 @@ export function sortPresetRowsByName<T extends { row: PresetRowItem }>(
   t: Translate,
 ): T[] {
   return sortByName(items, (item) => presetRowName(item.row, t));
-}
-
-/** 预设需要经过路由才能用（托管 OAuth、要转换格式的） */
-export function presetNeedsRouting(
-  appId: AppId | undefined,
-  entry: PresetEntry,
-): boolean {
-  if (!appId) return false;
-  const p = entry.preset as PresetFields;
-  const provider = {
-    id: entry.id,
-    name: p.name,
-    settingsConfig: (p as { settingsConfig?: Record<string, unknown> })
-      .settingsConfig as Provider["settingsConfig"],
-    category: p.category,
-    meta: {
-      ...(p.apiFormat ? { apiFormat: p.apiFormat } : {}),
-      ...(p.providerType ? { providerType: p.providerType } : {}),
-    },
-  } as Provider;
-  try {
-    return providerNeedsRouting(appId, provider);
-  } catch {
-    return false;
-  }
-}
-
-/** 合成的一行只有所有版本都要路由时才挂「需要路由」 */
-export function presetRowNeedsRouting(
-  appId: AppId | undefined,
-  row: PresetRowItem,
-): boolean {
-  return row.versions.every((entry) => presetNeedsRouting(appId, entry));
 }
 
 /** 账号登录类的副行：用哪家的账号登录 */

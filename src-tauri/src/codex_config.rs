@@ -899,7 +899,7 @@ pub fn read_codex_config_text() -> Result<String, AppError> {
 
 /// `config.toml` 是不是用 `[features] multi_agent_v2` 强制了新版子 agent 工具：写成 `true`，
 /// 或写成带 `enabled = true` 的表（codex-rs `features` 的 `FeatureToml`）。Codex 先看它再看
-/// 模型目录，打开了它，目录里写的 [`CODEX_CLASSIC_SUBAGENTS`] 就不生效。解析不了时按没有。
+/// 模型目录，打开了它，目录里的经典子代理工具设置就不生效。解析不了时按没有。
 pub(crate) fn codex_config_forces_multi_agent_v2(text: &str) -> bool {
     codex_config_feature_enabled(text, "multi_agent_v2")
 }
@@ -2477,217 +2477,6 @@ pub(crate) fn plan_codex_model_catalog(
     })
 }
 
-/// 一家第三方供应商发布的模型：行里的模型目录；没有配置目录时只有行的 `model`。
-fn codex_published_specs(settings: &Value, config_text: &str) -> Vec<CodexCatalogModelSpec> {
-    let specs = codex_catalog_model_specs(settings);
-    if !specs.is_empty() {
-        return specs;
-    }
-    codex_top_level_model(config_text)
-        .map(|model| {
-            vec![CodexCatalogModelSpec {
-                model,
-                ..CodexCatalogModelSpec::default()
-            }]
-        })
-        .unwrap_or_default()
-}
-
-/// Stack 模型用：一家第三方供应商发布的模型名（按目录顺序）。`config_text` 是行里的
-/// `config`（只读顶层 `model`）。
-pub(crate) fn codex_published_models(settings: &Value, config_text: &str) -> Vec<String> {
-    codex_published_specs(settings, config_text)
-        .into_iter()
-        .map(|spec| spec.model)
-        .collect()
-}
-
-/// 合并目录里的一家第三方供应商。
-pub(crate) struct CodexCatalogRow<'a> {
-    pub settings: &'a Value,
-    /// 这一家归一化后的配置（`CodexProjection::catalog_input_text`）：地址、模型名、窗口。
-    pub config_text: &'a str,
-    /// 这一家自己的工具 profile：各家的请求走各自的转换，目录要和转换对得上。
-    pub profile: CodexCatalogToolProfile,
-}
-
-/// 合并目录里的一家 Stack 供应商。
-pub(crate) struct CodexStackCatalogMember<'a> {
-    pub key: &'a str,
-    pub provider_name: &'a str,
-    pub row: CodexCatalogRow<'a>,
-}
-
-/// 合并目录里路由那家的行。
-pub(crate) enum CodexStackRoute<'a> {
-    /// 第三方路由：按它的行生成。
-    ThirdParty(CodexCatalogRow<'a>),
-    /// 官方路由：官方模型列表的原生行（已补齐、已校验），原样保留；`config_text` 是
-    /// 官方卡归一化后的配置，只取窗口键。
-    Official {
-        native: Vec<Value>,
-        config_text: &'a str,
-    },
-}
-
-/// 合并目录里 Stack 行统一的 `comp_hash`。Codex 在一个会话记下的值变了时，会先用**上一个
-/// 模型**压缩一次（codex-rs `maybe_run_previous_model_inline_compact`）；模板带来的值会随
-/// 来源漂移（DeepSeek 官方目录是 "3000"，镜像官方的 GPT 行也是），固定值才稳定。
-///
-/// 第三方路由那家的行也写这个值：否则在它和 Stack 行之间切换都要先用上一家压缩，上一家
-/// 不可用（额度用完）时压缩失败，而自定义供应商不会改用当前模型重试，会话从此每轮都卡在
-/// 上一家（#8485）。代价是加进第一家、移除最后一家时，路由上原本带值的会话会用路由那家
-/// 自己的模型压缩一次。官方路由的原生行不改：失败时 Codex 会改用当前模型重试，官方的
-/// 压缩语义也要保留。
-const CODEX_STACK_COMP_HASH: &str = "cc-switch";
-
-/// 让一行加入合并目录里共用历史的那组：`comp_hash` 按工具协议分组，同协议的行共用一个值。
-///
-/// 镜像官方条目的第三方 GPT 行带着 `tool_mode: "code_mode_only"`，shell 调用在历史里是
-/// custom 工具 `exec`；其余第三方行是 direct，只有 `exec_command`。两者若共用一个值，切换时
-/// 不压缩，direct 模型会照着历史调用不存在的 `exec`，每轮都报 `unsupported call: exec`
-/// （#8676）。所以协议不同就分开：跨组切换先用上一家压缩，把对方协议的调用收进摘要；
-/// 组内切换照旧不压缩（#8485）。代价是跨组切换时上一家若不可用，压缩会失败，#8485 在这条
-/// 路径上回来；组内换一家或新开会话都能绕开。direct 行沿用 [`CODEX_STACK_COMP_HASH`]，
-/// 老会话记下的值不变。
-fn join_stack_history(obj: &mut serde_json::Map<String, Value>) {
-    let comp_hash = match obj.get("tool_mode").and_then(Value::as_str) {
-        Some(mode) => format!("{CODEX_STACK_COMP_HASH}-{mode}"),
-        None => CODEX_STACK_COMP_HASH.to_string(),
-    };
-    obj.insert("comp_hash".to_string(), json!(comp_hash));
-}
-
-/// Stack 名单非空时的模型目录：路由那家的行在前，各 Stack 供应商的行按名单顺序在后，
-/// `priority` 统一重新编号。
-///
-/// 窗口类全局键（`model_context_window`、`model_auto_compact_token_limit`）这时不写进
-/// `config.toml`（Codex 会拿它覆盖所有行），改由各家写进自己的行，见 [`sink_row_windows`]。
-///
-/// `classic_subagents`：每一行都改用经典子 agent 工具，见 [`CODEX_CLASSIC_SUBAGENTS`]。
-pub(crate) fn plan_codex_stack_catalog(
-    route: CodexStackRoute<'_>,
-    stack: &[CodexStackCatalogMember<'_>],
-    classic_subagents: bool,
-) -> Result<Value, AppError> {
-    let mut entries = match route {
-        CodexStackRoute::ThirdParty(row) => {
-            let mut rows = codex_stack_third_party_rows(&row)?;
-            for entry in &mut rows {
-                if let Some(obj) = entry.as_object_mut() {
-                    join_stack_history(obj);
-                }
-            }
-            rows
-        }
-        CodexStackRoute::Official {
-            mut native,
-            config_text,
-        } => {
-            // 按官方的 priority 排好再重新编号，模型选择器里的顺序和默认模型都不变。
-            native.sort_by_key(|entry| {
-                entry
-                    .get("priority")
-                    .and_then(Value::as_i64)
-                    .unwrap_or(i64::MAX)
-            });
-            let windows = RowWindows::of(config_text);
-            for entry in &mut native {
-                sink_row_windows(entry, &windows, false);
-            }
-            native
-        }
-    };
-    for member in stack {
-        for mut entry in codex_stack_third_party_rows(&member.row)? {
-            let Some(obj) = entry.as_object_mut() else {
-                continue;
-            };
-            join_stack_history(obj);
-            let Some(model) = obj.get("slug").and_then(Value::as_str).map(str::to_string) else {
-                continue;
-            };
-            let display = obj
-                .get("display_name")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-                .unwrap_or_else(|| model.clone());
-            obj.insert(
-                "slug".to_string(),
-                json!(crate::mode::stack::encode(
-                    &crate::app_config::AppType::Codex,
-                    member.key,
-                    &model,
-                    false,
-                )),
-            );
-            obj.insert(
-                "display_name".to_string(),
-                json!(crate::mode::stack::display_name(
-                    &display,
-                    member.provider_name
-                )),
-            );
-            let window = obj
-                .get("context_window")
-                .and_then(Value::as_u64)
-                .unwrap_or(0);
-            obj.insert(
-                "description".to_string(),
-                json!(crate::mode::stack::model_description(&model, window)),
-            );
-            // 第三方不支持 Responses Lite 协议。
-            if obj.get("use_responses_lite") == Some(&Value::Bool(true)) {
-                obj.insert("use_responses_lite".to_string(), Value::Bool(false));
-            }
-            entries.push(entry);
-        }
-    }
-    for (index, entry) in entries.iter_mut().enumerate() {
-        if let Some(obj) = entry.as_object_mut() {
-            obj.insert("priority".to_string(), json!(index + 1));
-            if classic_subagents {
-                obj.insert(
-                    "multi_agent_version".to_string(),
-                    json!(CODEX_CLASSIC_SUBAGENTS),
-                );
-            }
-        }
-    }
-    Ok(json!({ "models": entries }))
-}
-
-/// Codex 按目录行的 `multi_agent_version` 决定子 agent 用哪套工具（codex-rs
-/// `session/turn_context.rs`）。新版（`"v2"`）把派给子 agent 的任务交给主 agent 那家后端加密，
-/// 子 agent 换到别家就解不开；经典（`"v1"`）的任务是明文。聚合模式下主、子 agent 可以是不同
-/// 的供应商，用户打开设置后每一行都写经典（包括官方行：官方签发的密文第三方同样解不开）。
-/// `config.toml` 里 `[features] multi_agent_v2 = true` 比目录优先，这时写了也不生效。
-const CODEX_CLASSIC_SUBAGENTS: &str = "v1";
-
-/// 一家第三方供应商在合并目录里的行（`comp_hash` 保持模板的值，由调用方经
-/// [`join_stack_history`] 统一改写）。
-pub(crate) fn codex_stack_third_party_rows(
-    row: &CodexCatalogRow<'_>,
-) -> Result<Vec<Value>, AppError> {
-    let specs = codex_published_specs(row.settings, row.config_text);
-    if specs.is_empty() {
-        return Ok(Vec::new());
-    }
-    let catalog = codex_catalog_from_specs_for_row(&specs, row.config_text, row.profile)?;
-    let mut entries = match catalog {
-        Value::Object(mut obj) => match obj.remove("models") {
-            Some(Value::Array(entries)) => entries,
-            _ => Vec::new(),
-        },
-        _ => Vec::new(),
-    };
-    let windows = RowWindows::of(row.config_text);
-    for entry in &mut entries {
-        sink_row_windows(entry, &windows, true);
-    }
-    Ok(entries)
-}
-
 /// 一家行里配置的窗口类全局键（见 [`sink_row_windows`]）。
 struct RowWindows {
     window: Option<u64>,
@@ -2877,6 +2666,11 @@ pub(crate) fn resolve_cc_switch_catalog_path(
     Some(resolved)
 }
 
+/// Legacy aggregated ids must never be imported into a single provider's catalog.
+fn is_legacy_aggregated_model(model: &str) -> bool {
+    model.starts_with("ccs-") && model.contains('/')
+}
+
 /// Pure reverse-parsing core: convert Codex catalog JSON text back into the
 /// frontend's simplified model-mapping shape. Returns `None` when the catalog
 /// is unparseable, has no `models` array, or yields zero valid entries.
@@ -2899,10 +2693,7 @@ fn build_simplified_catalog_from_texts(config_text: &str, catalog_text: &str) ->
             continue;
         };
         // Stack 模型的行（保留前缀）不属于路由那家，不能进它的编辑表单、再被保存回库里。
-        if !matches!(
-            crate::mode::stack::decode(&crate::app_config::AppType::Codex, model),
-            crate::mode::stack::Decoded::Plain
-        ) {
+        if is_legacy_aggregated_model(model) {
             continue;
         }
         // 官方镜像只还原模型名和显式窗口，不能把官方能力当成用户填的存回库里。通用模板没有
@@ -2984,11 +2775,7 @@ fn build_simplified_catalog_from_texts(config_text: &str, catalog_text: &str) ->
     // 同一个、而且是这张卡自己的模型时才还原。聚合设置写的 `ccs-*` 不属于这张卡。
     let mut overrides = models.iter().filter_map(|entry| {
         let slug = entry.get("slug").and_then(Value::as_str)?.trim();
-        matches!(
-            crate::mode::stack::decode(&crate::app_config::AppType::Codex, slug),
-            crate::mode::stack::Decoded::Plain
-        )
-        .then(|| {
+        (!is_legacy_aggregated_model(slug)).then(|| {
             entry
                 .get("auto_review_model_override")
                 .and_then(Value::as_str)
@@ -5287,67 +5074,6 @@ wire_api = "responses"
     }
 
     #[test]
-    fn gemini_context_windows_and_compaction_limits_agree_in_every_catalog_mode() {
-        for profile in [
-            CodexCatalogToolProfile::NativeResponses,
-            CodexCatalogToolProfile::ProxyChat,
-        ] {
-            for window in [272_000_u64, 1_000_000] {
-                let settings = json!({ "modelCatalog": { "models": [
-                    { "model": "gemini-3.8-flash-high", "contextWindow": window },
-                    { "model": "gemini-3.8-pro" }
-                ] } });
-                let single = codex_model_catalog_from_settings(&settings, "", profile)
-                    .unwrap()
-                    .unwrap();
-                assert_eq!(single["models"][0]["context_window"], window);
-                assert_eq!(single["models"][0]["max_context_window"], window);
-                assert_eq!(
-                    single["models"][0]["auto_compact_token_limit"],
-                    window * 9 / 10
-                );
-                assert_eq!(single["models"][1]["context_window"], 128_000);
-
-                let stacked = plan_codex_stack_catalog(
-                    CodexStackRoute::ThirdParty(CodexCatalogRow {
-                        settings: &json!({}),
-                        config_text: "",
-                        profile,
-                    }),
-                    &[CodexStackCatalogMember {
-                        key: "gemini",
-                        provider_name: "Gemini",
-                        row: CodexCatalogRow {
-                            settings: &settings,
-                            config_text: "",
-                            profile,
-                        },
-                    }],
-                    false,
-                )
-                .unwrap();
-                let model = &stacked["models"][0];
-                assert_eq!(model["slug"], "ccs-gemini/gemini-3.8-flash-high");
-                assert_eq!(model["context_window"], window);
-                assert_eq!(model["auto_compact_token_limit"], window * 9 / 10);
-
-                let global = codex_model_catalog_from_settings(
-                    &settings,
-                    "model_context_window = 512000\nmodel_auto_compact_token_limit = 400000\n",
-                    profile,
-                )
-                .unwrap()
-                .unwrap();
-                for model in global["models"].as_array().unwrap() {
-                    assert_eq!(model["context_window"], 512_000);
-                    assert_eq!(model["max_context_window"], 512_000);
-                    assert_eq!(model["auto_compact_token_limit"], 400_000);
-                }
-            }
-        }
-    }
-
-    #[test]
     fn official_gpt_context_windows_survive_catalog_round_trip() {
         with_official_models(official_gpt_rows(), || {
             for window in [128_000, 512_000, 1_050_000] {
@@ -5391,46 +5117,6 @@ wire_api = "responses"
             .unwrap()
             .unwrap();
             assert_eq!(regenerated, catalog);
-        });
-    }
-
-    #[test]
-    fn stacked_official_gpt_rows_keep_each_providers_context_window() {
-        with_official_models(official_gpt_rows(), || {
-            let route = json!({ "modelCatalog": { "models": [
-                { "model": "gpt-6-sol", "contextWindow": 1_050_000 }
-            ] } });
-            let member = json!({ "modelCatalog": { "models": [
-                { "model": "gpt-6-sol", "contextWindow": 512_000 }
-            ] } });
-            let catalog = plan_codex_stack_catalog(
-                CodexStackRoute::ThirdParty(CodexCatalogRow {
-                    settings: &route,
-                    config_text: "",
-                    profile: CodexCatalogToolProfile::NativeResponses,
-                }),
-                &[CodexStackCatalogMember {
-                    key: "relay",
-                    provider_name: "Relay",
-                    row: CodexCatalogRow {
-                        settings: &member,
-                        config_text: "",
-                        profile: CodexCatalogToolProfile::ProxyChat,
-                    },
-                }],
-                false,
-            )
-            .unwrap();
-            let models = catalog["models"].as_array().unwrap();
-            for (model, window) in models.iter().zip([1_050_000, 512_000]) {
-                assert_eq!(model["context_window"], window);
-                assert_eq!(model["max_context_window"], window);
-                assert_eq!(model["auto_compact_token_limit"], window * 9 / 10);
-                assert_eq!(
-                    model["model_messages"]["instructions_template"],
-                    "GPT-6 Sol prompt"
-                );
-            }
         });
     }
 
@@ -5499,48 +5185,6 @@ wire_api = "responses"
             deepseek[0]["model_messages"]["instructions_template"],
             "GPT-6 Sol prompt"
         );
-    }
-
-    #[test]
-    fn stacked_gpt_rows_mirror_under_their_prefixed_id() {
-        let models = with_official_models(official_gpt_rows(), || {
-            let route = json!({ "modelCatalog": { "models": [{ "model": "gpt-6-sol" }] } });
-            let member = json!({ "modelCatalog": { "models": [{ "model": "gpt-6-sol" }] } });
-            plan_codex_stack_catalog(
-                CodexStackRoute::ThirdParty(CodexCatalogRow {
-                    settings: &route,
-                    config_text: "",
-                    profile: CodexCatalogToolProfile::NativeResponses,
-                }),
-                &[CodexStackCatalogMember {
-                    key: "relay",
-                    provider_name: "Relay",
-                    row: CodexCatalogRow {
-                        settings: &member,
-                        config_text: "",
-                        profile: CodexCatalogToolProfile::ProxyChat,
-                    },
-                }],
-                false,
-            )
-            .unwrap()["models"]
-                .as_array()
-                .unwrap()
-                .clone()
-        });
-        // 两家都有 GPT-6 Sol：各一条，内容都是官方的。
-        assert_eq!(models[0]["slug"], "gpt-6-sol");
-        assert_eq!(models[1]["slug"], "ccs-relay/gpt-6-sol");
-        for model in &models {
-            assert_eq!(
-                model["model_messages"]["instructions_template"],
-                "GPT-6 Sol prompt"
-            );
-            assert_eq!(model["use_responses_lite"], false);
-        }
-        // 各家按自己的链路：走 Chat 的那家不发 original 精度的图片。
-        assert_eq!(models[0]["supports_image_detail_original"], true);
-        assert_eq!(models[1]["supports_image_detail_original"], false);
     }
 
     #[test]
@@ -5667,63 +5311,6 @@ wire_api = "responses"
         assert!(normalize_codex_native_rows(Vec::new()).is_none());
     }
 
-    #[test]
-    fn official_rows_stay_native_and_stacked_rows_follow() {
-        let native = normalize_codex_native_rows(vec![
-            native_row(
-                "gpt-6-sol",
-                json!({ "priority": 4, "base_instructions": "x", "use_responses_lite": true }),
-            ),
-            native_row(
-                "gpt-5.5",
-                json!({ "priority": 12, "base_instructions": "x", "visibility": "hide" }),
-            ),
-            native_row(
-                "gpt-6-astra",
-                json!({ "priority": 1, "base_instructions": "x", "use_responses_lite": true }),
-            ),
-        ])
-        .unwrap();
-        let stacked_settings = json!({});
-        let catalog = plan_codex_stack_catalog(
-            CodexStackRoute::Official {
-                native,
-                config_text: "",
-            },
-            &[CodexStackCatalogMember {
-                key: "ds",
-                provider_name: "DS",
-                row: CodexCatalogRow {
-                    settings: &stacked_settings,
-                    config_text: "model = \"deepseek-v4-pro\"\n",
-                    profile: CodexCatalogToolProfile::NativeResponses,
-                },
-            }],
-            false,
-        )
-        .unwrap();
-        let models = catalog["models"].as_array().unwrap();
-        let slugs: Vec<&str> = models.iter().map(|m| m["slug"].as_str().unwrap()).collect();
-        // 官方的顺序（按 priority）不变，Stack 的在后面。
-        assert_eq!(
-            slugs,
-            vec![
-                "gpt-6-astra",
-                "gpt-6-sol",
-                "gpt-5.5",
-                "ccs-ds/deepseek-v4-pro"
-            ]
-        );
-        assert_eq!(
-            models[1]["use_responses_lite"], true,
-            "official Lite rows keep Lite"
-        );
-        assert_eq!(models[1]["comp_hash"], "3000");
-        assert_eq!(models[2]["visibility"], "hide", "native visibility stays");
-        assert!(models[0].get("auto_compact_token_limit").is_none());
-        assert_eq!(models[3]["comp_hash"], "cc-switch");
-    }
-
     /// 打开「经典子 agent」后每一行都写 v1（官方行、Stack 行都写）；关着时官方行保持原值，
     /// Stack 行沿用模板的值。
     #[test]
@@ -5749,51 +5336,6 @@ wire_api = "responses"
     }
 
     #[test]
-    fn classic_subagents_stamp_every_stacked_catalog_row() {
-        let plan = |classic: bool| {
-            let native = normalize_codex_native_rows(vec![
-                native_row(
-                    "gpt-6-sol",
-                    json!({ "base_instructions": "x", "multi_agent_version": "v2" }),
-                ),
-                native_row("gpt-5.5", json!({ "base_instructions": "x" })),
-            ])
-            .unwrap();
-            let stacked_settings = json!({});
-            plan_codex_stack_catalog(
-                CodexStackRoute::Official {
-                    native,
-                    config_text: "",
-                },
-                &[CodexStackCatalogMember {
-                    key: "ds",
-                    provider_name: "DS",
-                    row: CodexCatalogRow {
-                        settings: &stacked_settings,
-                        config_text: "model = \"deepseek-v4-pro\"\n",
-                        profile: CodexCatalogToolProfile::NativeResponses,
-                    },
-                }],
-                classic,
-            )
-            .unwrap()
-        };
-
-        let classic = plan(true);
-        let models = classic["models"].as_array().unwrap();
-        assert_eq!(models.len(), 3);
-        for model in models {
-            assert_eq!(model["multi_agent_version"], "v1", "{}", model["slug"]);
-        }
-
-        let native = plan(false);
-        let models = native["models"].as_array().unwrap();
-        assert_eq!(models[0]["slug"], "gpt-6-sol");
-        assert_eq!(models[0]["multi_agent_version"], "v2");
-        assert!(models[1].get("multi_agent_version").is_none());
-    }
-
-    #[test]
     fn build_simplified_catalog_leaves_stack_models_out_of_the_route_row() {
         let catalog = r#"{
             "models": [
@@ -5810,151 +5352,6 @@ wire_api = "responses"
             .collect();
         // 路由那家自己的 `vendor/model` 名字不受影响。
         assert_eq!(models, vec!["deepseek/deepseek-v4"]);
-    }
-
-    /// #8485：第三方路由那家的行和 Stack 行同一个 `comp_hash`，两者之间切换时 Codex 不会先
-    /// 用上一家压缩（上一家额度用完时压缩失败，会话每轮都卡在上一家）。名单为空时的目录
-    /// 仍是模板的值。
-    #[test]
-    fn third_party_route_rows_share_the_stack_comp_hash() {
-        let route_settings =
-            json!({ "modelCatalog": { "models": [{ "model": "deepseek-v4-pro" }] } });
-        let route_text = "model_provider = \"deepseek\"\nmodel = \"deepseek-v4-pro\"\n\
-                          [model_providers.deepseek]\nbase_url = \"https://api.deepseek.com/v1\"\n";
-        let profile = CodexCatalogToolProfile::NativeResponses;
-        let plain = codex_model_catalog_from_settings(&route_settings, route_text, profile)
-            .unwrap()
-            .unwrap();
-        assert_eq!(plain["models"][0]["comp_hash"], "3000");
-
-        let stacked_settings = json!({});
-        let stacked = plan_codex_stack_catalog(
-            CodexStackRoute::ThirdParty(CodexCatalogRow {
-                settings: &route_settings,
-                config_text: route_text,
-                profile,
-            }),
-            &[CodexStackCatalogMember {
-                key: "ds",
-                provider_name: "DS",
-                row: CodexCatalogRow {
-                    settings: &stacked_settings,
-                    config_text: route_text,
-                    profile,
-                },
-            }],
-            false,
-        )
-        .unwrap();
-        let models = stacked["models"].as_array().unwrap();
-        assert_eq!(models[0]["slug"], "deepseek-v4-pro");
-        assert_eq!(models[1]["slug"], "ccs-ds/deepseek-v4-pro");
-        for model in models {
-            assert_eq!(model["comp_hash"], "cc-switch", "{}", model["slug"]);
-        }
-    }
-
-    /// #8676：共用 `comp_hash` 的行切换时不压缩，所以按工具协议分组。镜像官方条目的第三方
-    /// GPT 行（路由那家和 Stack 成员）保留 code mode，自成一组；direct 行仍是原来的值。
-    /// 除 `comp_hash` 外，GPT 行和直连目录里的同一行一致。
-    #[test]
-    fn stack_rows_share_history_only_within_one_tool_protocol() {
-        let gpt_settings = json!({ "modelCatalog": { "models": [{ "model": "gpt-6-sol" }] } });
-        let gpt_text = "model = \"gpt-6-sol\"\n";
-        let ds_settings = json!({ "modelCatalog": { "models": [{ "model": "deepseek-v4-pro" }] } });
-        let ds_text = "model = \"deepseek-v4-pro\"\n";
-        let profile = CodexCatalogToolProfile::NativeResponses;
-        let row = |settings, config_text| CodexCatalogRow {
-            settings,
-            config_text,
-            profile,
-        };
-        let (direct, stacked) = with_official_models(official_gpt_rows(), || {
-            let direct = codex_model_catalog_from_settings(&gpt_settings, gpt_text, profile)
-                .unwrap()
-                .unwrap();
-            let stacked = plan_codex_stack_catalog(
-                CodexStackRoute::ThirdParty(row(&gpt_settings, gpt_text)),
-                &[
-                    CodexStackCatalogMember {
-                        key: "relay",
-                        provider_name: "Relay",
-                        row: row(&gpt_settings, gpt_text),
-                    },
-                    CodexStackCatalogMember {
-                        key: "ds",
-                        provider_name: "DS",
-                        row: row(&ds_settings, ds_text),
-                    },
-                ],
-                false,
-            )
-            .unwrap();
-            (direct, stacked)
-        });
-
-        let models = stacked["models"].as_array().unwrap();
-        let slugs: Vec<&str> = models.iter().map(|m| m["slug"].as_str().unwrap()).collect();
-        assert_eq!(
-            slugs,
-            vec!["gpt-6-sol", "ccs-relay/gpt-6-sol", "ccs-ds/deepseek-v4-pro"]
-        );
-        let mirrored = &direct["models"][0];
-        assert_eq!(mirrored["tool_mode"], "code_mode_only");
-        for gpt in &models[..2] {
-            assert_eq!(
-                gpt["comp_hash"], "cc-switch-code_mode_only",
-                "{}",
-                gpt["slug"]
-            );
-            for key in ["tool_mode", "supports_search_tool", "model_messages"] {
-                assert_eq!(gpt[key], mirrored[key], "{} {key}", gpt["slug"]);
-            }
-        }
-        assert!(models[2].get("tool_mode").is_none());
-        assert_eq!(models[2]["comp_hash"], "cc-switch");
-    }
-
-    #[test]
-    fn stacked_rows_keep_their_own_tool_profile_and_never_use_responses_lite() {
-        let route_settings = json!({ "modelCatalog": { "models": [{ "model": "route-model" }] } });
-        let route_text = "model = \"route-model\"\n";
-        let stacked_settings = json!({});
-        let stacked_text = "model = \"claude-opus-5\"\nmodel_context_window = 400000\n";
-        let catalog = plan_codex_stack_catalog(
-            CodexStackRoute::ThirdParty(CodexCatalogRow {
-                settings: &route_settings,
-                config_text: route_text,
-                profile: CodexCatalogToolProfile::NativeResponses,
-            }),
-            &[CodexStackCatalogMember {
-                key: "anth",
-                provider_name: "Anth",
-                row: CodexCatalogRow {
-                    settings: &stacked_settings,
-                    config_text: stacked_text,
-                    profile: CodexCatalogToolProfile::Anthropic,
-                },
-            }],
-            false,
-        )
-        .expect("catalog");
-        let models = catalog["models"].as_array().unwrap();
-        assert_eq!(models.len(), 2);
-        let stacked = &models[1];
-        assert_eq!(stacked["slug"], "ccs-anth/claude-opus-5");
-        assert_eq!(stacked["display_name"], "claude-opus-5（Anth）");
-        assert_eq!(stacked["description"], "claude-opus-5 · 400K");
-        assert_eq!(stacked["shell_type"], "shell_command");
-        assert!(stacked.get("apply_patch_tool_type").is_none());
-        assert_eq!(stacked["context_window"], 400000);
-        assert_eq!(stacked["auto_compact_token_limit"], 360000);
-        assert_ne!(stacked["use_responses_lite"], json!(true));
-        let priorities: Vec<u64> = models
-            .iter()
-            .map(|entry| entry["priority"].as_u64().unwrap())
-            .collect();
-        assert_eq!(priorities, vec![1, 2]);
     }
 
     #[test]
