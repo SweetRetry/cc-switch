@@ -2,7 +2,6 @@ import AgyAccountQuotaFooter from "@/components/AgyAccountQuotaFooter";
 import ClaudeAccountQuotaFooter from "@/components/ClaudeAccountQuotaFooter";
 import CodexOauthQuotaFooter from "@/components/CodexOauthQuotaFooter";
 import CopilotQuotaFooter from "@/components/CopilotQuotaFooter";
-import { ProviderIconBox } from "@/components/ProviderIconBox";
 import { ClaudeBoundAccountLine } from "@/components/providers/forms/ClaudeOfficialSection";
 import SubscriptionQuotaFooter from "@/components/SubscriptionQuotaFooter";
 import { HoverTip } from "@/components/ui/hover-tip";
@@ -16,6 +15,10 @@ import { resolveManagedAccountId } from "@/lib/authBinding";
 import { claudePlanLabel } from "@/lib/claudePlan";
 import { isMac } from "@/lib/platform";
 import { useUsageQuery } from "@/lib/query/queries";
+import { useProviderStats } from "@/lib/query/usage";
+import { useMoneyFormat } from "@/hooks/useMoneyFormat";
+import { fmtInt } from "@/components/usage/format";
+import type { UsageRangeSelection } from "@/types/usage";
 import { useClaudeDefaultPlan } from "@/lib/query/subscription";
 import { cn } from "@/lib/utils";
 import type { Provider } from "@/types";
@@ -28,34 +31,27 @@ import {
   extractCodexExperimentalBearerToken,
   extractProviderBaseUrl,
 } from "@/utils/providerConfigUtils";
-import { resolveProviderIcon } from "@/utils/providerIcon";
-import type {
-  DraggableAttributes,
-  DraggableSyntheticListeners,
-} from "@dnd-kit/core";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
-  GripVertical,
+  ChartColumn,
+  Gauge,
+  KeyRound,
+  UserRound,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { terminalIsIsolated } from "./OpenTerminalDialog";
-import type { CardChip, CardPresentation, CardTone } from "./presentation";
+import type { CardChip, CardPresentation } from "./presentation";
+import { describeProviderModels } from "./providerModels";
 import { ProviderCardActions } from "./ProviderCardActions";
 
-interface DragHandleProps {
-  attributes: DraggableAttributes;
-  listeners: DraggableSyntheticListeners;
-  isDragging: boolean;
-}
-
-interface ProviderCardProps {
+interface ProviderDetailProps {
   provider: Provider;
   appId: AppId;
-  /** 卡片怎么画：模式色、状态 / 按钮、徽标（由列表按模式算好） */
+  /** 状态、徽标与「更多」菜单（由列表按模式算好）；主操作在列表行首，这里不画 */
   presentation: CardPresentation;
   /** 用来决定额度是否自动查询（共存式应用看 isInConfig） */
   isCurrent: boolean;
@@ -68,13 +64,7 @@ interface ProviderCardProps {
   onTest?: (provider: Provider) => void;
   onOpenTerminal?: (provider: Provider) => void;
   isTesting?: boolean;
-  dragHandleProps?: DragHandleProps;
 }
-
-/** 当前那张：模式色边框 + 淡底；共存式应用的默认那家同直连色。 */
-const TONE_CLASS: Record<CardTone, string> = {
-  direct: "border-direct-border bg-direct-soft",
-};
 
 const CHIP_CLASS: Record<CardChip["tone"], string> = {
   outline: "border border-border-strong text-fg-2",
@@ -84,7 +74,9 @@ const CHIP_CLASS: Record<CardChip["tone"], string> = {
   danger: "bg-danger-soft text-danger-text",
 };
 
-export function CardChipBadge({ chip }: { chip: CardChip }) {
+const TODAY: UsageRangeSelection = { preset: "today" };
+
+function CardChipBadge({ chip }: { chip: CardChip }) {
   return (
     <span
       title={chip.title}
@@ -156,7 +148,11 @@ const extractApiUrl = (provider: Provider, fallbackText: string) => {
   return extractProviderBaseUrl(provider.settingsConfig) ?? fallbackText;
 };
 
-export function ProviderCard({
+/**
+ * 供应商详情：列表里选中的那一家。头部是名字、状态与编辑 / 更多；正文按「接入 → 模型 → 额度」排，
+ * 标签列统一宽度。切换 / 启用在列表行首，这里不重复。
+ */
+export function ProviderDetail({
   provider,
   appId,
   presentation,
@@ -170,9 +166,8 @@ export function ProviderCard({
   onTest,
   onOpenTerminal,
   isTesting,
-  dragHandleProps,
-}: ProviderCardProps) {
-  const { t } = useTranslation();
+}: ProviderDetailProps) {
+  const { t, i18n } = useTranslation();
   const codexOfficialIdentity = resolveCodexOfficialIdentity(appId, provider);
   const managedCodexAccountId = resolveManagedAccountId(
     provider.meta,
@@ -317,65 +312,94 @@ export function ProviderCard({
     }
     onOpenWebsite(displayUrl);
   };
+  const models = describeProviderModels(appId, provider, t);
+  // 今日用量：用量页「供应商」统计按今天、本应用取一次，再按 id 挑出这一家
+  const { moneyShort } = useMoneyFormat();
+  const { data: todayStats } = useProviderStats(TODAY, { appType: appId });
+  const today = todayStats?.find((row) => row.providerId === provider.id);
+  const AccessIcon = isOfficial ? UserRound : KeyRound;
+  // 直连应用写「使用中」、OpenCode 默认那家写「当前默认」，其余已加进配置的写「已启用」
+  const statusLabel =
+    presentation.status?.label ??
+    (isAdditiveAppId(appId) && isInConfig
+      ? t("providerDetail.enabled")
+      : undefined);
+
   return (
-    <div
-      className={cn(
-        "group relative rounded-panel border transition-[border-color,box-shadow,background-color] duration-150",
-        presentation.tone
-          ? TONE_CLASS[presentation.tone]
-          : "border-border bg-surface hover:border-border-strong hover:shadow-v7-sm",
-        dragHandleProps?.isDragging && "cursor-grabbing shadow-v7-md",
-      )}
-    >
-      <div className="flex min-h-[58px] items-center gap-3 py-2.5 pe-3 ps-2">
-        {dragHandleProps ? (
-          <button
-            type="button"
-            className={cn(
-              "flex h-6 w-4 shrink-0 cursor-grab items-center justify-center text-fg-3 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing",
-              dragHandleProps.isDragging && "cursor-grabbing opacity-100",
-            )}
-            aria-label={t("provider.dragHandle")}
-            {...dragHandleProps.attributes}
-            {...dragHandleProps.listeners}
-          >
-            <GripVertical className="h-4 w-4" />
-          </button>
-        ) : (
-          <span className="w-4 shrink-0" />
-        )}
-
-        <ProviderIconBox
-          icon={resolveProviderIcon(appId, provider.icon, provider.iconColor)}
-          name={provider.name}
-          color={provider.iconColor}
-          className={cn(
-            // 底色固定为白，图标颜色也要固定：单色（currentColor）图标和首字母
-            // fallback 不能继承深色模式下的浅色文字
-            "bg-white text-neutral-900",
-            presentation.dim && "opacity-60",
-          )}
-          fallbackClassName="bg-transparent text-neutral-600"
-        />
-
-        <div className="min-w-0 flex-1">
+    <div className="max-w-2xl space-y-8">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1 space-y-1">
           <div className="flex min-w-0 items-center gap-1.5">
-            <h3
+            <h2
               className={cn(
-                "m-0 min-w-0 truncate text-strong",
+                "m-0 min-w-0 truncate text-title",
                 presentation.dim ? "text-fg-2" : "text-fg-1",
               )}
               title={provider.name}
             >
               {provider.name}
-            </h3>
+            </h2>
             {presentation.chips.map((chip) => (
               <CardChipBadge key={chip.key} chip={chip} />
             ))}
           </div>
+          <div className="flex min-h-[1lh] items-center gap-1.5 text-caption text-fg-2">
+            {statusLabel && (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="h-1.5 w-1.5 rounded-full bg-success"
+                />
+                {statusLabel}
+              </>
+            )}
+          </div>
+        </div>
+        <ProviderCardActions
+          providerName={provider.name}
+          presentation={{ ...presentation, status: undefined, buttons: [] }}
+          onEdit={() => onEdit(provider)}
+          onDelete={() => onDelete(provider)}
+          onDuplicate={
+            onDuplicate && !false ? () => onDuplicate(provider) : undefined
+          }
+          onTest={
+            onTest && supportsConnectivityCheck(appId, provider)
+              ? () => onTest(provider)
+              : undefined
+          }
+          isTesting={isTesting}
+          onConfigureUsage={
+            (isOfficial && !supportsOfficialSubscription) ||
+            isCopilot ||
+            (isCodexOauth && !isBoundCodexOfficial) ||
+            isXaiOauth
+              ? undefined
+              : () => onConfigureUsage(provider)
+          }
+          onOpenTerminal={
+            onOpenTerminal && !providerNeedsRouting(appId, provider)
+              ? () => onOpenTerminal(provider)
+              : undefined
+          }
+          openTerminalIsolated={terminalIsIsolated(provider, appId)}
+        />
+      </div>
 
+      <dl className="grid grid-cols-[5rem_minmax(0,1fr)] items-baseline gap-x-4 gap-y-2 text-body">
+        <dt
+          className="flex items-center text-fg-3"
+          title={t("providerDetail.access")}
+        >
+          <AccessIcon
+            className="h-4 w-4"
+            strokeWidth={1.5}
+            aria-label={t("providerDetail.access")}
+          />
+        </dt>
+        <dd className="m-0 min-w-0">
           {codexOfficialIdentity && codexOfficialIdentity !== "api_key" ? (
-            <div className="mt-0.5 flex min-w-0 items-center gap-2 text-caption text-fg-2">
+            <div className="flex min-w-0 items-center gap-2 text-body text-fg-1">
               {codexOfficialIdentity === "native_login" ? (
                 <span className="min-w-0 truncate" title={manualNote}>
                   {manualNote ??
@@ -439,13 +463,13 @@ export function ProviderCard({
               showPlan={usageEnabled}
             />
           ) : agyModel ? (
-            <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-caption text-fg-2">
+            <div className="flex min-w-0 items-center gap-1.5 text-body text-fg-1">
               <span className="min-w-0 truncate" title={agyModel}>
                 {agyModel}
               </span>
             </div>
           ) : displayUrl && claudeDefaultPlanLabel ? (
-            <div className="mt-0.5 flex min-w-0 items-center gap-2 text-caption text-fg-2">
+            <div className="flex min-w-0 items-center gap-2 text-body text-fg-1">
               <button
                 type="button"
                 onClick={handleOpenWebsite}
@@ -467,7 +491,7 @@ export function ProviderCard({
               type="button"
               onClick={handleOpenWebsite}
               className={cn(
-                "mt-0.5 inline-flex max-w-full items-center overflow-hidden text-start text-caption text-fg-2",
+                "inline-flex max-w-full items-center overflow-hidden text-start text-body text-fg-1",
                 isClickableUrl
                   ? "cursor-pointer decoration-border-strong underline-offset-[3px] hover:underline"
                   : "cursor-default",
@@ -478,154 +502,218 @@ export function ProviderCard({
               <span className="min-w-0 truncate">{displayUrl}</span>
             </button>
           ) : null}
-        </div>
+        </dd>
 
-        <div className="flex shrink-0 items-center gap-3">
-          {/* 额度列 136 宽，带重置倒计时时 194 宽（见 QuotaLines） */}
-          <div className="max-w-[208px] text-end">
-            <div className="flex items-center justify-end gap-1">
-              {isCopilot ? (
-                <CopilotQuotaFooter
-                  meta={provider.meta}
+        <div className="col-span-2 h-3" aria-hidden="true" />
+        {models.kind === "roles" ? (
+          models.rows.length > 0 ? (
+            models.rows.map((row) => (
+              <ModelRow key={row.key} label={row.label} model={row.model} />
+            ))
+          ) : (
+            <>
+              <dt className="text-fg-2">{t("providerDetail.mainModel")}</dt>
+              <dd className="m-0 text-fg-2">
+                {t("providerDetail.appDefaultModel")}
+              </dd>
+            </>
+          )
+        ) : models.models.length > 0 ? (
+          models.models.map((model, index) => (
+            <ModelRow
+              key={model.id}
+              label={index === 0 ? t("providerDetail.models") : ""}
+              model={model.id}
+              note={
+                models.models.length > 1 && model.id === models.defaultId
+                  ? t("providerDetail.defaultModel")
+                  : undefined
+              }
+            />
+          ))
+        ) : (
+          <>
+            <dt className="text-fg-2">{t("providerDetail.models")}</dt>
+            <dd className="m-0 text-fg-2">
+              {t("providerDetail.appDefaultModel")}
+            </dd>
+          </>
+        )}
+
+        {/* 额度组件查不到东西时什么都不画：dd 为空就连同图标和上方留白一起隐藏 */}
+        <div
+          className="col-span-2 h-3 [&:has(+dt+dd:empty)]:hidden"
+          aria-hidden="true"
+        />
+        <dt
+          className="flex items-center text-fg-3 [&:has(+dd:empty)]:hidden"
+          title={t("providerDetail.quota")}
+        >
+          <Gauge
+            className="h-4 w-4"
+            strokeWidth={1.5}
+            aria-label={t("providerDetail.quota")}
+          />
+        </dt>
+        <dd className="m-0 flex min-w-0 items-center gap-1 empty:hidden">
+          {isCopilot ? (
+            <CopilotQuotaFooter
+              meta={provider.meta}
+              inline={true}
+              isCurrent={isCurrent}
+            />
+          ) : isCodexOauth ? (
+            !isBoundCodexOfficial || usageEnabled ? (
+              <CodexOauthQuotaFooter
+                meta={provider.meta}
+                inline={true}
+                isCurrent={isCurrent}
+                autoQueryInterval={
+                  isBoundCodexOfficial
+                    ? (provider.meta?.usage_script?.autoQueryInterval ?? 5)
+                    : undefined
+                }
+              />
+            ) : null
+          ) : isXaiOauth ? (
+            <XaiOauthQuotaFooter
+              meta={provider.meta}
+              inline={true}
+              isCurrent={isCurrent}
+            />
+          ) : claudeBoundAccountId ? (
+            usageEnabled ? (
+              <ClaudeAccountQuotaFooter
+                accountId={claudeBoundAccountId}
+                inline={true}
+                isCurrent={isCurrent}
+                autoQueryInterval={
+                  provider.meta?.usage_script?.autoQueryInterval ?? 5
+                }
+              />
+            ) : null
+          ) : isOfficial ? (
+            officialSubscriptionEnabled ? (
+              agyBoundAccountId ? (
+                <AgyAccountQuotaFooter
+                  accountId={agyBoundAccountId}
                   inline={true}
                   isCurrent={isCurrent}
+                  autoQueryInterval={
+                    provider.meta?.usage_script?.autoQueryInterval ?? 0
+                  }
                 />
-              ) : isCodexOauth ? (
-                !isBoundCodexOfficial || usageEnabled ? (
-                  <CodexOauthQuotaFooter
-                    meta={provider.meta}
-                    inline={true}
-                    isCurrent={isCurrent}
-                    autoQueryInterval={
-                      isBoundCodexOfficial
-                        ? (provider.meta?.usage_script?.autoQueryInterval ?? 5)
-                        : undefined
-                    }
-                  />
-                ) : null
-              ) : isXaiOauth ? (
-                <XaiOauthQuotaFooter
-                  meta={provider.meta}
-                  inline={true}
-                  isCurrent={isCurrent}
-                />
-              ) : claudeBoundAccountId ? (
-                usageEnabled ? (
-                  <ClaudeAccountQuotaFooter
-                    accountId={claudeBoundAccountId}
-                    inline={true}
-                    isCurrent={isCurrent}
-                    autoQueryInterval={
-                      provider.meta?.usage_script?.autoQueryInterval ?? 5
-                    }
-                  />
-                ) : null
-              ) : isOfficial ? (
-                officialSubscriptionEnabled ? (
-                  agyBoundAccountId ? (
-                    <AgyAccountQuotaFooter
-                      accountId={agyBoundAccountId}
-                      inline={true}
-                      isCurrent={isCurrent}
-                      autoQueryInterval={
-                        provider.meta?.usage_script?.autoQueryInterval ?? 0
-                      }
-                    />
-                  ) : (
-                    <SubscriptionQuotaFooter
-                      appId={appId}
-                      inline={true}
-                      isCurrent={isCurrent}
-                      autoQueryInterval={
-                        provider.meta?.usage_script?.autoQueryInterval ?? 0
-                      }
-                    />
-                  )
-                ) : null
-              ) : hasMultiplePlans ? (
-                <span className="text-caption text-fg-2">
-                  {t("usage.multiplePlans", {
-                    count: usage?.data?.length || 0,
-                    defaultValue: `${usage?.data?.length || 0} 个套餐`,
-                  })}
-                </span>
               ) : (
-                <UsageFooter
-                  provider={provider}
-                  providerId={provider.id}
+                <SubscriptionQuotaFooter
                   appId={appId}
-                  usageEnabled={usageEnabled}
-                  isCurrent={isCurrent}
-                  isInConfig={isInConfig}
                   inline={true}
+                  isCurrent={isCurrent}
+                  autoQueryInterval={
+                    provider.meta?.usage_script?.autoQueryInterval ?? 0
+                  }
                 />
-              )}
-              {hasMultiplePlans && (
-                <HoverTip content={expandLabel}>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsExpanded(!isExpanded);
-                    }}
-                    className="shrink-0 rounded-control p-1 text-fg-3 transition-colors hover:bg-subtle hover:text-fg-1"
-                    aria-label={expandLabel}
-                    aria-expanded={isExpanded}
-                  >
-                    {isExpanded ? (
-                      <ChevronUp size={14} />
-                    ) : (
-                      <ChevronDown size={14} />
-                    )}
-                  </button>
-                </HoverTip>
-              )}
-            </div>
+              )
+            ) : null
+          ) : hasMultiplePlans ? (
+            <span className="text-caption text-fg-2">
+              {t("usage.multiplePlans", {
+                count: usage?.data?.length || 0,
+                defaultValue: `${usage?.data?.length || 0} 个套餐`,
+              })}
+            </span>
+          ) : (
+            <UsageFooter
+              provider={provider}
+              providerId={provider.id}
+              appId={appId}
+              usageEnabled={usageEnabled}
+              isCurrent={isCurrent}
+              isInConfig={isInConfig}
+              inline={true}
+            />
+          )}
+          {hasMultiplePlans && (
+            <HoverTip content={expandLabel}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsExpanded(!isExpanded);
+                }}
+                className="shrink-0 rounded-control p-1 text-fg-3 transition-colors hover:bg-subtle hover:text-fg-1"
+                aria-label={expandLabel}
+                aria-expanded={isExpanded}
+              >
+                {isExpanded ? (
+                  <ChevronUp size={14} />
+                ) : (
+                  <ChevronDown size={14} />
+                )}
+              </button>
+            </HoverTip>
+          )}
+        </dd>
+        {isExpanded && hasMultiplePlans && (
+          <div className="col-start-2">
+            <UsageFooter
+              provider={provider}
+              providerId={provider.id}
+              appId={appId}
+              usageEnabled={usageEnabled}
+              isCurrent={isCurrent}
+              isInConfig={isInConfig}
+              inline={false}
+            />
           </div>
-          <ProviderCardActions
-            providerName={provider.name}
-            presentation={presentation}
-            onEdit={() => onEdit(provider)}
-            onDelete={() => onDelete(provider)}
-            onDuplicate={
-              onDuplicate && !false ? () => onDuplicate(provider) : undefined
-            }
-            onTest={
-              onTest && supportsConnectivityCheck(appId, provider)
-                ? () => onTest(provider)
-                : undefined
-            }
-            isTesting={isTesting}
-            onConfigureUsage={
-              (isOfficial && !supportsOfficialSubscription) ||
-              isCopilot ||
-              (isCodexOauth && !isBoundCodexOfficial) ||
-              isXaiOauth
-                ? undefined
-                : () => onConfigureUsage(provider)
-            }
-            onOpenTerminal={
-              onOpenTerminal && !providerNeedsRouting(appId, provider)
-                ? () => onOpenTerminal(provider)
-                : undefined
-            }
-            openTerminalIsolated={terminalIsIsolated(provider, appId)}
-          />
-        </div>
-      </div>
+        )}
 
-      {isExpanded && hasMultiplePlans && (
-        <div className="mx-4 mb-3 border-t border-border pt-3">
-          <UsageFooter
-            provider={provider}
-            providerId={provider.id}
-            appId={appId}
-            usageEnabled={usageEnabled}
-            isCurrent={isCurrent}
-            isInConfig={isInConfig}
-            inline={false}
+        <div className="col-span-2 h-3" aria-hidden="true" />
+        <dt
+          className="flex items-center text-fg-3"
+          title={t("providerDetail.today")}
+        >
+          <ChartColumn
+            className="h-4 w-4"
+            strokeWidth={1.5}
+            aria-label={t("providerDetail.today")}
           />
-        </div>
-      )}
+        </dt>
+        <dd className="m-0 flex gap-6 tabular-nums">
+          <span>{moneyShort(today?.totalCost ?? 0)}</span>
+          <span className="text-fg-2">
+            {t("providerDetail.todayRequests", {
+              count: today?.requestCount ?? 0,
+              value: fmtInt(today?.requestCount ?? 0, i18n.language),
+            })}
+          </span>
+        </dd>
+      </dl>
     </div>
+  );
+}
+
+function ModelRow({
+  label,
+  model,
+  note,
+}: {
+  label: string;
+  model: string;
+  note?: string;
+}) {
+  return (
+    <>
+      <dt className="text-fg-2">{label}</dt>
+      <dd className="m-0 flex min-w-0 items-baseline gap-3">
+        <span
+          className="min-w-0 truncate font-mono text-caption text-fg-1"
+          title={model}
+        >
+          {model}
+        </span>
+        {note && (
+          <span className="shrink-0 text-caption text-fg-3">{note}</span>
+        )}
+      </dd>
+    </>
   );
 }

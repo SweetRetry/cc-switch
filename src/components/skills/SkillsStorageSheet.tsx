@@ -16,11 +16,16 @@ import {
   V7Dialog,
 } from "@/components/mcp/formBits";
 import { APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
-import { shortenHomePath } from "@/components/sessions/utils";
 import { skillsApi, type SkillAppSyncOutcome } from "@/lib/api/skills";
 import type { AppId } from "@/lib/api/types";
 import type { SkillStorageLocation, SkillSyncMethod } from "@/types";
 import { extractErrorMessage } from "@/utils/errorUtils";
+
+const shortenHomePath = (value: string) =>
+  value
+    .replace(/^\/Users\/[^/]+(?=\/|$)/, "~")
+    .replace(/^\/home\/[^/]+(?=\/|$)/, "~")
+    .replace(/^[A-Za-z]:\\Users\\[^\\]+(?=\\|$)/, "~");
 
 interface SkillsStorageSheetProps {
   open: boolean;

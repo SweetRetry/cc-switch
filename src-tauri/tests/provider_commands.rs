@@ -108,7 +108,6 @@ fn agy_import_skips_empty_settings_but_keeps_model_configs() {
     }
 }
 
-
 #[test]
 fn codex_startup_import_fresh_install_imports_once_and_syncs_current_setting() {
     let _guard = test_mutex().lock().unwrap_or_else(|e| e.into_inner());

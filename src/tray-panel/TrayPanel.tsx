@@ -16,8 +16,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
-  Feather,
-  Plus,
   Power,
   Settings,
 } from "lucide-react";
@@ -39,10 +37,8 @@ import {
 } from "./api";
 import { aimingAt, type Point } from "./menuAim";
 import { usePanelTheme } from "./usePanelTheme";
-import { UsageTab } from "./UsageTab";
+import { UsageSummary } from "./UsageSummary";
 
-type Tab = "config" | "usage";
-const TAB_KEY = "cc-switch-tray-tab";
 /** 主界面保存语言用的键 */
 const LANGUAGE_KEY = "language";
 const MAIN_MAX_HEIGHT = 620;
@@ -61,16 +57,6 @@ const OTHER_ITEM = "";
 const ROW_HOVER = "hover:bg-black/[0.06] dark:hover:bg-white/[0.08]";
 const FOCUS_RING =
   "outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60";
-
-function readTab(): Tab {
-  try {
-    return window.localStorage.getItem(TAB_KEY) === "usage"
-      ? "usage"
-      : "config";
-  } catch {
-    return "config";
-  }
-}
 
 function syncLanguage() {
   try {
@@ -289,14 +275,10 @@ function AppRow({
           )}
         </span>
         <span className="block truncate text-xs text-muted-foreground">
-          {app.addId ? app.addText : app.current}
+          {app.current}
         </span>
       </span>
-      {app.addId ? (
-        <Plus className="mt-2 h-4 w-4 shrink-0 text-muted-foreground" />
-      ) : (
-        <Chevron className="mt-2 h-4 w-4 shrink-0 text-muted-foreground" />
-      )}
+      <Chevron className="mt-2 h-4 w-4 shrink-0 text-muted-foreground" />
       {app.quota && (
         <span className="col-span-2 col-start-2 min-w-0">
           <QuotaBlock quota={app.quota} texts={texts} />
@@ -478,7 +460,6 @@ export function TrayPanel() {
     [nativePlacement, coordinateScale],
   );
   const [state, setState] = useState<TrayPanelState | null>(null);
-  const [tab, setTab] = useState<Tab>(readTab);
   const [openApp, setOpenApp] = useState<string | null>(null);
   /** 子面板是从另一个应用换过来的（不是刚展开）：内容做一次很短的淡入 */
   const [swapped, setSwapped] = useState(false);
@@ -534,7 +515,7 @@ export function TrayPanel() {
   }, []);
 
   // 每次弹出：收起子面板、清空搜索、先取数据再排版，显示出来就是新内容。
-  // 设置（币种、趋势图样式）也重新读：面板窗口只隐藏不销毁，主窗口改了设置这边收不到。
+  // 设置（币种）也重新读：面板窗口只隐藏不销毁，主窗口改了设置这边收不到。
   const begin = useCallback(
     async (next: PanelPlacement) => {
       syncLanguage();
@@ -583,10 +564,7 @@ export function TrayPanel() {
   }, [placement]);
 
   const apps = state?.apps ?? [];
-  const openEntry =
-    tab === "config"
-      ? apps.find((app) => app.app === openApp && !app.addId)
-      : undefined;
+  const openEntry = apps.find((app) => app.app === openApp);
 
   /**
    * 量出两块卡片的高度，算好它们在窗口里的位置，回报给后端摆窗口和玻璃。
@@ -726,7 +704,7 @@ export function TrayPanel() {
 
   const openSub = useCallback((app: PanelApp | null) => {
     window.clearTimeout(hoverTimer.current);
-    const next = app && !app.addId ? app.app : null;
+    const next = app ? app.app : null;
     const previous = openAppRef.current;
     setSwapped(previous !== null && next !== null && previous !== next);
     setOpenApp(next);
@@ -803,16 +781,6 @@ export function TrayPanel() {
     hovered.current = null;
   };
 
-  const changeTab = (next: Tab) => {
-    setTab(next);
-    setOpenApp(null);
-    try {
-      window.localStorage.setItem(TAB_KEY, next);
-    } catch {
-      // 记不住也不影响使用
-    }
-  };
-
   // 键盘：Esc 逐级退出；← → 收起 / 展开子面板；↑ ↓ 在行之间移动
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -849,7 +817,7 @@ export function TrayPanel() {
       const back = forward === "ArrowLeft" ? "ArrowRight" : "ArrowLeft";
       if (event.key === forward && target?.dataset.appRow) {
         const app = apps.find((entry) => entry.app === target.dataset.appRow);
-        if (app && !app.addId) {
+        if (app) {
           event.preventDefault();
           openSub(app);
           window.setTimeout(() => {
@@ -935,11 +903,24 @@ export function TrayPanel() {
           <span className="text-[15px] font-semibold">CC Switch</span>
           <button
             type="button"
+            title={texts.openMain}
+            aria-label={texts.openMain}
+            onClick={() => action("show_main")}
+            className={cn(
+              "ms-auto flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground",
+              FOCUS_RING,
+              ROW_HOVER,
+            )}
+          >
+            <ExternalLink className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
             title={texts.settings}
             aria-label={texts.settings}
             onClick={() => action("nav:settings:general")}
             className={cn(
-              "ms-auto flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground",
+              "flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground",
               FOCUS_RING,
               ROW_HOVER,
             )}
@@ -948,126 +929,63 @@ export function TrayPanel() {
           </button>
         </div>
 
-        <div data-other-item className="shrink-0 px-3 pb-2">
-          <div
-            role="tablist"
-            className="flex rounded-lg bg-black/[0.06] p-0.5 dark:bg-white/[0.08]"
-          >
-            {(["config", "usage"] as const).map((value) => (
+        <div className="tp-scroll min-h-0 flex-1" onScroll={() => relayout()}>
+          <div className="flex flex-col gap-0.5 px-1.5 pb-1.5">
+            {state.problems.map((problem) => (
               <button
-                key={value}
+                key={problem.id}
                 type="button"
-                role="tab"
-                aria-selected={tab === value}
-                onClick={() => changeTab(value)}
+                data-other-item
+                onClick={() => action(problem.id)}
                 className={cn(
-                  "flex-1 rounded-md py-1 text-xs font-medium transition-colors",
+                  "flex items-start gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-amber-600 dark:text-amber-400",
                   FOCUS_RING,
-                  tab === value
-                    ? "bg-white text-foreground shadow-sm dark:bg-white/[0.16]"
-                    : "text-muted-foreground hover:text-foreground",
+                  ROW_HOVER,
                 )}
               >
-                {value === "config" ? texts.configTab : texts.usageTab}
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{problem.text}</span>
               </button>
             ))}
+            {state.feedback && (
+              <div className="px-2.5 py-1 text-[11.5px] text-muted-foreground">
+                {state.feedback}
+              </div>
+            )}
+            {apps.map((app) => (
+              <AppRow
+                key={app.app}
+                app={app}
+                texts={texts}
+                active={openEntry?.app === app.app}
+                side={placement.side}
+                onHover={() => hoverApp(app)}
+                onLeave={leaveApp}
+                onOpen={() => openSub(openApp === app.app ? null : app)}
+              />
+            ))}
           </div>
-        </div>
-
-        <div className="tp-scroll min-h-0 flex-1" onScroll={() => relayout()}>
-          {tab === "config" ? (
-            <div className="flex flex-col gap-0.5 px-1.5 pb-1.5">
-              {state.problems.map((problem) => (
-                <button
-                  key={problem.id}
-                  type="button"
-                  data-other-item
-                  onClick={() => action(problem.id)}
-                  className={cn(
-                    "flex items-start gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-amber-600 dark:text-amber-400",
-                    FOCUS_RING,
-                    ROW_HOVER,
-                  )}
-                >
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <span>{problem.text}</span>
-                </button>
-              ))}
-              {state.feedback && (
-                <div className="px-2.5 py-1 text-[11.5px] text-muted-foreground">
-                  {state.feedback}
-                </div>
-              )}
-              {apps.map((app) => (
-                <AppRow
-                  key={app.app}
-                  app={app}
-                  texts={texts}
-                  active={openEntry?.app === app.app}
-                  side={placement.side}
-                  onHover={() => hoverApp(app)}
-                  onLeave={leaveApp}
-                  onOpen={() =>
-                    app.addId
-                      ? action(app.addId)
-                      : openSub(openApp === app.app ? null : app)
-                  }
-                />
-              ))}
-            </div>
-          ) : (
-            <UsageTab refreshKey={shownCount} visible={tab === "usage"} />
-          )}
         </div>
 
         <div
           data-other-item
           className="shrink-0 border-t border-black/[0.08] px-1.5 py-1.5 dark:border-white/[0.08]"
         >
-          <button
-            type="button"
-            role="switch"
-            aria-checked={state.lightweight}
-            onClick={() => action("lightweight_mode")}
+          <UsageSummary
+            refreshKey={shownCount}
+            onOpen={() => action("show_main")}
             className={cn(
-              "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px]",
+              "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px]",
               FOCUS_RING,
               ROW_HOVER,
             )}
-          >
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center text-muted-foreground">
-              <Feather className="h-4 w-4" />
-            </span>
-            <span className="flex-1">{texts.lightweightMode}</span>
-            <span
-              className={cn(
-                "relative h-[18px] w-8 shrink-0 rounded-full transition-colors",
-                state.lightweight
-                  ? "bg-blue-500"
-                  : "bg-black/15 dark:bg-white/20",
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow transition-[left]",
-                  state.lightweight ? "left-[16px]" : "left-[2px]",
-                )}
-              />
-            </span>
-          </button>
-          <div className="flex">
-            <FooterButton
-              className="flex-1"
-              icon={<ExternalLink className="h-4 w-4" />}
-              text={texts.openMain}
-              onClick={() => action("show_main")}
-            />
-            <FooterButton
-              icon={<Power className="h-4 w-4" />}
-              text={texts.quit}
-              onClick={() => action("quit")}
-            />
-          </div>
+          />
+          <FooterButton
+            className="w-full"
+            icon={<Power className="h-4 w-4" />}
+            text={texts.quit}
+            onClick={() => action("quit")}
+          />
         </div>
       </div>
 

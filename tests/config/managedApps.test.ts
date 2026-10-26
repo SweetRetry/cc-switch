@@ -3,7 +3,6 @@ import {
   ONE_CLICK_INSTALL_COMMANDS,
   TOOL_NAMES,
 } from "@/components/apps/useToolManagement";
-import { SESSION_APP_IDS, isSessionAppId } from "@/components/sessions/utils";
 import { KNOWN_APP_TYPES } from "@/types/usage";
 import {
   UNINSTALL_METHODS,
@@ -11,15 +10,8 @@ import {
 } from "@/components/apps/toolUninstallCommands";
 
 describe("managed application scope", () => {
-  it("offers only the five supported clients for installation, sessions and usage", () => {
+  it("offers only the five supported clients for installation and usage", () => {
     expect(TOOL_NAMES).toEqual(["claude", "codex", "opencode", "pi", "agy"]);
-    expect(SESSION_APP_IDS).toEqual([
-      "claude",
-      "codex",
-      "opencode",
-      "pi",
-      "agy",
-    ]);
     expect(KNOWN_APP_TYPES).toEqual([
       "claude",
       "codex",
@@ -27,8 +19,6 @@ describe("managed application scope", () => {
       "pi",
       "agy",
     ]);
-    expect(isSessionAppId("hermes")).toBe(false);
-    expect(isSessionAppId("omp")).toBe(false);
   });
 
   it("keeps copied installation commands within the supported clients", () => {

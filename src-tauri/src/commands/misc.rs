@@ -4457,28 +4457,6 @@ fn agy_terminal_launch(provider: &crate::provider::Provider) -> Result<ProviderL
     })
 }
 
-/// 恢复 Antigravity 第三方 Key 模式的会话：和「打开终端」同样带私有目录和 Key，再接上
-/// `--conversation`。卡上已经没有 Key 时私有目录对不上，直接报错，不退回官方登录。
-pub(crate) fn open_agy_resume_terminal(
-    provider: &crate::provider::Provider,
-    conversation: &str,
-    cwd: Option<String>,
-) -> Result<(), String> {
-    let mut launch = agy_terminal_launch(provider)?;
-    // 只有 Key 卡有私有目录（启动前打印的那行路径）；官方卡的参数可能只有 `--model`。
-    if launch.detail.is_none() {
-        return Err(format!(
-            "「{}」已不再带 API Key，无法恢复它在私有目录里的会话",
-            provider.name
-        ));
-    }
-    let resume = format!("--conversation={conversation}");
-    launch.args.push(resume.clone());
-    launch.batch_command = format!("{} {resume}", launch.batch_command);
-    let cwd = resolve_launch_cwd(cwd)?;
-    launch_provider_terminal(&launch, cwd.as_deref()).map_err(|e| format!("启动终端失败: {e}"))
-}
-
 #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 const AGY_DIR_BATCH_VAR: &str = "CC_SWITCH_AGY_DIR";
 #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
@@ -6148,8 +6126,6 @@ mod tests {
             launch.batch_vars,
             vec![(AGY_MODEL_BATCH_VAR, "Gemini 3.1 Pro (High)".to_string())]
         );
-        // 带了 `--model` 的官方卡也没有私有目录，会话恢复不会把它当成 Key 卡（在开终端前就报错）。
-        assert!(open_agy_resume_terminal(&row, "abc", None).is_err());
 
         row.settings_config = serde_json::json!({"env":{},"config":{}});
         let launch = agy_terminal_launch(&row).unwrap();

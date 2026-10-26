@@ -330,32 +330,6 @@ pub(crate) fn remove_link(link: &Path) -> Result<(), AppError> {
         .map_err(|e| AppError::io(link, e))
 }
 
-/// 会话页的恢复命令。Key 模式的会话在私有目录里，要带上同一个 `--gemini_dir`；Key 本身
-/// 不进命令（命令会被显示和复制），一键恢复时由 [`crate::services::provider::agy_direct::key_resume_target`]
-/// 认出私有目录再补上。
-pub fn resume_command(gemini_dir: Option<&Path>, conversation: &str) -> String {
-    match gemini_dir {
-        Some(dir) => format!(
-            "agy {} --conversation={conversation}",
-            shell_word(&format!("--gemini_dir={}", dir.to_string_lossy()))
-        ),
-        None => format!("agy --conversation={conversation}"),
-    }
-}
-
-/// shell 里的一个词：只含安全字符时原样写，否则加单引号。
-fn shell_word(value: &str) -> String {
-    let plain = !value.is_empty()
-        && value
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '/' | ':' | '='));
-    if plain {
-        value.to_string()
-    } else {
-        format!("'{}'", value.replace('\'', r"'\''"))
-    }
-}
-
 /// 在后台跑 agy（查额度、列模型）。Windows 正式版是 GUI 子系统，控制台程序作子进程时
 /// 不带 `CREATE_NO_WINDOW` 会另弹一个黑色控制台窗口。
 pub(crate) fn background_command(bin: &Path) -> tokio::process::Command {
@@ -808,7 +782,7 @@ mod integration_tests {
 
     #[test]
     #[serial]
-    fn key_profile_sessions_are_listed_and_resume_with_their_provider() {
+    fn key_profile_transcripts_are_found_for_usage_import() {
         let _home = HomeGuard::new();
         let db = Database::memory().unwrap();
         let row = relay("relay one");
@@ -823,27 +797,10 @@ mod integration_tests {
         )
         .unwrap();
 
-        let sessions = crate::session_manager::providers::agy::scan_sessions();
-        assert_eq!(sessions.len(), 1);
-        let command = sessions[0].resume_command.clone().unwrap();
-        assert!(!command.contains("fixture"), "{command}");
-        assert_eq!(command, resume_command(Some(&dir), "abc-123"));
-        let (found, id) = agy_direct::key_resume_target(&db, &command)
-            .unwrap()
-            .unwrap();
-        assert_eq!(found.id, "relay one");
-        assert_eq!(id, "abc-123");
-        // Login sessions and tampered ids are left to the plain command.
-        assert!(
-            agy_direct::key_resume_target(&db, "agy --conversation=abc-123")
-                .unwrap()
-                .is_none()
-        );
-        assert!(
-            agy_direct::key_resume_target(&db, &format!("{command}; rm -rf /"))
-                .unwrap()
-                .is_none()
-        );
+        let found = crate::session_logs::agy::transcripts();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].0, "abc-123");
+        assert!(found[0].1.starts_with(&dir));
     }
 
     #[test]

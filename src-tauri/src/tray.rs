@@ -1450,7 +1450,6 @@ pub struct PanelModel {
     pub problems: Vec<PanelLink>,
     pub feedback: Option<String>,
     pub apps: Vec<PanelApp>,
-    pub lightweight: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1469,9 +1468,6 @@ pub struct PanelApp {
     pub current: Option<String>,
     pub attention: Option<&'static str>,
     pub quota: Option<PanelQuota>,
-    /// 还没有供应商：点这一行去添加。
-    pub add_id: Option<String>,
-    pub add_text: String,
     pub rows: Vec<PanelRow>,
 }
 
@@ -1656,7 +1652,8 @@ pub(crate) fn collect_panel_model(app_state: &AppState) -> Result<PanelModel, Ap
     let now = chrono::Local::now();
 
     let mut apps = Vec::with_capacity(snapshots.len());
-    for snapshot in &snapshots {
+    // 还没有供应商的应用不进面板
+    for snapshot in snapshots.iter().filter(|s| !s.providers.is_empty()) {
         let app = snapshot.app.as_str();
         let providers = app_state.db.get_all_providers(app)?;
         let rows = panel_rows(&app_state.usage_cache, &texts, snapshot, &providers, now);
@@ -1678,11 +1675,6 @@ pub(crate) fn collect_panel_model(app_state: &AppState) -> Result<PanelModel, Ap
             current: snapshot.current().map(|p| p.name.clone()),
             attention: snapshot.needs_attention.then_some(texts.needs_attention),
             quota,
-            add_id: snapshot
-                .providers
-                .is_empty()
-                .then(|| format!("nav:add:{app}")),
-            add_text: texts.add_provider.to_string(),
             rows,
         });
     }
@@ -1701,7 +1693,6 @@ pub(crate) fn collect_panel_model(app_state: &AppState) -> Result<PanelModel, Ap
             .as_ref()
             .map(|feedback| feedback_text(&texts, feedback)),
         apps,
-        lightweight: crate::lightweight::is_lightweight_mode(),
     })
 }
 

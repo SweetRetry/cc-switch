@@ -1,13 +1,11 @@
 import { isPiFamilyApp } from "@/config/appConfig";
-import { providersApi, sessionsApi, settingsApi, type AppId } from "@/lib/api";
+import { providersApi, settingsApi, type AppId } from "@/lib/api";
 import type { ProviderEditorSave, SwitchResult } from "@/lib/api/providers";
-import type { DeleteSessionOptions } from "@/lib/api/sessions";
 import { parseLiveEditConflict } from "@/lib/errors/liveEditConflict";
 import { invalidatePiProviderCaches } from "@/lib/query/pi";
-import { sessionKeys } from "@/lib/query/sessions";
 import { usageKeys } from "@/lib/query/usage";
 import { toast } from "@/lib/toast";
-import type { Provider, SessionMeta, Settings } from "@/types";
+import type { Provider, Settings } from "@/types";
 import {
   extractErrorMessage,
   translatePiProviderMutationError,
@@ -313,64 +311,6 @@ export const useSwitchProviderMutation = (appId: AppId) => {
       if (isPiFamilyApp(appId)) {
         await invalidatePiProviderCaches(queryClient, appId);
       }
-    },
-  });
-};
-
-export const useDeleteSessionMutation = () => {
-  const queryClient = useQueryClient();
-  const { t } = useTranslation();
-
-  return useMutation({
-    mutationFn: async (input: DeleteSessionOptions) => {
-      await sessionsApi.delete(input);
-      return input;
-    },
-    onSuccess: async (input) => {
-      const deleted = queryClient
-        .getQueryData<SessionMeta[]>(["sessions"])
-        ?.find(
-          (session) =>
-            session.providerId === input.providerId &&
-            session.sessionId === input.sessionId &&
-            session.sourcePath === input.sourcePath,
-        );
-      const deletedTitle = deleted?.title?.trim() || deleted?.summary?.trim();
-      queryClient.setQueryData<SessionMeta[]>(["sessions"], (current) =>
-        (current ?? []).filter(
-          (session) =>
-            !(
-              session.providerId === input.providerId &&
-              session.sessionId === input.sessionId &&
-              session.sourcePath === input.sourcePath
-            ),
-        ),
-      );
-      queryClient.removeQueries({
-        queryKey: sessionKeys.messages(input.providerId, input.sourcePath),
-      });
-      queryClient.removeQueries({
-        queryKey: sessionKeys.transcript(input.providerId, input.sourcePath),
-      });
-
-      await queryClient.invalidateQueries({ queryKey: ["sessions"] });
-
-      toast.success(
-        deletedTitle
-          ? t("sessionManager.sessionDeletedNamed", { title: deletedTitle })
-          : t("sessionManager.sessionDeleted", {
-              defaultValue: "会话已删除",
-            }),
-      );
-    },
-    onError: (error: Error) => {
-      const detail = extractErrorMessage(error) || t("common.unknown");
-      toast.error(
-        t("sessionManager.deleteFailed", {
-          defaultValue: "删除会话失败: {{error}}",
-          error: detail,
-        }),
-      );
     },
   });
 };

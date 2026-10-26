@@ -10,19 +10,6 @@ export interface PiCurrentState {
   defaultProviderId: string | null;
 }
 
-export type PiSessionDiscovery =
-  | {
-      status: "available";
-    }
-  | {
-      status: "requires_project_context";
-      configuredPath: string;
-    }
-  | {
-      status: "unavailable";
-      reason: string;
-    };
-
 export const piApi = {
   async getCurrentState(app: PiFamilyAppId = "pi"): Promise<PiCurrentState> {
     return await invoke(`get_${app}_current_state`);
@@ -38,9 +25,5 @@ export const piApi = {
       id,
       usageScript,
     });
-  },
-
-  async getSessionDiscovery(): Promise<PiSessionDiscovery> {
-    return await invoke("get_pi_session_discovery");
   },
 };

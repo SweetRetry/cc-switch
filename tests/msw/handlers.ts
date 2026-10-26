@@ -5,13 +5,10 @@ import type { McpServer, Provider, Settings } from "@/types";
 import {
   addProvider,
   deleteProvider,
-  deleteSession,
   getCurrentProviderId,
   getLiveProviderIds,
-  getSessionMessages,
   getProviders,
   listProviders,
-  listSessions,
   resetProviderState,
   setCurrentProviderId,
   ackPendingDeepLink,
@@ -160,48 +157,6 @@ export const handlers = [
   }),
 
   http.post(`${TAURI_ENDPOINT}/open_external`, () => success(true)),
-
-  http.post(`${TAURI_ENDPOINT}/list_sessions`, () => success(listSessions())),
-
-  http.post(`${TAURI_ENDPOINT}/get_session_messages`, async ({ request }) => {
-    const { providerId, sourcePath } = await withJson<{
-      providerId: string;
-      sourcePath: string;
-    }>(request);
-    return success(getSessionMessages(providerId, sourcePath));
-  }),
-
-  http.post(`${TAURI_ENDPOINT}/delete_session`, async ({ request }) => {
-    const { providerId, sessionId, sourcePath } = await withJson<{
-      providerId: string;
-      sessionId: string;
-      sourcePath: string;
-    }>(request);
-    return success(deleteSession(providerId, sessionId, sourcePath));
-  }),
-
-  http.post(`${TAURI_ENDPOINT}/delete_sessions`, async ({ request }) => {
-    const { items = [] } = await withJson<{
-      items?: {
-        providerId: string;
-        sessionId: string;
-        sourcePath: string;
-      }[];
-    }>(request);
-
-    return success(
-      items.map((item) => ({
-        providerId: item.providerId,
-        sessionId: item.sessionId,
-        sourcePath: item.sourcePath,
-        success: deleteSession(
-          item.providerId,
-          item.sessionId,
-          item.sourcePath,
-        ),
-      })),
-    );
-  }),
 
   // MCP APIs
   http.post(`${TAURI_ENDPOINT}/get_mcp_config`, async ({ request }) => {

@@ -8,10 +8,7 @@ export interface PanelTexts {
   openMain: string;
   quit: string;
   settings: string;
-  lightweightMode: string;
   openPanel: string;
-  configTab: string;
-  usageTab: string;
   /** 某一档还有多久重置：`{when}` 是下面几个单位拼出的时长 */
   resetsIn: string;
   /** 时长单位：`{n}` 是数字；最多取两级，中间用 `durationSep` 隔开 */
@@ -69,8 +66,6 @@ export interface PanelApp {
   current: string | null;
   attention: string | null;
   quota: PanelQuota | null;
-  addId: string | null;
-  addText: string;
   rows: PanelRow[];
 }
 
@@ -79,7 +74,6 @@ export interface TrayPanelState {
   problems: PanelLink[];
   feedback: string | null;
   apps: PanelApp[];
-  lightweight: boolean;
 }
 
 /** 这次弹出的方位（后端 `tray_panel::PanelPlacement`），坐标为逻辑像素。 */

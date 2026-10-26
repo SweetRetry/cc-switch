@@ -74,25 +74,6 @@ pub(crate) fn terminal_launch(provider: &Provider) -> Result<agy_config::AgyLaun
     agy_config::prepare_launch(&provider.id, &settings)
 }
 
-/// 会话页的恢复命令如果指向某张 Key 卡的私有目录，返回那张卡和会话 ID，好按「打开终端」
-/// 的方式补上 Key 再恢复。认不出（官方登录会话、卡已删除）时返回 `None`，照原命令执行。
-pub(crate) fn key_resume_target(
-    db: &Database,
-    command: &str,
-) -> Result<Option<(Provider, String)>, AppError> {
-    for provider in db.get_all_providers("agy")?.into_values() {
-        let dir = agy_config::key_profile_dir(&provider.id);
-        let prefix = agy_config::resume_command(Some(&dir), "");
-        let Some(id) = command.strip_prefix(&prefix) else {
-            continue;
-        };
-        if !id.is_empty() && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
-            return Ok(Some((provider, id.to_string())));
-        }
-    }
-    Ok(None)
-}
-
 /// 启动时调用：撤掉 #8268 测试版装的包装脚本、`env` 文件和 shell PATH 片段，以及它写进
 /// 真实 `settings.json` 的 `modelProvider`，让直接敲 `agy` 回到官方登录。模型不动。没有旧
 /// 现场时什么都不做。

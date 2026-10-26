@@ -252,13 +252,9 @@ pub fn import_from_codex(config: &mut MultiAppConfig) -> Result<usize, AppError>
                             claude: false,
                             codex: true,
 
-
                             opencode: false,
 
-
-
                             pi: false,
-
                         },
                         description: None,
                         homepage: None,

@@ -188,28 +188,12 @@ for line in sys.stdin:
     assert!(mcp_events.contains("tools/list"));
     println!("SMOKE native_mcp_handshake_and_tool_discovery=ok");
 
-    let sessions = crate::session_manager::providers::agy::scan_sessions();
-    assert!(!sessions.is_empty());
-    let mut preview_found = false;
-    for session in &sessions {
-        if let Some(path) = &session.source_path {
-            let messages =
-                crate::session_manager::providers::agy::load_messages(Path::new(path)).unwrap();
-            preview_found |= serde_json::to_string(&messages)
-                .unwrap()
-                .contains("CCS_AGY_SKILL_OK");
-        }
-    }
-    assert!(
-        preview_found,
-        "native generated reply absent from CCS preview"
-    );
     let first = crate::services::session_usage_agy::sync_agy_usage(&db).unwrap();
     let second = crate::services::session_usage_agy::sync_agy_usage(&db).unwrap();
     assert!(first.imported > 0);
     assert_eq!(second.imported, 0);
     println!(
-        "SMOKE session_preview=ok imported={} repeated_import=0",
+        "SMOKE session_usage=ok imported={} repeated_import=0",
         first.imported
     );
 }

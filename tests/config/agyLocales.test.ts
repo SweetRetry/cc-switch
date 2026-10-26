@@ -23,7 +23,6 @@ describe("Antigravity locale parity", () => {
       expect.arrayContaining([
         "apps.agy",
         "provider.form.agy.modelHelp",
-        "sessionManager.agyDeleteHint",
       ]),
     );
   });

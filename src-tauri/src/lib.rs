@@ -32,7 +32,7 @@ mod prompt_files;
 mod provider;
 mod proxy;
 mod services;
-mod session_manager;
+mod session_logs;
 mod settings;
 mod store;
 
@@ -1512,7 +1512,6 @@ pub fn run() {
             // Pi native provider and session views
             commands::get_pi_current_state,
             commands::update_pi_provider_usage_script,
-            commands::get_pi_session_discovery,
 
             // Fetch OpenAI-compatible and Anthropic model lists. Response data structure:
             // data[].id, data[]?.owned_by. Special: supports Zhipu OpenAI Responses models[].slug.
@@ -1613,17 +1612,6 @@ pub fn run() {
             commands::get_usage_data_sources,
             // Stream health check
             commands::stream_check_provider,
-            // Session manager
-            commands::list_sessions,
-            commands::get_session_messages,
-            commands::stream_session_messages,
-            commands::get_session_block_content,
-            commands::get_session_image,
-            commands::reveal_session_path,
-            commands::export_session_markdown,
-            commands::delete_session,
-            commands::delete_sessions,
-            commands::launch_session_terminal,
             commands::get_tool_versions,
             commands::run_tool_lifecycle_action,
             commands::prepare_tool_uninstall,

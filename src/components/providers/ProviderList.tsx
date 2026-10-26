@@ -5,7 +5,7 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useCallback, useMemo, type CSSProperties } from "react";
+import { useCallback, useMemo, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/lib/toast";
@@ -19,13 +19,18 @@ import {
 } from "@/utils/errorUtils";
 import { useDragSort } from "@/hooks/useDragSort";
 import { useStreamCheck } from "@/hooks/useStreamCheck";
-import { ProviderCard } from "@/components/providers/ProviderCard";
+import { ProviderDetail } from "@/components/providers/ProviderDetail";
+import { primaryModelOf } from "@/components/providers/providerModels";
+import { Button } from "@/components/ui/button";
+import { HoverTip } from "@/components/ui/hover-tip";
+import { Switch } from "@/components/ui/switch";
+import { SquareTerminal } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { ProviderEmptyState } from "@/components/providers/ProviderEmptyState";
 import {
   useCurrentOmoProviderId,
   useCurrentOmoSlimProviderId,
 } from "@/lib/query/omo";
-import { HelpTip } from "@/components/ui/help-tip";
 import { Notice } from "@/components/ui/notice";
 import { usePiCurrentState } from "@/lib/query/pi";
 import { isPiFamilyApp } from "@/config/appConfig";
@@ -81,6 +86,7 @@ export function ProviderList({
   isLoading = false,
 }: ProviderListProps) {
   const { t } = useTranslation();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const { checkProvider, isChecking } = useStreamCheck(appId);
   const { sortedProviders, sensors, handleDragEnd } = useDragSort(
     providers,
@@ -298,92 +304,121 @@ export function ProviderList({
     return provider.id === currentProviderId;
   };
 
-  const renderCard = (provider: Provider, presentation: CardPresentation) => (
-    <SortableProviderCard
-      key={provider.id}
-      provider={provider}
-      appId={appId}
-      presentation={presentation}
-      isCurrent={isCurrentFor(provider)}
-      isInConfig={isInConfig(provider)}
-      onEdit={onEdit}
-      onDelete={onDelete}
-      onDuplicate={onDuplicate}
-      onConfigureUsage={
-        onConfigureUsage ? (item) => onConfigureUsage(item) : () => undefined
-      }
-      onOpenWebsite={onOpenWebsite}
-      // Antigravity 的「打开终端」已经是主按钮，「更多」菜单里不再重复
-      onOpenTerminal={appId === "agy" ? undefined : onOpenTerminal}
-      onTest={handleTest}
-      isTesting={isChecking(provider.id)}
-    />
+  // 列表顺序固定按用户排的顺序，不按「使用中 / 已添加」分组：切换后行不跳位置
+  const presentationOf = new Map(
+    sections.flatMap((section) =>
+      section.items.map((item) => [item.provider.id, item.presentation]),
+    ),
   );
+  const rows = sortedProviders.map((provider) => ({
+    provider,
+    presentation: presentationOf.get(provider.id) ?? { chips: [], buttons: [] },
+  }));
+  const isActive = (provider: Provider) =>
+    appId === "claude" || appId === "codex"
+      ? provider.id === currentProviderId
+      : appId !== "agy" && isInConfig(provider);
+  const selected =
+    rows.find((row) => row.provider.id === selectedId) ??
+    rows.find((row) => isActive(row.provider)) ??
+    rows[0];
+  const control: RowControl =
+    appId === "claude" || appId === "codex"
+      ? "radio"
+      : appId === "agy"
+        ? "launch"
+        : "switch";
 
-  const renderSectionTitle = (section: ProviderSection) => (
-    <div className="flex items-center gap-1 text-caption font-semibold text-fg-2">
-      <h2 className="m-0 text-caption font-semibold">{section.title}</h2>
-      {section.help && (
-        <HelpTip title={section.help.title}>{section.help.body}</HelpTip>
-      )}
-    </div>
-  );
-
-  // 卡片列表铺满主区域，和页头同宽
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       {piStateErrorNotice}
-      <DndContext
-        sensors={sensors}
-        modifiers={verticalDragModifiers}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        {sections.map((section) => (
-          <section key={section.key} className="space-y-2">
-            {section.title && (
-              <div className="pt-1">{renderSectionTitle(section)}</div>
-            )}
-            {section.items.length === 0 && section.emptyText ? (
-              <div className="rounded-panel border border-dashed border-border px-4 py-3 text-caption text-fg-3">
-                {section.emptyText}
-              </div>
-            ) : (
-              <SortableContext
-                items={section.items.map((item) => item.provider.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="space-y-2">
-                  {section.items.map((item) =>
-                    renderCard(item.provider, item.presentation),
-                  )}
-                </div>
-              </SortableContext>
-            )}
-          </section>
-        ))}
-      </DndContext>
+      <div className="flex min-h-0 flex-1 gap-10">
+        <DndContext
+          sensors={sensors}
+          modifiers={verticalDragModifiers}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={rows.map((row) => row.provider.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div
+              role="list"
+              aria-label={t("providerDetail.listLabel", {
+                app: t(`apps.${appId}`),
+              })}
+              className="-ms-2 w-64 shrink-0 space-y-0.5 overflow-y-auto pb-6"
+            >
+              {rows.map((row) => (
+                <SortableProviderRow
+                  key={row.provider.id}
+                  appId={appId}
+                  provider={row.provider}
+                  presentation={row.presentation}
+                  control={control}
+                  active={isActive(row.provider)}
+                  selected={row.provider.id === selected?.provider.id}
+                  onSelect={() => setSelectedId(row.provider.id)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+
+        <div className="min-w-0 flex-1 overflow-y-auto pb-12">
+          {selected && (
+            <ProviderDetail
+              key={selected.provider.id}
+              provider={selected.provider}
+              appId={appId}
+              presentation={selected.presentation}
+              isCurrent={isCurrentFor(selected.provider)}
+              isInConfig={isInConfig(selected.provider)}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onDuplicate={onDuplicate}
+              onConfigureUsage={
+                onConfigureUsage
+                  ? (item) => onConfigureUsage(item)
+                  : () => undefined
+              }
+              onOpenWebsite={onOpenWebsite}
+              // Antigravity 的「打开终端」在列表行尾，「更多」菜单里不再重复
+              onOpenTerminal={appId === "agy" ? undefined : onOpenTerminal}
+              onTest={handleTest}
+              isTesting={isChecking(selected.provider.id)}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-interface SortableProviderCardProps {
-  provider: Provider;
+/** 行首控件：Claude / Codex 单选当前那家；OpenCode / Pi 开关启用；Antigravity 行尾打开终端。 */
+type RowControl = "radio" | "switch" | "launch";
+
+interface SortableProviderRowProps {
   appId: AppId;
+  provider: Provider;
   presentation: CardPresentation;
-  isCurrent: boolean;
-  isInConfig: boolean;
-  onEdit: (provider: Provider) => void;
-  onDelete: (provider: Provider) => void;
-  onDuplicate: (provider: Provider) => void;
-  onConfigureUsage: (provider: Provider) => void;
-  onOpenWebsite: (url: string) => void;
-  onOpenTerminal?: (provider: Provider) => void;
-  onTest?: (provider: Provider) => void;
-  isTesting: boolean;
+  control: RowControl;
+  active: boolean;
+  selected: boolean;
+  onSelect: () => void;
 }
 
-function SortableProviderCard(props: SortableProviderCardProps) {
+function SortableProviderRow({
+  appId,
+  provider,
+  presentation,
+  control,
+  active,
+  selected,
+  onSelect,
+}: SortableProviderRowProps) {
+  const { t } = useTranslation();
   const {
     setNodeRef,
     attributes,
@@ -391,7 +426,7 @@ function SortableProviderCard(props: SortableProviderCardProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: props.provider.id });
+  } = useSortable({ id: provider.id });
 
   const style: CSSProperties = {
     transform: CSS.Translate.toString(transform),
@@ -399,13 +434,102 @@ function SortableProviderCard(props: SortableProviderCardProps) {
     position: "relative",
     zIndex: isDragging ? 10 : undefined,
   };
+  // 列表算好的主操作：直连的「切换」、共存式的「添加 / 移除 / 启用 / 停用」、启动器的「打开终端」
+  const action = presentation.buttons[0];
+  const model = primaryModelOf(appId, provider, t);
 
   return (
-    <div ref={setNodeRef} style={style}>
-      <ProviderCard
-        {...props}
-        dragHandleProps={{ attributes, listeners, isDragging }}
-      />
+    <div
+      ref={setNodeRef}
+      style={style}
+      role="listitem"
+      className={cn(
+        "flex items-start rounded-control transition-colors",
+        selected ? "bg-selected" : "hover:bg-subtle",
+        isDragging && "shadow-v7-md",
+      )}
+    >
+      {control === "radio" && (
+        <button
+          type="button"
+          role="radio"
+          aria-checked={active}
+          aria-label={t("providerDetail.useProvider", { name: provider.name })}
+          title={action?.disabledReason}
+          disabled={!active && (!action || Boolean(action.disabledReason))}
+          onClick={() => !active && action?.onClick()}
+          className="flex h-11 w-10 shrink-0 items-center justify-center rounded-control disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <span
+            aria-hidden="true"
+            className={cn(
+              "flex h-4 w-4 items-center justify-center rounded-full border transition-colors duration-150 ease-out",
+              active ? "border-fg-1" : "border-border-strong",
+            )}
+          >
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full bg-fg-1 transition-transform duration-150 ease-out",
+                active ? "scale-100" : "scale-0",
+              )}
+            />
+          </span>
+        </button>
+      )}
+      {control === "switch" && (
+        <span
+          className="flex h-11 w-12 shrink-0 items-center justify-center"
+          title={action?.disabledReason}
+        >
+          <Switch
+            checked={action?.key === "remove" || action?.key === "disable"}
+            disabled={!action || Boolean(action.disabledReason)}
+            onCheckedChange={() => action?.onClick()}
+            aria-label={t("providerDetail.enableProvider", {
+              name: provider.name,
+            })}
+          />
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-current={selected ? "true" : undefined}
+        className={cn(
+          "grid min-w-0 flex-1 py-1.5 pe-2 text-start",
+          control === "launch" && "ps-3",
+        )}
+        {...attributes}
+        {...listeners}
+      >
+        <span
+          className={cn(
+            "truncate text-body text-fg-1",
+            selected && "font-medium",
+          )}
+          title={provider.name}
+        >
+          {provider.name}
+        </span>
+        <span className="truncate font-mono text-caption text-fg-3">
+          {model ?? t("providerDetail.appDefaultModel")}
+        </span>
+      </button>
+      {control === "launch" && action && (
+        <HoverTip content={action.label}>
+          <Button
+            variant="quiet"
+            size="icon-compact"
+            className="me-1 mt-2"
+            aria-label={t("providerCard.action.openTerminal", {
+              name: provider.name,
+            })}
+            onClick={action.onClick}
+          >
+            <SquareTerminal className="h-4 w-4" strokeWidth={1.5} />
+          </Button>
+        </HoverTip>
+      )}
     </div>
   );
 }

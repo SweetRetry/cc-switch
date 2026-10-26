@@ -260,13 +260,9 @@ pub fn import_from_opencode(config: &mut MultiAppConfig) -> Result<usize, AppErr
                         claude: false,
                         codex: false,
 
-
                         opencode: true,
 
-
-
                         pi: false,
-
                     },
                     description: None,
                     homepage: None,

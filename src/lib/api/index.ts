@@ -9,7 +9,6 @@ export { skillsApi } from "./skills";
 export { usageApi } from "./usage";
 export { subscriptionApi } from "./subscription";
 export { vscodeApi } from "./vscode";
-export { sessionsApi } from "./sessions";
 export * as authApi from "./auth";
 export * as copilotApi from "./copilot";
 export type { ProviderSwitchEvent } from "./providers";

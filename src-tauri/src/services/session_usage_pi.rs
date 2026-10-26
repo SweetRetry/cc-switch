@@ -166,7 +166,7 @@ impl ChildScope {
 /// Import usage from every Pi session file under the session browser's current
 /// root and layout rules, including nested subagent sessions.
 pub fn sync_pi_usage(db: &Database) -> Result<SessionSyncResult, AppError> {
-    let files = crate::session_manager::providers::pi::session_files()
+    let files = crate::session_logs::pi::session_files()
         .map_err(|error| AppError::Config(format!("无法发现 Pi 会话: {error}")))?;
     Ok(sync_pi_files(db, &files))
 }
@@ -251,10 +251,10 @@ fn sync_single_pi_file(
             "Pi 会话路径不是普通 JSONL 文件".to_string(),
         ));
     }
-    if metadata.len() > crate::session_manager::providers::pi::MAX_SESSION_BYTES {
+    if metadata.len() > crate::session_logs::pi::MAX_SESSION_BYTES {
         return Err(AppError::Config(format!(
             "Pi 会话文件超过 {} 字节安全上限",
-            crate::session_manager::providers::pi::MAX_SESSION_BYTES
+            crate::session_logs::pi::MAX_SESSION_BYTES
         )));
     }
 
@@ -322,9 +322,9 @@ fn decode_pi_sync_state(
         return None;
     }
     let file_size = (encoded_revision >> REVISION_SIZE_SHIFT) & REVISION_SIZE_MASK;
-    if file_size > crate::session_manager::providers::pi::MAX_SESSION_BYTES
+    if file_size > crate::session_logs::pi::MAX_SESSION_BYTES
         || last_line_offset < 0
-        || last_line_offset > crate::session_manager::providers::pi::MAX_TREE_ENTRIES as i64 + 1
+        || last_line_offset > crate::session_logs::pi::MAX_TREE_ENTRIES as i64 + 1
     {
         return None;
     }
@@ -436,7 +436,7 @@ fn parse_pi_file(
             return Err(AppError::Config("Pi 会话文件在读取期间被截断".to_string()));
         }
         bytes_read = bytes_read.saturating_add(read as u64);
-        if bytes_read > crate::session_manager::providers::pi::MAX_SESSION_BYTES {
+        if bytes_read > crate::session_logs::pi::MAX_SESSION_BYTES {
             return Err(AppError::Config(
                 "Pi 会话文件读取时超过安全上限".to_string(),
             ));
@@ -456,10 +456,10 @@ fn parse_pi_file(
             }
         };
         line_number = line_number.saturating_add(1);
-        if line_number > crate::session_manager::providers::pi::MAX_TREE_ENTRIES as i64 + 1 {
+        if line_number > crate::session_logs::pi::MAX_TREE_ENTRIES as i64 + 1 {
             return Err(AppError::Config(format!(
                 "Pi 会话超过 {} 条 entry 安全上限",
-                crate::session_manager::providers::pi::MAX_TREE_ENTRIES
+                crate::session_logs::pi::MAX_TREE_ENTRIES
             )));
         }
         if session_id.is_some() && line_number <= start_after_line {
@@ -482,7 +482,7 @@ fn parse_pi_file(
             session_id = value
                 .get("id")
                 .and_then(Value::as_str)
-                .filter(|id| crate::session_manager::providers::pi::is_valid_tree_id(id))
+                .filter(|id| crate::session_logs::pi::is_valid_tree_id(id))
                 .map(str::to_string);
             if session_id.is_none() {
                 return Err(AppError::Config("Pi 会话 header 缺少 id".to_string()));
@@ -1954,7 +1954,7 @@ mod tests {
         let path = session_path(temp.path(), "oversized");
         File::create(&path)
             .expect("create sparse session")
-            .set_len(crate::session_manager::providers::pi::MAX_SESSION_BYTES + 1)
+            .set_len(crate::session_logs::pi::MAX_SESSION_BYTES + 1)
             .expect("size sparse session");
 
         let db = Database::memory()?;

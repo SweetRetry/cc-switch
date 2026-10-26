@@ -93,7 +93,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SessionManagerPage } from "@/components/sessions/SessionManagerPage";
 import {
   useDisableCurrentOmo,
   useDisableCurrentOmoSlim,
@@ -1085,9 +1084,6 @@ function App() {
         </DropdownMenuTrigger>
       </HoverTip>
       <DropdownMenuContent align="end" className="min-w-[180px]">
-        <DropdownMenuItem onSelect={() => openPage("sessions")}>
-          {t("appPage.viewSessions")}
-        </DropdownMenuItem>
         {activeUsageApp && (
           <DropdownMenuItem
             onSelect={() => {
@@ -1123,14 +1119,17 @@ function App() {
       actions={
         <>
           {currentView === "providers" && (
-            <Button
-              variant="solid"
-              size="regular"
-              onClick={() => openAddProvider()}
-            >
-              <Plus className="h-4 w-4" />
-              {t("provider.addProvider")}
-            </Button>
+            <HoverTip content={t("provider.addProvider")}>
+              <Button
+                variant="quiet"
+                size="icon-compact"
+                className="h-8 w-8"
+                aria-label={t("provider.addProvider")}
+                onClick={() => openAddProvider()}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </HoverTip>
           )}
           {appMenu}
         </>
@@ -1159,39 +1158,35 @@ function App() {
       <div
         ref={providerScrollContainerRef}
         id="main-content"
-        className="min-h-0 flex-1 overflow-y-auto scroll-stable overflow-x-hidden px-6 pb-12 pt-4"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pt-4"
       >
-        <div className="space-y-4">
-          <ProviderList
-            {...listCallbacks}
-            providers={providers}
-            currentProviderId={currentProviderId}
-            appId={activeApp}
-            isLoading={isLoading}
-            onSwitch={(provider) =>
-              void (isPiFamilyApp(activeApp)
-                ? handleEnablePiProvider(provider, activeApp)
-                : switchProvider(provider))
-            }
-            onRemoveFromConfig={
-              activeApp === "opencode" || activeApp === "pi"
-                ? (provider) => setConfirmAction({ provider, action: "remove" })
-                : undefined
-            }
-            onDisableOmo={
-              activeApp === "opencode" ? handleDisableOmo : undefined
-            }
-            onDisableOmoSlim={
-              activeApp === "opencode" ? handleDisableOmoSlim : undefined
-            }
-            onSetAsDefault={
-              activeApp === "opencode"
-                ? (provider, modelId) =>
-                    void setAsDefaultModel(provider, modelId)
-                : undefined
-            }
-          />
-        </div>
+        <ProviderList
+          key={activeApp}
+          {...listCallbacks}
+          providers={providers}
+          currentProviderId={currentProviderId}
+          appId={activeApp}
+          isLoading={isLoading}
+          onSwitch={(provider) =>
+            void (isPiFamilyApp(activeApp)
+              ? handleEnablePiProvider(provider, activeApp)
+              : switchProvider(provider))
+          }
+          onRemoveFromConfig={
+            activeApp === "opencode" || activeApp === "pi"
+              ? (provider) => setConfirmAction({ provider, action: "remove" })
+              : undefined
+          }
+          onDisableOmo={activeApp === "opencode" ? handleDisableOmo : undefined}
+          onDisableOmoSlim={
+            activeApp === "opencode" ? handleDisableOmoSlim : undefined
+          }
+          onSetAsDefault={
+            activeApp === "opencode"
+              ? (provider, modelId) => void setAsDefaultModel(provider, modelId)
+              : undefined
+          }
+        />
       </div>
     );
   };
@@ -1231,15 +1226,6 @@ function App() {
               onNavigationBlockedChange={setPromptNavigationBusy}
             />
           </div>
-        );
-      case "sessions":
-        // 页头（含 ⋯ 菜单）由会话页自己画：菜单里的操作都在页面状态里
-        return (
-          <SessionManagerPage
-            key={sharedFeatureApp}
-            appId={sharedFeatureApp}
-            onOpenTerminalSettings={() => openSettings("general")}
-          />
         );
       case "apps":
         return <AppsPage />;

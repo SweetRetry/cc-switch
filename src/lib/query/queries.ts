@@ -1,13 +1,7 @@
 import { useRef } from "react";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
-import {
-  providersApi,
-  settingsApi,
-  usageApi,
-  sessionsApi,
-  type AppId,
-} from "@/lib/api";
-import type { Provider, Settings, UsageResult, SessionMeta } from "@/types";
+import { providersApi, settingsApi, usageApi, type AppId } from "@/lib/api";
+import type { Provider, Settings, UsageResult } from "@/types";
 import { usageKeys } from "@/lib/query/usage";
 import { extractErrorMessage } from "@/utils/errorUtils";
 
@@ -294,14 +288,3 @@ export const useUsageQuery = (
     lastQueriedAt,
   };
 };
-
-export const useSessionsQuery = () => {
-  return useQuery<SessionMeta[]>({
-    queryKey: ["sessions"],
-    queryFn: async () => sessionsApi.list(),
-    staleTime: 30 * 1000,
-  });
-};
-
-// 会话消息查询已迁到 ./sessions（阅读页数据层），这里保留转发给旧调用方
-export { useSessionMessagesQuery } from "./sessions";

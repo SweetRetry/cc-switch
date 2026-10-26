@@ -8,7 +8,6 @@ import {
   ChartColumn,
   Database,
   Folder,
-  History,
   Info,
   LayoutGrid,
   Server,
@@ -23,7 +22,9 @@ import { isAppPage } from "@/lib/navigation";
 import { SkillsIcon } from "@/components/BrandIcons";
 import { useUpdate } from "@/contexts/UpdateContext";
 import { useMoneyFormat } from "@/hooks/useMoneyFormat";
-import { useSettingsQuery } from "@/lib/query";
+import { useProvidersQuery, useSettingsQuery } from "@/lib/query";
+import { usePiCurrentState } from "@/lib/query/pi";
+import { providersApi } from "@/lib/api/providers";
 import {
   fmtInt,
   formatHitRatePercent,
@@ -201,7 +202,6 @@ function MainDirectory({
     { page: "mcp", label: "MCP", icon: Server },
     { page: "skills", label: "Skills", icon: SkillsIcon },
     { page: "prompts", label: t("nav.prompts"), icon: BookOpen },
-    { page: "sessions", label: t("nav.sessions"), icon: History },
     {
       page: "usage",
       label: t("nav.usage"),
@@ -234,7 +234,7 @@ function MainDirectory({
 
       <div className="mx-4 mb-1.5 mt-0.5 h-px shrink-0 bg-border" />
 
-      <div className="flex shrink-0 flex-col">
+      <div className="flex shrink-0 flex-col pb-2">
         {globals.map((item) => (
           <NavItem
             key={item.page}
@@ -247,14 +247,7 @@ function MainDirectory({
             onClick={() => onSelectPage(item.page)}
           />
         ))}
-      </div>
-
-      {/* 和上面那条分隔线同样缩进、上下各留 6px，选中的最后一项不会贴着线 */}
-      <div className="mx-4 my-1.5 h-px shrink-0 bg-border" />
-
-      <div className="flex shrink-0 gap-1 px-2 pb-2">
         <NavItem
-          compact
           selected={view === "apps"}
           icon={LayoutGrid}
           label={t("nav.apps")}
@@ -265,7 +258,6 @@ function MainDirectory({
           onClick={() => onSelectPage("apps")}
         />
         <NavItem
-          compact
           selected={false}
           icon={Settings}
           label={t("nav.settings")}
@@ -290,6 +282,7 @@ function AppNavItem({
 }) {
   const name = APP_DISPLAY_NAME[app];
   const badgeBg = selected ? "bg-selected" : "bg-sidebar";
+  const subtitle = useAppNavSubtitle(app);
 
   return (
     <button
@@ -297,18 +290,58 @@ function AppNavItem({
       onClick={onSelect}
       aria-current={selected ? "page" : undefined}
       className={cn(
-        "mx-2 flex h-7 w-[184px] shrink-0 items-center gap-2 rounded-control px-2 text-start transition-colors hover:bg-subtle",
-        selected && "bg-selected font-medium hover:bg-selected",
+        "mx-2 flex w-[184px] shrink-0 items-start gap-2 rounded-control px-2 py-1 text-start transition-colors hover:bg-subtle",
+        selected && "bg-selected hover:bg-selected",
       )}
     >
-      <AppGlyph app={app} size={16} badgeClassName={badgeBg} />
-      <span className="min-w-0 flex-1 truncate">{name}</span>
+      <span className="mt-0.5 flex shrink-0">
+        <AppGlyph app={app} size={16} badgeClassName={badgeBg} />
+      </span>
+      <span className="grid min-w-0 flex-1">
+        <span className={cn("truncate", selected && "font-medium")}>
+          {name}
+        </span>
+        <span className="min-h-[1lh] truncate text-caption text-fg-3">
+          {subtitle}
+        </span>
+      </span>
     </button>
   );
 }
 
+/** 应用行的副标题：直连应用写当前供应商，共存式写启用了几家，Antigravity 写有几家。 */
+function useAppNavSubtitle(app: AppId): string | undefined {
+  const { t } = useTranslation();
+  const { data } = useProvidersQuery(app);
+  const { data: opencodeLiveIds } = useQuery({
+    queryKey: ["opencodeLiveProviderIds"],
+    queryFn: () => providersApi.getOpenCodeLiveProviderIds(),
+    enabled: app === "opencode",
+  });
+  const { data: piState } = usePiCurrentState(app === "pi", "pi");
+  if (!data) return undefined;
+  switch (app) {
+    case "claude":
+    case "codex":
+      return (
+        data.providers[data.currentProviderId]?.name ?? t("nav.noProvider")
+      );
+    case "opencode":
+      return opencodeLiveIds
+        ? t("nav.enabledCount", { count: opencodeLiveIds.length })
+        : undefined;
+    case "pi":
+      return piState
+        ? t("nav.enabledCount", { count: piState.enabledProviderIds.length })
+        : undefined;
+    case "agy":
+      return t("nav.providerCount", {
+        count: Object.keys(data.providers).length,
+      });
+  }
+}
+
 function NavItem({
-  compact = false,
   selected,
   icon: Icon,
   label,
@@ -321,8 +354,6 @@ function NavItem({
   endDot = false,
   onClick,
 }: {
-  /** 底栏两格并排：宽度由父级平分 */
-  compact?: boolean;
   selected: boolean;
   icon: IconComponent;
   label: string;
@@ -376,11 +407,7 @@ function NavItem({
         ? accessibleName
         : undefined;
   return (
-    <HoverTip
-      content={hoverContent}
-      side={compact ? "top" : "right"}
-      disableHoverableContent
-    >
+    <HoverTip content={hoverContent} side="right" disableHoverableContent>
       <button
         type="button"
         onClick={onClick}
@@ -388,7 +415,7 @@ function NavItem({
         aria-current={selected ? "page" : undefined}
         className={cn(
           "flex h-7 shrink-0 items-center gap-2 rounded-control px-2 text-start transition-colors hover:bg-subtle",
-          compact ? "min-w-0 flex-1" : "mx-2 w-[184px]",
+          "mx-2 w-[184px]",
           selected && "bg-selected font-medium hover:bg-selected",
         )}
       >

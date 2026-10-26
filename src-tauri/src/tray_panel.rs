@@ -79,10 +79,7 @@ pub struct PanelTexts {
     pub open_main: &'static str,
     pub quit: &'static str,
     pub settings: &'static str,
-    pub lightweight_mode: &'static str,
     pub open_panel: &'static str,
-    pub config_tab: &'static str,
-    pub usage_tab: &'static str,
     /// 某一档还有多久重置：`{when}` 是下面几个单位拼出的时长
     pub resets_in: &'static str,
     /// 时长单位：`{n}` 是数字；最多取两级（天+小时、小时+分），中间用 `duration_sep` 隔开
@@ -103,14 +100,7 @@ impl PanelTexts {
                 open_main: "Open main window",
                 quit: "Quit",
                 settings: "Settings",
-                lightweight_mode: if language == "tr" {
-                    "Hafif mod"
-                } else {
-                    "Lightweight mode"
-                },
                 open_panel: "Open quick panel",
-                config_tab: "Configuration",
-                usage_tab: "Usage",
                 resets_in: "Resets in {when}",
                 duration_days: "{n}d",
                 duration_hours: "{n}h",
@@ -124,10 +114,7 @@ impl PanelTexts {
                 open_main: "メインウィンドウを開く",
                 quit: "終了",
                 settings: "設定",
-                lightweight_mode: "軽量モード",
                 open_panel: "クイックパネルを開く",
-                config_tab: "構成",
-                usage_tab: "使用量",
                 resets_in: "{when}後にリセット",
                 duration_days: "{n}日",
                 duration_hours: "{n}時間",
@@ -141,10 +128,7 @@ impl PanelTexts {
                 open_main: "開啟主視窗",
                 quit: "結束",
                 settings: "設定",
-                lightweight_mode: "輕量模式",
                 open_panel: "開啟快捷面板",
-                config_tab: "配置",
-                usage_tab: "用量",
                 resets_in: "{when}後重置",
                 duration_days: "{n}天",
                 duration_hours: "{n}小時",
@@ -158,10 +142,7 @@ impl PanelTexts {
                 open_main: "打开主窗口",
                 quit: "退出",
                 settings: "设置",
-                lightweight_mode: "轻量模式",
                 open_panel: "打开快捷面板",
-                config_tab: "配置",
-                usage_tab: "用量",
                 resets_in: "{when}后重置",
                 duration_days: "{n}天",
                 duration_hours: "{n}小时",
@@ -1164,14 +1145,14 @@ pub fn tray_panel_hide(app: AppHandle) {
     hide_panel(&app);
 }
 
-/// 面板里点了一行：按原生菜单的事件 id 处理。切换供应商、项目、轻量模式之后面板留着
+/// 面板里点了一行：按原生菜单的事件 id 处理。切换供应商、项目之后面板留着
 /// （看得到勾移到哪家），其余（打开页面、退出）先收起面板。
 ///
 /// 必须是 async 命令：轻量模式下打开主窗口要新建窗口，Windows 上在同步命令里
 /// `WebviewWindowBuilder::build()` 会死锁（WebView2 限制）。原生菜单的事件回调没有这个问题。
 #[tauri::command]
 pub async fn tray_panel_action(app: AppHandle, id: String) {
-    let stays_open = id.starts_with("prov:") || id == "lightweight_mode";
+    let stays_open = id.starts_with("prov:");
     if !stays_open {
         hide_panel(&app);
     }

@@ -1813,7 +1813,8 @@ fn agy_deeplink_prompt_import_respects_activation() {
         assert_eq!(path.exists(), enabled);
     }
     assert_eq!(std::fs::read_to_string(path).unwrap(), "Agy instructions");
-    assert!(!crate::config::get_home_dir().join(".gemini")
+    assert!(!crate::config::get_home_dir()
+        .join(".gemini")
         .join("GEMINI.md")
         .exists());
 }

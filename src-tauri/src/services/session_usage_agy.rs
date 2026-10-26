@@ -6,7 +6,7 @@ use crate::proxy::usage::parser::TokenUsage;
 use crate::{
     database::{lock_conn, Database},
     error::AppError,
-    session_manager::providers::agy,
+    session_logs::agy,
 };
 use rusqlite::{params, OptionalExtension};
 use serde_json::Value;
@@ -16,23 +16,16 @@ mod native_models;
 
 pub fn sync_agy_usage(db: &Database) -> Result<SessionSyncResult, AppError> {
     let mut result = SessionSyncResult::default();
-    for session in agy::scan_sessions() {
-        let Some(path) = session.source_path else {
-            continue;
-        };
+    for (session_id, path) in agy::transcripts() {
         result.files_scanned += 1;
-        match agy::records(std::path::Path::new(&path)) {
-            Ok(rows) => {
-                match import_records(db, &session.session_id, &rows, Some(Path::new(&path))) {
-                    Ok((imported, skipped)) => {
-                        result.imported += imported;
-                        result.skipped += skipped;
-                    }
-                    Err(e) => result
-                        .errors
-                        .push(format!("Antigravity {}: {e}", session.session_id)),
+        match agy::records(&path) {
+            Ok(rows) => match import_records(db, &session_id, &rows, Some(&path)) {
+                Ok((imported, skipped)) => {
+                    result.imported += imported;
+                    result.skipped += skipped;
                 }
-            }
+                Err(e) => result.errors.push(format!("Antigravity {session_id}: {e}")),
+            },
             Err(e) => result.errors.push(e),
         }
     }

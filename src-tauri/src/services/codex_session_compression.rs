@@ -8,7 +8,8 @@ use toml_edit::value;
 
 use crate::app_config::AppType;
 use crate::codex_config::{
-    codex_config_feature_enabled, get_codex_config_path, read_codex_config_text,
+    codex_config_feature_enabled, get_codex_config_dir, get_codex_config_path,
+    read_codex_config_text,
 };
 use crate::database::Database;
 use crate::error::AppError;
@@ -17,7 +18,6 @@ use crate::live::patch::toml::TomlPatch;
 use crate::live::patch::KeyPath;
 use crate::mode::operation::{AppWrite, FileChange};
 use crate::mode::state::{op, PendingTarget};
-use crate::session_manager::providers::codex::session_roots;
 
 const FEATURE_KEY: &str = "local_thread_store_compression";
 
@@ -65,10 +65,14 @@ fn patch(enabled: bool) -> TomlPatch {
 
 /// Codex 会话目录（`sessions/` + `archived_sessions/`）当前占用的字节数。
 pub fn sessions_disk_usage() -> u64 {
-    session_roots()
-        .iter()
-        .map(|root| crate::services::backup_storage::path_size(root))
-        .sum()
+    let config_dir = get_codex_config_dir();
+    [
+        config_dir.join("sessions"),
+        config_dir.join("archived_sessions"),
+    ]
+    .iter()
+    .map(|root| crate::services::backup_storage::path_size(root))
+    .sum()
 }
 
 #[cfg(test)]

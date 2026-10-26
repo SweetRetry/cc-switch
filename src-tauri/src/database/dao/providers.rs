@@ -916,13 +916,7 @@ impl Database {
 #[cfg(test)]
 mod ensure_official_seed_tests {
     use crate::app_config::AppType;
-    use crate::database::{
-        Database, CODEX_OFFICIAL_PROVIDER_ID,
-    };
-
-    
-
-    
+    use crate::database::{Database, CODEX_OFFICIAL_PROVIDER_ID};
 
     #[test]
     fn ensure_recreates_codex_official_seed_after_deletion() {
@@ -943,15 +937,10 @@ mod ensure_official_seed_tests {
         assert_eq!(provider.settings_config["auth"], serde_json::json!({}));
     }
 
-    
-
-    
-
     #[test]
     fn ensure_rejects_seed_app_type_mismatch() {
         let db = Database::memory().expect("memory db");
-        let result =
-            db.ensure_official_seed_by_id(CODEX_OFFICIAL_PROVIDER_ID, AppType::Claude);
+        let result = db.ensure_official_seed_by_id(CODEX_OFFICIAL_PROVIDER_ID, AppType::Claude);
         assert!(result.is_err(), "(id, app_type) mismatch should be Err");
     }
 }

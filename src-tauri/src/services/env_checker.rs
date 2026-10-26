@@ -48,7 +48,9 @@ fn get_keywords_for_app(app: &str) -> Vec<&'static str> {
 
 fn matches_env_keyword(name: &str, keywords: &[&str]) -> bool {
     let upper_name = name.to_uppercase();
-    keywords.iter().any(|prefix| upper_name.starts_with(*prefix))
+    keywords
+        .iter()
+        .any(|prefix| upper_name.starts_with(*prefix))
 }
 
 /// Check system environment variables (Windows Registry or Unix env)
