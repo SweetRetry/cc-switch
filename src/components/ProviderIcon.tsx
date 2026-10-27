@@ -16,6 +16,7 @@ interface ProviderIconProps {
   size?: number | string; // 尺寸
   className?: string;
   showFallback?: boolean; // 是否显示 fallback
+  fallbackSize?: number; // 首字母 fallback 的尺寸，默认同 size
   fallbackClassName?: string; // 覆盖首字母 fallback 的底色 / 文字色
 }
 
@@ -26,6 +27,7 @@ export const ProviderIcon: React.FC<ProviderIconProps> = ({
   size = 32,
   className,
   showFallback = true,
+  fallbackSize,
   fallbackClassName,
 }) => {
   // 获取内联 SVG 字符串
@@ -117,8 +119,12 @@ export const ProviderIcon: React.FC<ProviderIconProps> = ({
       .join("")
       .toUpperCase()
       .slice(0, 2);
+    const box = fallbackSize ?? size;
+    const boxStyle = fallbackSize
+      ? { ...sizeStyle, width: `${box}px`, height: `${box}px` }
+      : sizeStyle;
     const fallbackFontSize =
-      typeof size === "number" ? `${Math.max(size * 0.5, 12)}px` : "0.5em";
+      typeof box === "number" ? `${Math.max(box * 0.5, 12)}px` : "0.5em";
     return (
       <span
         className={cn(
@@ -128,7 +134,7 @@ export const ProviderIcon: React.FC<ProviderIconProps> = ({
           fallbackClassName,
         )}
         title={name}
-        style={sizeStyle}
+        style={boxStyle}
       >
         <span
           style={{

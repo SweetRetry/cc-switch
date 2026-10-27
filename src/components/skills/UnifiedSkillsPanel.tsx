@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { HoverTip } from "@/components/ui/hover-tip";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
+import { PAGE_FRAME, PAGE_HEADER_INSET } from "@/components/shell/pageLayout";
 import { APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
 import { SkillsIcon } from "@/components/BrandIcons";
 import {
@@ -44,11 +45,12 @@ import { settingsApi } from "@/lib/api";
 import { copyText } from "@/lib/clipboard";
 import { extractErrorMessage } from "@/utils/errorUtils";
 import { cn } from "@/lib/utils";
+import { ListHeader, listCol, listRow } from "@/components/common/ListColumns";
 import { MatrixSearch } from "@/components/mcp/AppMatrix";
 import {
   AppMultiSelect,
   type AppSelectState,
-} from "@/components/mcp/AppMultiSelect";
+} from "@/components/common/AppMultiSelect";
 import { V7ConfirmDialog } from "@/components/mcp/formBits";
 import { useVisibleAppIds } from "@/components/mcp/useVisibleAppIds";
 import { SkillRestoreDialog } from "./SkillRestoreDialog";
@@ -635,8 +637,7 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
     <AppPageHeader
       icon={<SkillsIcon size={20} />}
       title="Skills"
-      // 右缘与下面列表的 px-6 对齐
-      className="pe-6"
+      className={PAGE_HEADER_INSET}
       actions={
         <>
           {loadOk && nInstalled > 0 && (
@@ -795,179 +796,179 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
               </Button>
             </div>
           ) : (
-            <ul
-              aria-label={t("skillsPage.listLabel")}
-              className="m-0 list-none p-0"
-            >
-              {filteredSkills.map((skill) => {
-                const rowFailedApps = appIds.filter(
-                  (app) => fails[failKey(skill.id, app)],
-                );
-                const failure = rowFailedApps[0]
-                  ? fails[failKey(skill.id, rowFailedApps[0])]
-                  : undefined;
-                const hasRepo = Boolean(skill.repoOwner && skill.repoName);
-                const hasUpdate = Boolean(updatesMap[skill.id]);
-                const isUpdating =
-                  updateSkillMutation.isPending &&
-                  updateSkillMutation.variables === skill.id;
-                const showDir =
-                  skill.directory &&
-                  skill.directory.trim().toLowerCase() !==
-                    skill.name.trim().toLowerCase();
-                const sourceText = hasRepo
-                  ? `${skill.repoOwner}/${skill.repoName}`
-                  : t("skillsPage.source.local");
-                return (
-                  <li
-                    key={skill.id}
-                    className="group flex h-14 items-center rounded-control pe-2 ps-4 hover:bg-subtle"
-                  >
-                    <div className="flex min-w-0 flex-1 flex-col pe-3">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <span
-                          title={skill.name}
-                          className="min-w-0 truncate text-body font-medium"
-                        >
-                          {skill.name}
-                        </span>
-                        {showDir && (
+            <>
+              <ListHeader nameLabel={t("mcpPage.columnName")} />
+              <ul
+                aria-label={t("skillsPage.listLabel")}
+                className="m-0 list-none p-0"
+              >
+                {filteredSkills.map((skill) => {
+                  const rowFailedApps = appIds.filter(
+                    (app) => fails[failKey(skill.id, app)],
+                  );
+                  const failure = rowFailedApps[0]
+                    ? fails[failKey(skill.id, rowFailedApps[0])]
+                    : undefined;
+                  const hasRepo = Boolean(skill.repoOwner && skill.repoName);
+                  const hasUpdate = Boolean(updatesMap[skill.id]);
+                  const isUpdating =
+                    updateSkillMutation.isPending &&
+                    updateSkillMutation.variables === skill.id;
+                  const showDir =
+                    skill.directory &&
+                    skill.directory.trim().toLowerCase() !==
+                      skill.name.trim().toLowerCase();
+                  const sourceText = hasRepo
+                    ? `${skill.repoOwner}/${skill.repoName}`
+                    : t("skillsPage.source.local");
+                  return (
+                    <li key={skill.id} className={listRow}>
+                      <div className={cn(listCol.name, "justify-center")}>
+                        <div className="flex min-w-0 items-center gap-1.5">
                           <span
-                            title={skill.directory}
-                            className="min-w-0 shrink truncate font-mono text-caption text-fg-3"
+                            title={skill.name}
+                            className="min-w-0 truncate text-body font-medium"
                           >
-                            {skill.directory}
+                            {skill.name}
                           </span>
-                        )}
-                        <HoverTip content={t("skillsPage.copyDir")}>
-                          <button
-                            type="button"
-                            aria-label={t("skillsPage.copyDir")}
-                            onClick={() => void copyDirectory(skill)}
-                            className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-fg-3 opacity-0 transition-opacity hover:bg-selected hover:text-fg-1 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
-                          >
-                            <Copy className="h-3 w-3" strokeWidth={1.75} />
-                          </button>
-                        </HoverTip>
-                        {hasUpdate && (
-                          <HoverTip content={t("skills.update")}>
+                          {showDir && (
+                            <span
+                              title={skill.directory}
+                              className="min-w-0 shrink truncate font-mono text-caption text-fg-3"
+                            >
+                              {skill.directory}
+                            </span>
+                          )}
+                          <HoverTip content={t("skillsPage.copyDir")}>
                             <button
                               type="button"
-                              disabled={controlsDisabled || isUpdating}
-                              onClick={() => void updateIds([skill.id])}
-                              className="inline-flex h-[18px] shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-transparent bg-warning-soft px-1.5 text-badge font-medium text-warning-text hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                              aria-label={t("skillsPage.copyDir")}
+                              onClick={() => void copyDirectory(skill)}
+                              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-fg-3 opacity-0 transition-opacity hover:bg-selected hover:text-fg-1 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
                             >
-                              {isUpdating && (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              )}
-                              {t("skills.updateAvailable")}
+                              <Copy className="h-3 w-3" strokeWidth={1.75} />
                             </button>
                           </HoverTip>
-                        )}
-                      </div>
-                      <div className="flex min-w-0 whitespace-nowrap text-caption text-fg-2">
-                        {skill.description && (
-                          <>
-                            <span
-                              className="min-w-0 truncate"
-                              title={skill.description}
-                            >
-                              {skill.description}
-                            </span>
-                            <span aria-hidden="true" className="shrink-0">
-                              &nbsp;·&nbsp;
-                            </span>
-                          </>
-                        )}
-                        {hasRepo ? (
-                          <button
-                            type="button"
-                            onClick={() => void openDocs(skill)}
-                            className="shrink-0 underline underline-offset-[3px] hover:text-fg-1"
-                          >
-                            {sourceText}
-                          </button>
-                        ) : (
-                          <span className="shrink-0">{sourceText}</span>
-                        )}
-                        {failure && (
-                          <span className="ms-1.5 flex min-w-0 text-warning-text">
-                            <span className="min-w-0 truncate">
-                              {t("skillsPage.rowFail", {
-                                app: APP_DISPLAY_NAME[rowFailedApps[0]],
-                                error: failure.error,
-                              })}
-                            </span>
-                            <span aria-hidden="true" className="shrink-0">
-                              &nbsp;·&nbsp;
-                            </span>
+                          {hasUpdate && (
+                            <HoverTip content={t("skills.update")}>
+                              <button
+                                type="button"
+                                disabled={controlsDisabled || isUpdating}
+                                onClick={() => void updateIds([skill.id])}
+                                className="inline-flex h-[18px] shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-transparent bg-warning-soft px-1.5 text-badge font-medium text-warning-text hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                              >
+                                {isUpdating && (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                )}
+                                {t("skills.updateAvailable")}
+                              </button>
+                            </HoverTip>
+                          )}
+                        </div>
+                        <div className="flex min-w-0 whitespace-nowrap text-caption text-fg-2">
+                          {skill.description && (
+                            <>
+                              <span
+                                className="min-w-0 truncate"
+                                title={skill.description}
+                              >
+                                {skill.description}
+                              </span>
+                              <span aria-hidden="true" className="shrink-0">
+                                &nbsp;·&nbsp;
+                              </span>
+                            </>
+                          )}
+                          {hasRepo ? (
                             <button
                               type="button"
-                              onClick={() => setStorageOpen(true)}
-                              className="shrink-0 underline underline-offset-[3px]"
+                              onClick={() => void openDocs(skill)}
+                              className="shrink-0 underline underline-offset-[3px] hover:text-fg-1"
                             >
-                              {t("skillsPage.fixSync")}
+                              {sourceText}
                             </button>
-                          </span>
-                        )}
+                          ) : (
+                            <span className="shrink-0">{sourceText}</span>
+                          )}
+                          {failure && (
+                            <span className="ms-1.5 flex min-w-0 text-warning-text">
+                              <span className="min-w-0 truncate">
+                                {t("skillsPage.rowFail", {
+                                  app: APP_DISPLAY_NAME[rowFailedApps[0]],
+                                  error: failure.error,
+                                })}
+                              </span>
+                              <span aria-hidden="true" className="shrink-0">
+                                &nbsp;·&nbsp;
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setStorageOpen(true)}
+                                className="shrink-0 underline underline-offset-[3px]"
+                              >
+                                {t("skillsPage.fixSync")}
+                              </button>
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex shrink-0 pe-1">
-                      <AppMultiSelect
-                        name={skill.name}
-                        appIds={appIds}
-                        disabled={controlsDisabled}
-                        states={
-                          Object.fromEntries(
-                            appIds.map((app) => [
-                              app,
-                              fails[failKey(skill.id, app)]
-                                ? "fail"
-                                : skill.apps[app]
-                                  ? "on"
-                                  : "off",
-                            ]),
-                          ) as Record<AppId, AppSelectState>
-                        }
-                        onToggle={(app) => {
-                          const fail = fails[failKey(skill.id, app)];
-                          void writeOne(
-                            skill.id,
-                            app,
-                            fail ? fail.desired : !skill.apps[app],
-                          );
-                        }}
-                        onSetAll={(on) => void handleRowAll(skill, on)}
-                      />
-                    </div>
-                    <div className="flex w-16 shrink-0 justify-end">
-                      <HoverTip content={t("skills.uninstall")}>
-                        <Button
-                          type="button"
-                          variant="quiet"
-                          size="icon-compact"
-                          aria-label={`${t("skills.uninstall")} ${skill.name}`}
+                      <div className={listCol.apps}>
+                        <AppMultiSelect
+                          name={skill.name}
+                          appIds={appIds}
                           disabled={controlsDisabled}
-                          onClick={() => {
-                            if (writeLockRef.current || interactionBlocked)
-                              return;
-                            setConfirm({
-                              kind: "uninstall",
-                              ids: [skill.id],
-                            });
+                          states={
+                            Object.fromEntries(
+                              appIds.map((app) => [
+                                app,
+                                fails[failKey(skill.id, app)]
+                                  ? "fail"
+                                  : skill.apps[app]
+                                    ? "on"
+                                    : "off",
+                              ]),
+                            ) as Record<AppId, AppSelectState>
+                          }
+                          onToggle={(app) => {
+                            const fail = fails[failKey(skill.id, app)];
+                            void writeOne(
+                              skill.id,
+                              app,
+                              fail ? fail.desired : !skill.apps[app],
+                            );
                           }}
-                        >
-                          <Trash2
-                            className="h-[15px] w-[15px]"
-                            strokeWidth={1.5}
-                          />
-                        </Button>
-                      </HoverTip>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                          onSetAll={(on) => void handleRowAll(skill, on)}
+                        />
+                      </div>
+                      <div className={listCol.actions}>
+                        <HoverTip content={t("skills.uninstall")}>
+                          <Button
+                            type="button"
+                            variant="quiet"
+                            size="icon-compact"
+                            aria-label={`${t("skills.uninstall")} ${skill.name}`}
+                            disabled={controlsDisabled}
+                            onClick={() => {
+                              if (writeLockRef.current || interactionBlocked)
+                                return;
+                              setConfirm({
+                                kind: "uninstall",
+                                ids: [skill.id],
+                              });
+                            }}
+                          >
+                            <Trash2
+                              className="h-[15px] w-[15px]"
+                              strokeWidth={1.5}
+                            />
+                          </Button>
+                        </HoverTip>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
           )}
         </div>
       </div>
@@ -986,7 +987,7 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
     <>
       {header}
       <div id="main-content" className="flex min-h-0 flex-1 flex-col">
-        <NoticeSlot className={cn(showUpdateRepoFailBanner && "px-6 pt-3")}>
+        <NoticeSlot className={cn(showUpdateRepoFailBanner && "px-6 pb-3")}>
           {showUpdateRepoFailBanner && (
             <Notice
               tone="warning"
@@ -1013,7 +1014,7 @@ const UnifiedSkillsPanel: React.FC<UnifiedSkillsPanelProps> = ({
           )}
         </NoticeSlot>
 
-        <div className="flex min-h-0 flex-1 flex-col px-6 pb-5 pt-3">
+        <div className={`flex min-h-0 flex-1 flex-col pb-5 pt-4 ${PAGE_FRAME}`}>
           {renderInstalledBody()}
         </div>
       </div>

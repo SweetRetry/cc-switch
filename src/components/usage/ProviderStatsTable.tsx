@@ -19,18 +19,19 @@ import { useMoneyFormat } from "@/hooks/useMoneyFormat";
 interface ProviderStatsTableProps {
   range: UsageRangeSelection;
   appType?: string;
-  providerName?: string;
   model?: string;
+  /** 当前选中的供应商：本表不按它过滤（其他供应商要留着能切换），只高亮 */
+  selectedProvider?: string;
   refreshIntervalMs: number;
-  /** 点一行：去看这个供应商的请求日志 */
+  /** 点一行：按这个供应商筛选，再点取消 */
   onSelectProvider?: (providerName: string) => void;
 }
 
 export function ProviderStatsTable({
   range,
   appType,
-  providerName,
   model,
+  selectedProvider,
   refreshIntervalMs,
   onSelectProvider,
 }: ProviderStatsTableProps) {
@@ -39,7 +40,7 @@ export function ProviderStatsTable({
   const locale = getLocaleFromLanguage(getResolvedLang(i18n));
   const { data: stats, isLoading } = useProviderStats(
     range,
-    { appType, providerName, model },
+    { appType, model },
     {
       refetchInterval: refreshIntervalMs > 0 ? refreshIntervalMs : false,
     },
@@ -52,7 +53,7 @@ export function ProviderStatsTable({
   );
   const pagination = useClientPagination(
     rows,
-    JSON.stringify([range, appType, providerName, model]),
+    JSON.stringify([range, appType, model]),
   );
 
   if (isLoading) {
@@ -104,9 +105,11 @@ export function ProviderStatsTable({
                   <tr
                     key={JSON.stringify([stat.appType, stat.providerId])}
                     className={
-                      onSelectProvider
-                        ? usageTable.rowInteractive
-                        : usageTable.row
+                      !onSelectProvider
+                        ? usageTable.row
+                        : stat.providerName === selectedProvider
+                          ? usageTable.rowSelected
+                          : usageTable.rowInteractive
                     }
                     onClick={
                       onSelectProvider

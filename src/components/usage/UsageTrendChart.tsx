@@ -392,7 +392,7 @@ export function UsageTrendChart({
         })}
       </h2>
 
-      <div ref={chartBoxRef} className="mt-1 h-[132px] w-full">
+      <div ref={chartBoxRef} className="mt-1 h-[200px] w-full">
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-fg-3" />
@@ -400,7 +400,7 @@ export function UsageTrendChart({
         ) : (
           <Chart
             width={chartWidth}
-            height={132}
+            height={200}
             data={chartData}
             margin={{ top: 6, right: 0, left: 0, bottom: 0 }}
           >

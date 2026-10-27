@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { BookOpen } from "lucide-react";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
+import { PAGE_FRAME, PAGE_HEADER_INSET } from "@/components/shell/pageLayout";
 import { AppGlyph, APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
 import { PageTabs } from "@/components/ui/page-tabs";
 import type { AppId } from "@/lib/api";
@@ -36,13 +37,13 @@ export function PromptPageFrame({
         icon={<BookOpen className="h-[18px] w-[18px]" strokeWidth={2} />}
         title={t("nav.prompts")}
         actions={headerActions}
-        // 右缘与下面 tab 栏的 px-6 对齐
-        className="pe-6"
+        className={PAGE_HEADER_INSET}
       />
 
-      <div className="shrink-0 px-6">
+      <div className={`shrink-0 ${PAGE_FRAME}`}>
         <PageTabs
           aria-label={t("prompts.appSelect")}
+          className="ps-4"
           value={app}
           onValueChange={onAppChange}
           items={apps.map((id) => ({
@@ -54,26 +55,24 @@ export function PromptPageFrame({
               </span>
             ),
           }))}
-          trailing={
-            <div className="flex items-center gap-2">
-              {target ? (
-                <span
-                  title={`${target.label} ${target.path}${target.meta ?? ""}`}
-                  className="max-w-[360px] truncate text-caption text-fg-2"
-                >
-                  <code className="font-mono text-caption text-fg-1">
-                    {target.path}
-                  </code>
-                  {target.meta}
-                </span>
-              ) : null}
-              {actions}
-            </div>
-          }
+          trailing={<div className="flex items-center gap-2">{actions}</div>}
         />
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col px-6 pb-5 pt-3">
+      <div
+        className={`flex min-h-0 flex-1 flex-col pb-5 pt-3 ${PAGE_FRAME} ps-10`}
+      >
+        {target ? (
+          <p
+            title={`${target.label} ${target.path}${target.meta ?? ""}`}
+            className="m-0 mb-2 flex min-w-0 shrink-0 text-caption text-fg-3"
+          >
+            <code className="min-w-0 truncate font-mono text-fg-2">
+              {target.path}
+            </code>
+            <span className="shrink-0 whitespace-pre">{target.meta}</span>
+          </p>
+        ) : null}
         {children}
       </div>
     </>

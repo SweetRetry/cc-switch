@@ -4,6 +4,7 @@ import CodexOauthQuotaFooter from "@/components/CodexOauthQuotaFooter";
 import CopilotQuotaFooter from "@/components/CopilotQuotaFooter";
 import { ClaudeBoundAccountLine } from "@/components/providers/forms/ClaudeOfficialSection";
 import SubscriptionQuotaFooter from "@/components/SubscriptionQuotaFooter";
+import { ProviderIconBox } from "@/components/ProviderIconBox";
 import { HoverTip } from "@/components/ui/hover-tip";
 import UsageFooter from "@/components/UsageFooter";
 import XaiOauthQuotaFooter from "@/components/XaiOauthQuotaFooter";
@@ -33,12 +34,13 @@ import {
 } from "@/utils/providerConfigUtils";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { terminalIsIsolated } from "./OpenTerminalDialog";
 import type { CardChip, CardPresentation } from "./presentation";
 import { primaryModelOf } from "./providerModels";
 import { ProviderCardActions } from "./ProviderCardActions";
+import { PROVIDER_GRID, PROVIDER_MODEL_COL } from "./providerLayout";
 
 interface ProviderDetailProps {
   provider: Provider;
@@ -56,6 +58,8 @@ interface ProviderDetailProps {
   onTest?: (provider: Provider) => void;
   onOpenTerminal?: (provider: Provider) => void;
   isTesting?: boolean;
+  /** 状态 / 启用列的内容（单选「使用中·切换」、开关或启动按钮），在操作列之前 */
+  control: ReactNode;
 }
 
 const CHIP_CLASS: Record<CardChip["tone"], string> = {
@@ -158,6 +162,7 @@ export function ProviderDetail({
   onTest,
   onOpenTerminal,
   isTesting,
+  control,
 }: ProviderDetailProps) {
   const { t, i18n } = useTranslation();
   const codexOfficialIdentity = resolveCodexOfficialIdentity(appId, provider);
@@ -310,117 +315,144 @@ export function ProviderDetail({
   const { data: todayStats } = useProviderStats(TODAY, { appType: appId });
   const today = todayStats?.find((row) => row.providerId === provider.id);
   // 直连应用写「使用中」、OpenCode 默认那家写「当前默认」，其余已加进配置的写「已启用」
+  // Claude / Codex 的「使用中」在行尾槽里写，这里不重复；开关已经表达了「已启用」
   const statusLabel =
-    presentation.status?.label ??
-    (isAdditiveAppId(appId) && isInConfig
-      ? t("providerDetail.enabled")
-      : undefined);
+    appId === "claude" || appId === "codex"
+      ? undefined
+      : presentation.status?.label;
 
   return (
-    <div className="min-w-0 flex-1 py-1.5">
-      <div className="grid grid-cols-[minmax(0,1fr)_7rem_14rem_5.5rem_4.5rem] items-center gap-x-4">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span
-              className={cn(
-                "min-w-0 truncate text-body",
-                presentation.dim ? "text-fg-2" : "text-fg-1",
-              )}
-              title={provider.name}
-            >
-              {provider.name}
-            </span>
-            {presentation.chips.map((chip) => (
-              <CardChipBadge key={chip.key} chip={chip} />
-            ))}
-            {statusLabel && (
-              <span className="inline-flex shrink-0 items-center gap-1 text-caption text-fg-2">
-                <span
-                  aria-hidden="true"
-                  className="h-1.5 w-1.5 rounded-full bg-success"
-                />
-                {statusLabel}
+    <div className="min-w-0 flex-1 py-3.5">
+      <div className={PROVIDER_GRID}>
+        <div className="flex min-w-0 items-center gap-3">
+          <ProviderIconBox
+            icon={provider.icon}
+            name={provider.name}
+            color={provider.iconColor}
+            className="border-0"
+            fallbackClassName="rounded-full"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span
+                className={cn(
+                  "min-w-0 truncate text-body",
+                  presentation.dim ? "text-fg-2" : "text-fg-1",
+                )}
+                title={provider.name}
+              >
+                {provider.name}
               </span>
-            )}
-          </div>
-          <div className="min-w-0 truncate text-caption text-fg-3">
-            {codexOfficialIdentity && codexOfficialIdentity !== "api_key" ? (
-              <div className="flex min-w-0 items-center gap-2 text-caption text-fg-3">
-                {codexOfficialIdentity === "native_login" ? (
-                  <span className="min-w-0 truncate" title={manualNote}>
-                    {manualNote ??
-                      t("codex.followCodexLoginDescription", {
-                        defaultValue: "账号会随 Codex CLI 当前登录变化",
-                      })}
-                  </span>
-                ) : managedCodexAccount ? (
-                  <>
-                    <span
-                      className="min-w-0 truncate"
-                      title={manualNote ?? managedCodexAccount.login}
-                    >
+              {presentation.chips.map((chip) => (
+                <CardChipBadge key={chip.key} chip={chip} />
+              ))}
+              {statusLabel && (
+                <span className="inline-flex shrink-0 items-center gap-1 text-caption text-fg-2">
+                  <span
+                    aria-hidden="true"
+                    className="h-1.5 w-1.5 rounded-full bg-success"
+                  />
+                  {statusLabel}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0 truncate text-caption text-fg-3">
+              {codexOfficialIdentity && codexOfficialIdentity !== "api_key" ? (
+                <div className="flex min-w-0 items-center gap-2 text-caption text-fg-3">
+                  {codexOfficialIdentity === "native_login" ? (
+                    <span className="min-w-0 truncate" title={manualNote}>
                       {manualNote ??
-                        (providerNameIncludesAccountLogin
-                          ? t("codex.openAiAccount", {
-                              defaultValue: "OpenAI 账号",
-                            })
-                          : managedCodexAccount.login)}
+                        t("codex.followCodexLoginDescription", {
+                          defaultValue: "账号会随 Codex CLI 当前登录变化",
+                        })}
                     </span>
-                    {managedCodexAccount.reauth_required && (
-                      <span className="inline-flex shrink-0 items-center gap-1 text-warning-text">
-                        <AlertTriangle className="h-3.5 w-3.5" />
-                        {t("codexOauth.reauthBadge", "需要重新登录")}
+                  ) : managedCodexAccount ? (
+                    <>
+                      <span
+                        className="min-w-0 truncate"
+                        title={manualNote ?? managedCodexAccount.login}
+                      >
+                        {manualNote ??
+                          (providerNameIncludesAccountLogin
+                            ? t("codex.openAiAccount", {
+                                defaultValue: "OpenAI 账号",
+                              })
+                            : managedCodexAccount.login)}
                       </span>
-                    )}
-                  </>
-                ) : isCodexAuthStatusError ? (
-                  <span className="inline-flex min-w-0 items-center gap-1 text-warning-text">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">
-                      {t("codex.accountStatusUnavailable", {
-                        defaultValue: "无法读取账号信息",
-                      })}
-                    </span>
-                  </span>
-                ) : isCodexAuthStatusSuccess ? (
-                  <>
-                    <span className="inline-flex min-w-0 items-center gap-1 text-caption text-warning-text">
+                      {managedCodexAccount.reauth_required && (
+                        <span className="inline-flex shrink-0 items-center gap-1 text-warning-text">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          {t("codexOauth.reauthBadge", "需要重新登录")}
+                        </span>
+                      )}
+                    </>
+                  ) : isCodexAuthStatusError ? (
+                    <span className="inline-flex min-w-0 items-center gap-1 text-warning-text">
                       <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                       <span className="truncate">
-                        {t("codex.boundAccountUnavailable", {
-                          defaultValue: "绑定的账号不可用",
+                        {t("codex.accountStatusUnavailable", {
+                          defaultValue: "无法读取账号信息",
                         })}
                       </span>
                     </span>
-                  </>
-                ) : (
-                  <span className="min-w-0 truncate">
-                    {t("codex.accountLoading", {
-                      defaultValue: "正在加载账号…",
-                    })}
+                  ) : isCodexAuthStatusSuccess ? (
+                    <>
+                      <span className="inline-flex min-w-0 items-center gap-1 text-caption text-warning-text">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">
+                          {t("codex.boundAccountUnavailable", {
+                            defaultValue: "绑定的账号不可用",
+                          })}
+                        </span>
+                      </span>
+                    </>
+                  ) : (
+                    <span className="min-w-0 truncate">
+                      {t("codex.accountLoading", {
+                        defaultValue: "正在加载账号…",
+                      })}
+                    </span>
+                  )}
+                </div>
+              ) : claudeBoundAccountId ? (
+                <ClaudeBoundAccountLine
+                  accountId={claudeBoundAccountId}
+                  providerName={provider.name}
+                  note={manualNote}
+                  showPlan={usageEnabled}
+                />
+              ) : agyModel ? (
+                <div className="flex min-w-0 items-center gap-1.5 text-caption text-fg-3">
+                  <span className="min-w-0 truncate" title={agyModel}>
+                    {agyModel}
                   </span>
-                )}
-              </div>
-            ) : claudeBoundAccountId ? (
-              <ClaudeBoundAccountLine
-                accountId={claudeBoundAccountId}
-                providerName={provider.name}
-                note={manualNote}
-                showPlan={usageEnabled}
-              />
-            ) : agyModel ? (
-              <div className="flex min-w-0 items-center gap-1.5 text-caption text-fg-3">
-                <span className="min-w-0 truncate" title={agyModel}>
-                  {agyModel}
-                </span>
-              </div>
-            ) : displayUrl && claudeDefaultPlanLabel ? (
-              <div className="flex min-w-0 items-baseline gap-3 text-caption text-fg-3">
+                </div>
+              ) : displayUrl && claudeDefaultPlanLabel ? (
+                <div className="flex min-w-0 items-baseline gap-3 text-caption text-fg-3">
+                  <button
+                    type="button"
+                    onClick={handleOpenWebsite}
+                    className={cn(
+                      "inline-flex min-w-0 items-center overflow-hidden text-start",
+                      isClickableUrl
+                        ? "cursor-pointer decoration-border-strong underline-offset-[3px] hover:underline"
+                        : "cursor-default",
+                    )}
+                    title={displayUrl}
+                    disabled={!isClickableUrl}
+                  >
+                    <span className="min-w-0 truncate">{displayUrl}</span>
+                  </button>
+                  <span className="shrink-0 text-fg-2">
+                    {claudeDefaultPlanLabel}
+                  </span>
+                </div>
+              ) : displayUrl ? (
                 <button
                   type="button"
                   onClick={handleOpenWebsite}
                   className={cn(
-                    "inline-flex min-w-0 items-center overflow-hidden text-start",
+                    "inline-flex max-w-full items-center overflow-hidden text-start text-caption text-fg-3",
                     isClickableUrl
                       ? "cursor-pointer decoration-border-strong underline-offset-[3px] hover:underline"
                       : "cursor-default",
@@ -430,37 +462,23 @@ export function ProviderDetail({
                 >
                   <span className="min-w-0 truncate">{displayUrl}</span>
                 </button>
-                <span className="shrink-0 text-fg-2">
-                  {claudeDefaultPlanLabel}
-                </span>
-              </div>
-            ) : displayUrl ? (
-              <button
-                type="button"
-                onClick={handleOpenWebsite}
-                className={cn(
-                  "inline-flex max-w-full items-center overflow-hidden text-start text-caption text-fg-3",
-                  isClickableUrl
-                    ? "cursor-pointer decoration-border-strong underline-offset-[3px] hover:underline"
-                    : "cursor-default",
-                )}
-                title={displayUrl}
-                disabled={!isClickableUrl}
-              >
-                <span className="min-w-0 truncate">{displayUrl}</span>
-              </button>
-            ) : null}
+              ) : null}
+            </div>
           </div>
         </div>
 
-        <div
-          className="min-w-0 truncate font-mono text-caption text-fg-2"
-          title={model}
-        >
-          {model ?? t("providerDetail.appDefaultModel")}
+        <div className={cn("min-w-0", PROVIDER_MODEL_COL)}>
+          <span
+            className="inline-block max-w-full truncate rounded-control border border-border px-1.5 py-0.5 align-middle font-mono text-caption text-fg-2"
+            title={model}
+          >
+            {model ?? t("providerDetail.appDefaultModel")}
+          </span>
         </div>
 
-        <div className="flex min-w-0 items-center justify-end gap-1 text-caption empty:hidden">
+        <div className="flex items-center justify-end">{control}</div>
+
+        <div className="flex min-w-0 items-center justify-end gap-1 text-caption empty:text-fg-3 empty:before:content-['-']">
           {isCopilot ? (
             <CopilotQuotaFooter
               meta={provider.meta}
@@ -575,7 +593,7 @@ export function ProviderDetail({
           )}
         </div>
 
-        <div className="col-start-4 text-end text-caption tabular-nums">
+        <div className="text-end text-caption tabular-nums">
           <div>{moneyShort(today?.totalCost ?? 0)}</div>
           <div className="text-fg-3">
             {t("providerDetail.todayRequests", {
@@ -585,7 +603,7 @@ export function ProviderDetail({
           </div>
         </div>
 
-        <div className="col-start-5">
+        <div className="flex justify-end">
           <ProviderCardActions
             providerName={provider.name}
             presentation={{ ...presentation, status: undefined, buttons: [] }}

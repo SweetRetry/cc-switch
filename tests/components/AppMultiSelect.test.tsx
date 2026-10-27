@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AppMultiSelect,
   type AppSelectState,
-} from "@/components/mcp/AppMultiSelect";
+} from "@/components/common/AppMultiSelect";
 import type { McpAppId } from "@/config/appConfig";
 
 const APPS: McpAppId[] = ["claude", "codex", "pi"];

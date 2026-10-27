@@ -42,7 +42,6 @@ export function SettingsPage({ page, onImportSuccess }: SettingsPageProps) {
     settings,
     isLoading,
     isSaving,
-    isPortable,
     appConfigDir,
     initialAppConfigDir,
     resolvedDirs,
@@ -164,7 +163,7 @@ export function SettingsPage({ page, onImportSuccess }: SettingsPageProps) {
         return (
           <>
             <GeneralSection settings={settings} onAutoSave={handleAutoSave} />
-            <AboutSection isPortable={isPortable} />
+            <AboutSection />
           </>
         );
       case "data":

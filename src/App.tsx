@@ -56,6 +56,7 @@ import {
 } from "@/components/shell/AppPageHeader";
 import { WindowControls } from "@/components/shell/WindowControls";
 import { APP_DISPLAY_NAME, AppGlyph } from "@/components/shell/AppGlyph";
+import { PAGE_FRAME, PAGE_HEADER_INSET } from "@/components/shell/pageLayout";
 import { ProviderList } from "@/components/providers/ProviderList";
 import { AddProviderDialog } from "@/components/providers/AddProviderDialog";
 import {
@@ -1015,8 +1016,7 @@ function App() {
       variant="app"
       icon={<AppGlyph app={activeApp} size={20} badgeClassName="bg-app" />}
       title={APP_DISPLAY_NAME[activeApp]}
-      // 页头内容与下面居中的列表（max-w-5xl）共用左右轴线：图标对齐单选圆点，按钮右缘对齐行尾的「⋯」
-      className="ps-[max(2.25rem,calc((100%_-_64rem)/2_+_0.75rem))] pe-[max(2rem,calc((100%_-_64rem)/2_+_0.5rem))]"
+      className={PAGE_HEADER_INSET}
       actions={
         <>
           {usageButton}
@@ -1050,7 +1050,7 @@ function App() {
       <div
         ref={providerScrollContainerRef}
         id="main-content"
-        className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pt-4"
+        className={`flex min-h-0 flex-1 flex-col overflow-hidden pt-4 ${PAGE_FRAME}`}
       >
         <ProviderList
           key={activeApp}

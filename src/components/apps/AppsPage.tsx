@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertTriangle,
@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
+import { PAGE_FRAME, PAGE_HEADER_INSET } from "@/components/shell/pageLayout";
 import { APP_DISPLAY_NAME, AppGlyph } from "@/components/shell/AppGlyph";
 import { ToolUpgradeConfirmDialog } from "@/components/settings/ToolUpgradeConfirmDialog";
 import { ToolInstallRow } from "@/components/settings/ToolInstallRow";
@@ -83,8 +84,6 @@ const ROW_BY_APP = Object.fromEntries([
 
 type RowSection = { key: string; title: string; rows: Row[] };
 
-const rowKey = (row: Row): AppId => TOOL_APP_IDS[row.tool];
-
 /** 本机有这个命令行应用：探到了版本、装了但跑不起来，或探测报告里有安装位置（和「卸载」出现的条件一致）。 */
 function isToolPresent(
   info: { version?: string | null; installed_but_broken?: boolean } | undefined,
@@ -95,9 +94,9 @@ function isToolPresent(
   );
 }
 
-// 表头和应用行共用列宽；操作列宽取各行按钮和表头量宽按钮的最大值，最后一列是行尾的「⋯」菜单。
+// 表头和应用行共用列宽：名称、版本、显示、操作（安装 / 升级 + 卸载，定宽右对齐）。
 const APP_ROW_GRID =
-  "grid grid-cols-[minmax(0,1fr)_168px_var(--apps-actions-width,0px)_56px_28px] items-center gap-x-4";
+  "grid grid-cols-[minmax(0,1fr)_168px_56px_12rem] items-center gap-x-4";
 
 /**
  * 「应用」页（v7）：每个应用一行 = 安装状态 / 版本 + 安装 / 升级 + 在侧栏显示的开关 + 「⋯」菜单（卸载）。
@@ -107,7 +106,6 @@ export function AppsPage() {
   const { t } = useTranslation();
   const tools = useToolManagement();
   const { settings, updateSettings, autoSaveSettings } = useSettings();
-  const tableRef = useRef<HTMLDivElement>(null);
 
   // 按「已安装 / 未安装」分两组。
   // 首次探测还没出结果时不分组，免得各行探完一个跳一个；之后重新检查时沿用上次结果，位置不动。
@@ -147,32 +145,6 @@ export function AppsPage() {
           };
         })
         .filter((section) => section.rows.length > 0);
-  // 行换组会重新挂载，操作列的量宽要跟着重新观察新节点
-  const sectionLayoutKey = sections
-    .map((section) => `${section.key}:${section.rows.map(rowKey).join(",")}`)
-    .join("|");
-
-  useLayoutEffect(() => {
-    const table = tableRef.current;
-    if (!table) return;
-    const actions = Array.from(
-      table.querySelectorAll<HTMLElement>("[data-tool-actions]"),
-    );
-    const updateActionWidth = () => {
-      const width = Math.max(
-        0,
-        ...actions.map((action) => action.getBoundingClientRect().width),
-      );
-      table.style.setProperty("--apps-actions-width", `${width}px`);
-    };
-    updateActionWidth();
-    // 按钮增减、文案或字体变化时同步整列，避免各行自行收缩后版本列错位。
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(updateActionWidth);
-    actions.forEach((action) => observer.observe(action));
-    return () => observer.disconnect();
-  }, [sectionLayoutKey]);
-
   const [showCommands, setShowCommands] = useState(false);
   const [showUninstallCommands, setShowUninstallCommands] = useState(false);
   const [pendingUninstall, setPendingUninstall] = useState<ToolName | null>(
@@ -250,11 +222,12 @@ export function AppsPage() {
       <AppPageHeader
         icon={<LayoutGrid className="h-5 w-5" strokeWidth={1.5} />}
         title={t("nav.apps")}
+        className={PAGE_HEADER_INSET}
         actions={
           <>
             {(updatableCount > 0 || tools.batchAction) && (
               <Button
-                variant="neutral"
+                variant="ghost"
                 size="regular"
                 disabled={tools.isLoadingTools || Boolean(tools.batchAction)}
                 aria-busy={Boolean(tools.batchAction)}
@@ -275,7 +248,7 @@ export function AppsPage() {
               </Button>
             )}
             <Button
-              variant="neutral"
+              variant="ghost"
               size="regular"
               disabled={tools.isLoadingTools || tools.isAnyBusy}
               onClick={() => void tools.checkForUpdates()}
@@ -345,45 +318,27 @@ export function AppsPage() {
         id="main-content"
         className="min-h-0 flex-1 overflow-y-auto scroll-stable"
       >
-        <div ref={tableRef} className="px-6 pb-10 pt-4">
+        <div className={`pb-10 pt-4 ${PAGE_FRAME}`}>
           <div
             className={cn(
               APP_ROW_GRID,
-              "mx-px h-8 px-4 text-caption font-medium text-fg-2",
+              "h-8 px-4 text-caption font-medium text-fg-2",
             )}
           >
             <SectionTitle title={sections[0]?.title} />
             <span className="text-end">{t("appsPage.columnVersion")}</span>
-            {/* 看不见的「安装 / 升级」按钮只用来量宽：操作列始终留出按钮的位置，
-                版本号加载完或检查到新版本、按钮冒出来时，版本列不会被推开。 */}
-            <div
-              data-tool-actions
-              aria-hidden
-              className="invisible grid w-max justify-self-end [&>*]:col-start-1 [&>*]:row-start-1"
-            >
-              <Button variant="neutral" size="compact" tabIndex={-1}>
-                <Download className="h-3.5 w-3.5" />
-                {t("settings.toolInstall")}
-              </Button>
-              <Button variant="neutral" size="compact" tabIndex={-1}>
-                <ArrowUpCircle className="h-3.5 w-3.5" />
-                {t("settings.toolUpdate")}
-              </Button>
-            </div>
             <span className="text-end">{t("appsPage.columnVisible")}</span>
-            <span />
+            <span className="text-end">{t("appsPage.columnActions")}</span>
           </div>
 
           {sections.map((section, index) => (
             <section key={section.key} aria-label={section.title}>
               {index > 0 && (
-                <div className="mx-px mt-4 flex h-8 items-center px-4">
+                <div className="mt-4 flex h-8 items-center px-4">
                   <SectionTitle title={section.title} />
                 </div>
               )}
-              <div className="divide-y divide-border overflow-hidden rounded-panel border border-border bg-surface">
-                {section.rows.map(renderRow)}
-              </div>
+              <div className="space-y-1">{section.rows.map(renderRow)}</div>
             </section>
           ))}
         </div>
@@ -404,7 +359,7 @@ export function AppsPage() {
           </div>
           <DialogFooter>
             <Button
-              variant="neutral"
+              variant="ghost"
               size="regular"
               onClick={() => setShowCommands(false)}
             >
@@ -477,10 +432,13 @@ function AppRow({
   footer?: React.ReactNode;
 }) {
   return (
-    <div data-tool-row={app} className="px-4 py-3">
+    <div
+      data-tool-row={app}
+      className="rounded-control px-4 py-3 hover:bg-subtle"
+    >
       <div className={cn(APP_ROW_GRID, "min-h-10")}>
         <div className="flex min-w-0 items-center gap-4">
-          <AppGlyph app={app} size={20} badgeClassName="bg-surface" />
+          <AppGlyph app={app} size={20} badgeClassName="bg-app" />
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-1.5 text-strong text-fg-1">
               {name}
@@ -493,14 +451,11 @@ function AppRow({
           </div>
         </div>
         <div className="text-end">{version}</div>
-        <div
-          data-tool-actions
-          className="flex w-max items-center justify-self-end gap-2 [&>button]:shrink-0"
-        >
-          {action}
-        </div>
         <div className="flex justify-end">{visibility}</div>
-        <div className="flex justify-end">{menu}</div>
+        <div className="flex items-center justify-end gap-1 [&>button]:shrink-0">
+          {action}
+          {menu}
+        </div>
       </div>
       {footer && <div className="ms-9 mt-2">{footer}</div>}
     </div>
@@ -592,11 +547,15 @@ function ToolRow({
       <AlertTriangle className="h-3.5 w-3.5" />
       {t("appsPage.notRunnable")}
     </span>
+  ) : info?.latest_version ? (
+    <span className="text-caption text-fg-3">
+      {t("appsPage.latestVersion", { version: info.latest_version })}
+    </span>
   ) : null;
 
   const actionButton = action ? (
     <Button
-      variant="neutral"
+      variant="ghost"
       size="compact"
       onClick={() => void tools.handleRunToolAction([tool], action)}
       disabled={isVersionLoading || isBusy}
@@ -744,41 +703,26 @@ function ToolRow({
         </>
       }
       meta={meta}
-      version={version ?? (action === "install" ? actionButton : null)}
-      action={action === "install" ? null : actionButton}
+      version={version}
+      action={actionButton}
       visibility={visibility}
       menu={
         (canUninstall || busyAction === "uninstall") && (
-          <DropdownMenu>
-            <HoverTip content={t("common.more")}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="quiet"
-                  size="icon-compact"
-                  aria-label={t("appPage.moreActions", {
-                    name: toolDisplayName(tool),
-                  })}
-                  disabled={isVersionLoading || isBusy}
-                  aria-busy={busyAction === "uninstall"}
-                >
-                  {busyAction === "uninstall" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-            </HoverTip>
-            <DropdownMenuContent align="end" className="min-w-[160px]">
-              <DropdownMenuItem
-                onSelect={onUninstall}
-                className="text-danger-text focus:text-danger-text"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                {t("settings.toolUninstall")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="compact"
+            className="text-danger-text hover:text-danger-text"
+            onClick={onUninstall}
+            disabled={isVersionLoading || isBusy}
+            aria-busy={busyAction === "uninstall"}
+          >
+            {busyAction === "uninstall" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+            {t("settings.toolUninstall")}
+          </Button>
         )
       }
       footer={footer}

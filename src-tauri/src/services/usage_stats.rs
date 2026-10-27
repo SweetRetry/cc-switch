@@ -442,6 +442,32 @@ fn managed_usage_app_filter(alias: &str) -> String {
     format!("{alias}.app_type IN ({apps})")
 }
 
+/// 应用筛选：`app_type` 是逗号分隔的应用 id（`claude,codex`），单个应用就是 `claude`，
+/// 空或缺省不过滤。Dashboard 的应用多选和旧的单选共用这一条线格式。
+fn push_app_filter(
+    conditions: &mut Vec<String>,
+    params: &mut Vec<Box<dyn rusqlite::ToSql>>,
+    column: &str,
+    app_type: Option<&str>,
+) {
+    let apps: Vec<&str> = app_type
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|app| !app.is_empty())
+        .collect();
+    if apps.is_empty() {
+        return;
+    }
+    conditions.push(format!(
+        "{column} IN ({})",
+        vec!["?"; apps.len()].join(", ")
+    ));
+    for app in apps {
+        params.push(Box::new(app.to_string()));
+    }
+}
+
 fn push_provider_model_filters(
     conditions: &mut Vec<String>,
     params: &mut Vec<Box<dyn rusqlite::ToSql>>,
@@ -930,10 +956,7 @@ impl Database {
             conditions.push("l.created_at <= ?".to_string());
             params_vec.push(Box::new(end));
         }
-        if let Some(at) = app_type {
-            conditions.push(format!("{} = ?", "l.app_type"));
-            params_vec.push(Box::new(at.to_string()));
-        }
+        push_app_filter(&mut conditions, &mut params_vec, "l.app_type", app_type);
         push_provider_model_filters(
             &mut conditions,
             &mut params_vec,
@@ -965,10 +988,12 @@ impl Database {
             "r.date",
             &rollup_bounds,
         );
-        if let Some(at) = app_type {
-            rollup_conditions.push(format!("{} = ?", "r.app_type"));
-            rollup_params.push(Box::new(at.to_string()));
-        }
+        push_app_filter(
+            &mut rollup_conditions,
+            &mut rollup_params,
+            "r.app_type",
+            app_type,
+        );
         push_provider_model_filters(
             &mut rollup_conditions,
             &mut rollup_params,
@@ -1269,10 +1294,12 @@ impl Database {
 
             let mut extra_conditions: Vec<String> = Vec::new();
             let mut extra_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-            if let Some(at) = app_type {
-                extra_conditions.push(format!("{} = ?", "l.app_type"));
-                extra_params.push(Box::new(at.to_string()));
-            }
+            push_app_filter(
+                &mut extra_conditions,
+                &mut extra_params,
+                "l.app_type",
+                app_type,
+            );
             push_provider_model_filters(
                 &mut extra_conditions,
                 &mut extra_params,
@@ -1383,10 +1410,12 @@ impl Database {
 
         let mut extra_conditions: Vec<String> = Vec::new();
         let mut extra_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-        if let Some(at) = app_type {
-            extra_conditions.push(format!("{} = ?", "l.app_type"));
-            extra_params.push(Box::new(at.to_string()));
-        }
+        push_app_filter(
+            &mut extra_conditions,
+            &mut extra_params,
+            "l.app_type",
+            app_type,
+        );
         push_provider_model_filters(
             &mut extra_conditions,
             &mut extra_params,
@@ -1467,10 +1496,12 @@ impl Database {
             "r.date",
             &rollup_bounds,
         );
-        if let Some(at) = app_type {
-            rollup_conditions.push(format!("{} = ?", "r.app_type"));
-            rollup_params.push(Box::new(at.to_string()));
-        }
+        push_app_filter(
+            &mut rollup_conditions,
+            &mut rollup_params,
+            "r.app_type",
+            app_type,
+        );
         push_provider_model_filters(
             &mut rollup_conditions,
             &mut rollup_params,
@@ -1592,10 +1623,12 @@ impl Database {
 
         let mut detail_conditions = Vec::new();
         let mut detail_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-        if let Some(at) = app_type {
-            detail_conditions.push(format!("{} = ?", "l.app_type"));
-            detail_params.push(Box::new(at.to_string()));
-        }
+        push_app_filter(
+            &mut detail_conditions,
+            &mut detail_params,
+            "l.app_type",
+            app_type,
+        );
         push_provider_model_filters(
             &mut detail_conditions,
             &mut detail_params,
@@ -1629,10 +1662,12 @@ impl Database {
 
         let mut rollup_conditions = Vec::new();
         let mut rollup_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-        if let Some(at) = app_type {
-            rollup_conditions.push(format!("{} = ?", "r.app_type"));
-            rollup_params.push(Box::new(at.to_string()));
-        }
+        push_app_filter(
+            &mut rollup_conditions,
+            &mut rollup_params,
+            "r.app_type",
+            app_type,
+        );
         push_provider_model_filters(
             &mut rollup_conditions,
             &mut rollup_params,
@@ -1695,10 +1730,12 @@ impl Database {
             detail_conditions.push("l.created_at <= ?".to_string());
             detail_params.push(Box::new(end));
         }
-        if let Some(at) = app_type {
-            detail_conditions.push(format!("{} = ?", "l.app_type"));
-            detail_params.push(Box::new(at.to_string()));
-        }
+        push_app_filter(
+            &mut detail_conditions,
+            &mut detail_params,
+            "l.app_type",
+            app_type,
+        );
         push_provider_model_filters(
             &mut detail_conditions,
             &mut detail_params,
@@ -1722,10 +1759,12 @@ impl Database {
             "r.date",
             &rollup_bounds,
         );
-        if let Some(at) = app_type {
-            rollup_conditions.push(format!("{} = ?", "r.app_type"));
-            rollup_params.push(Box::new(at.to_string()));
-        }
+        push_app_filter(
+            &mut rollup_conditions,
+            &mut rollup_params,
+            "r.app_type",
+            app_type,
+        );
         push_provider_model_filters(
             &mut rollup_conditions,
             &mut rollup_params,
@@ -1888,10 +1927,12 @@ impl Database {
             detail_conditions.push("l.created_at <= ?".to_string());
             detail_params.push(Box::new(end));
         }
-        if let Some(at) = app_type {
-            detail_conditions.push(format!("{} = ?", "l.app_type"));
-            detail_params.push(Box::new(at.to_string()));
-        }
+        push_app_filter(
+            &mut detail_conditions,
+            &mut detail_params,
+            "l.app_type",
+            app_type,
+        );
         push_provider_model_filters(
             &mut detail_conditions,
             &mut detail_params,
@@ -1920,10 +1961,12 @@ impl Database {
             "r.date",
             &rollup_bounds,
         );
-        if let Some(at) = app_type {
-            rollup_conditions.push(format!("{} = ?", "r.app_type"));
-            rollup_params.push(Box::new(at.to_string()));
-        }
+        push_app_filter(
+            &mut rollup_conditions,
+            &mut rollup_params,
+            "r.app_type",
+            app_type,
+        );
         push_provider_model_filters(
             &mut rollup_conditions,
             &mut rollup_params,
@@ -5846,5 +5889,28 @@ mod tests {
         assert!(result.is_none(), "不应该匹配不存在的模型");
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod app_filter_tests {
+    use super::push_app_filter;
+
+    fn run(app_type: Option<&str>) -> (Vec<String>, usize) {
+        let mut conditions = Vec::new();
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        push_app_filter(&mut conditions, &mut params, "l.app_type", app_type);
+        (conditions, params.len())
+    }
+
+    #[test]
+    fn single_list_and_empty() {
+        assert_eq!(run(Some("claude")), (vec!["l.app_type IN (?)".into()], 1));
+        assert_eq!(
+            run(Some("claude, codex")),
+            (vec!["l.app_type IN (?, ?)".into()], 2)
+        );
+        assert_eq!(run(Some("")), (vec![], 0));
+        assert_eq!(run(None), (vec![], 0));
     }
 }

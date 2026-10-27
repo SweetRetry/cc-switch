@@ -4,38 +4,35 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/lib/toast";
 import {
   Check,
-  ChartColumn,
   ChevronDown,
+  ChartColumn,
   ChevronRight,
   ListFilter,
   Loader2,
   RefreshCw,
-  ListTree,
   Settings2,
+  X,
 } from "lucide-react";
 import { AppPageHeader } from "@/components/shell/AppPageHeader";
-import { AppGlyph, APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
+import { APP_DISPLAY_NAME } from "@/components/shell/AppGlyph";
+import {
+  AppMultiSelect,
+  type AppSelectState,
+} from "@/components/common/AppMultiSelect";
 import { PageTabs } from "@/components/ui/page-tabs";
 import { Button } from "@/components/ui/button";
 import { HoverTip } from "@/components/ui/hover-tip";
 import {
-  SegmentThumb,
-  useSlidingIndicator,
-} from "@/components/ui/sliding-indicator";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuPortal,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { FullScreenPanel } from "@/components/common/FullScreenPanel";
 import {
   KNOWN_APP_TYPES,
+  type AppType,
   type AppTypeFilter,
   type UsageRangePreset,
   type UsageRangeSelection,
@@ -136,6 +133,41 @@ const menuContentClass =
   "min-w-[200px] max-w-[320px] rounded-panel border-border bg-surface p-1 shadow-v7-md";
 const menuItemClass = "h-[30px] gap-2 rounded-control px-2 text-body";
 
+function ScopeChip({
+  label,
+  title,
+  clearLabel,
+  mono,
+  onClear,
+}: {
+  label: string;
+  title: string;
+  clearLabel: string;
+  mono?: boolean;
+  onClear: () => void;
+}) {
+  return (
+    <span
+      title={title}
+      className="inline-flex h-8 max-w-[260px] items-center gap-1 rounded-control bg-subtle pe-1 ps-2.5 text-body text-fg-1"
+    >
+      <span
+        className={cn("min-w-0 truncate", mono && "font-mono text-caption")}
+      >
+        {label}
+      </span>
+      <button
+        type="button"
+        aria-label={`${clearLabel} ${label}`}
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-fg-3 hover:bg-selected hover:text-fg-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={onClear}
+      >
+        <X aria-hidden="true" className="h-3.5 w-3.5" />
+      </button>
+    </span>
+  );
+}
+
 function MenuCheck({ checked }: { checked: boolean }) {
   return (
     <Check
@@ -143,83 +175,6 @@ function MenuCheck({ checked }: { checked: boolean }) {
       strokeWidth={1.75}
       className={cn("h-3.5 w-3.5 shrink-0", !checked && "invisible")}
     />
-  );
-}
-
-function MenuMeta({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="ms-auto ps-3 text-caption tabular-nums text-fg-3">
-      {children}
-    </span>
-  );
-}
-
-/** 级联菜单第二级：某个供应商（或全部供应商）名下的模型，展开时才查 */
-function ScopeModelItems({
-  range,
-  appType,
-  providerName,
-  providerCount,
-  active,
-  selectedModel,
-  locale,
-  onPick,
-}: {
-  range: UsageRangeSelection;
-  appType: AppTypeFilter;
-  providerName: string | undefined;
-  providerCount: number;
-  /** 这一级就是当前选中的供应商（勾才画在它的模型上） */
-  active: boolean;
-  selectedModel: string | undefined;
-  locale: string;
-  onPick: (model: string | undefined) => void;
-}) {
-  const { t } = useTranslation();
-  const { data } = useModelStats(
-    range,
-    { appType, providerName },
-    { refetchInterval: false },
-  );
-  const options = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const stat of data ?? []) {
-      counts.set(stat.model, (counts.get(stat.model) ?? 0) + stat.requestCount);
-    }
-    // 数据刷新后选中项可能掉出列表（如改了时间范围）；补回去保证看得见、能清除
-    if (selectedModel && !counts.has(selectedModel)) {
-      counts.set(selectedModel, 0);
-    }
-    return Array.from(counts, ([name, count]) => ({ name, count })).sort(
-      (a, b) => b.count - a.count,
-    );
-  }, [data, selectedModel]);
-
-  return (
-    <>
-      <DropdownMenuItem
-        className={menuItemClass}
-        onSelect={() => onPick(undefined)}
-      >
-        <MenuCheck checked={active && selectedModel == null} />
-        {t("usage.allModels")}
-        <MenuMeta>{fmtInt(providerCount, locale)}</MenuMeta>
-      </DropdownMenuItem>
-      {options.map((option) => (
-        <DropdownMenuItem
-          key={option.name}
-          className={menuItemClass}
-          title={option.name}
-          onSelect={() => onPick(option.name)}
-        >
-          <MenuCheck checked={active && selectedModel === option.name} />
-          <span className="min-w-0 truncate font-mono text-caption">
-            {option.name}
-          </span>
-          <MenuMeta>{fmtInt(option.count, locale)}</MenuMeta>
-        </DropdownMenuItem>
-      ))}
-    </>
   );
 }
 
@@ -270,7 +225,11 @@ export function UsageDashboard({
       writeRememberedChoice(USAGE_CHOICE_KEYS.range, next.preset);
     }
   };
-  const [appType, setAppType] = useState<AppTypeFilter>(initialAppType);
+  // 应用多选：空数组 = 不过滤（全部）。传给查询的是逗号拼接的 id，"all" 表示不过滤
+  const [selectedApps, setSelectedApps] = useState<AppType[]>(() =>
+    initialAppType === "all" ? [] : [initialAppType],
+  );
+  const appType = selectedApps.length > 0 ? selectedApps.join(",") : "all";
   const [providerName, setProviderName] = useState<string | undefined>(
     undefined,
   );
@@ -336,31 +295,19 @@ export function UsageDashboard({
   }, [savedRefreshIntervalMs]);
 
   useEffect(() => {
-    setAppType(initialAppType);
+    setSelectedApps(initialAppType === "all" ? [] : [initialAppType]);
     setProviderName(undefined);
     setModel(undefined);
   }, [initialAppType]);
 
-  // 切应用时清掉下游筛选，避免留下一个在新范围内查无数据的"幽灵"组合；
-  // 切供应商同理清掉模型（模型选项随供应商级联）。
-  const changeAppType = (next: AppTypeFilter) => {
-    setAppType(next);
-    if (next !== appType) {
+  // 切应用时清掉下游筛选，避免留下一个在新范围内查无数据的"幽灵"组合
+  const changeApps = (next: AppType[]) => {
+    setSelectedApps(next);
+    if (next.join(",") !== selectedApps.join(",")) {
       setProviderName(undefined);
       setModel(undefined);
     }
   };
-  // 供应商和模型一次选定（级联菜单）
-  const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
-  const pickScope = (
-    nextProvider: string | undefined,
-    nextModel: string | undefined,
-  ) => {
-    setProviderName(nextProvider);
-    setModel(nextModel);
-    setScopeMenuOpen(false);
-  };
-
   // 后端写入新日志时 emit `usage-log-recorded`，立刻 invalidate 所有 usage 查询
   useUsageEventBridge();
 
@@ -437,17 +384,9 @@ export function UsageDashboard({
     if (range.preset !== "custom") {
       return getUsageRangePresetLabel(range.preset, t);
     }
-    const startStr = new Date(resolvedRange.startDate * 1000).toLocaleString(
-      locale,
-    );
-    if (range.liveEndTime) {
-      return `${startStr} → ${t("usage.liveEndTimeNow", "现在")}`;
-    }
-    const endStr = new Date(resolvedRange.endDate * 1000).toLocaleString(
-      locale,
-    );
-    return `${startStr} - ${endStr}`;
-  }, [locale, range, resolvedRange.endDate, resolvedRange.startDate, t]);
+    const fmt = (ts: number) => new Date(ts * 1000).toLocaleDateString(locale);
+    return `${fmt(resolvedRange.startDate)} ~ ${fmt(resolvedRange.endDate)}`;
+  }, [locale, range.preset, resolvedRange.endDate, resolvedRange.startDate, t]);
 
   // 筛选下拉的选项池：供应商列表只跟应用/时间范围走（不受自身选中值影响），
   // 模型列表随所选供应商级联。所有查询（含子组件）都不轮询：会话用量由
@@ -455,11 +394,6 @@ export function UsageDashboard({
   const refetch = {
     refetchInterval: false as const,
   };
-  const { data: providerOptionsData } = useProviderStats(
-    range,
-    { appType },
-    refetch,
-  );
   // 有没有任何用量（不分时间范围）：一条都没有时显示空状态
   const { data: allTimeSummary } = useQuery({
     queryKey: [...usageKeys.all, "all-time-summary"],
@@ -467,33 +401,6 @@ export function UsageDashboard({
     refetchInterval: refetch.refetchInterval,
   });
   const isEmpty = allTimeSummary != null && allTimeSummary.totalRequests === 0;
-
-  const providerOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const stat of providerOptionsData ?? []) {
-      counts.set(
-        stat.providerName,
-        (counts.get(stat.providerName) ?? 0) + stat.requestCount,
-      );
-    }
-    // 数据刷新后选中项可能掉出列表（如改了时间范围）；补回去保证用户看得见、能清除
-    if (providerName && !counts.has(providerName)) counts.set(providerName, 0);
-    return Array.from(counts, ([name, count]) => ({ name, count })).sort(
-      (a, b) => b.count - a.count,
-    );
-  }, [providerOptionsData, providerName]);
-
-  const providerTotal = providerOptions.reduce((sum, p) => sum + p.count, 0);
-  // 触发器：「供应商 / 模型」，哪一级选了就换成选中的名字
-  const providerText = providerName
-    ? getUsageProviderLabel(providerName, t).label
-    : t("usage.providerFilter.label");
-  const scopeLabel = `${providerText} / ${model ?? t("usage.modelFilter.label")}`;
-  const scopeTitle = `${
-    providerName
-      ? usageProviderTitle(getUsageProviderLabel(providerName, t))
-      : t("usage.providerFilter.all")
-  } / ${model ?? t("usage.allModels")}`;
 
   // ── 页头 ─────────────────────────────────────────────────────────────
   // 同步按钮只说一件事：最近一次同步是什么时候；自动扫描关着时悬停提示里说明
@@ -514,8 +421,9 @@ export function UsageDashboard({
           time: formatRelativeTime(lastSyncAt, t, now),
         });
 
-  const headerActions = (
-    <div className="flex h-8 shrink-0 items-stretch overflow-hidden rounded-control border border-border-strong bg-surface">
+  // 同步是新鲜度状态，设置是配置：两个互不相干的安静按钮，窄窗口只留图标
+  const syncControls = (
+    <>
       <HoverTip
         content={
           sessionAutoSyncEnabled
@@ -523,190 +431,112 @@ export function UsageDashboard({
             : t("usage.syncStatus.tipOff")
         }
       >
-        <button
+        <Button
           type="button"
-          className="inline-flex items-center gap-1.5 whitespace-nowrap pe-3 ps-2.5 text-body font-medium tabular-nums text-fg-1 transition-colors hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:text-fg-2"
+          variant="quiet"
+          size="regular"
+          className="gap-1.5 tabular-nums text-fg-2"
+          aria-label={syncButtonLabel}
           disabled={syncingSession}
           onClick={() => void runManualSessionSync()}
         >
           <RefreshCw
             aria-hidden="true"
             className={cn(
-              "h-3.5 w-3.5 text-fg-2",
+              "h-3.5 w-3.5",
               syncingSession && "motion-safe:animate-spin",
             )}
           />
-          {syncButtonLabel}
-        </button>
+          {!compact && syncButtonLabel}
+        </Button>
       </HoverTip>
       <HoverTip content={t("usage.settings.title")}>
-        <button
+        <Button
           type="button"
+          variant="quiet"
+          size="regular"
+          className="w-8 px-0 text-fg-2"
           aria-label={t("usage.settings.title")}
           aria-haspopup="dialog"
-          className="inline-flex w-8 items-center justify-center border-s border-border text-fg-2 transition-colors hover:bg-subtle hover:text-fg-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           onClick={() => setSettingsOpen(true)}
         >
           <Settings2 aria-hidden="true" className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       </HoverTip>
-    </div>
+    </>
   );
 
   // ── 筛选行 ───────────────────────────────────────────────────────────
-  // 选中块是单独的滑块（SegmentThumb），切换应用时滑过去
-  // 只列「应用」页设为显示的应用，
-  // 当前选中的即使被隐藏也留着，免得筛选状态无处可见
+  // 只列「应用」页设为显示的应用，已选中的即使被隐藏也留着，免得筛选状态无处可见
   const { data: settings } = useSettingsQuery();
   const filterApps = useMemo(() => {
     const visible = normalizeVisibleApps(settings?.visibleApps);
-    return KNOWN_APP_TYPES.filter((app) => visible[app] || app === appType);
-  }, [settings?.visibleApps, appType]);
-  const appFilterIndicator = useSlidingIndicator<HTMLDivElement>(
-    '[aria-pressed="true"]',
-    appType,
-  );
-  const chipClass = (pressed: boolean) =>
-    cn(
-      "relative inline-flex h-[26px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[5px] px-2 text-body transition-colors duration-150",
-      pressed
-        ? "font-semibold text-fg-1"
-        : "font-medium text-fg-2 hover:text-fg-1",
+    return KNOWN_APP_TYPES.filter(
+      (app) => visible[app] || selectedApps.includes(app),
     );
+  }, [settings?.visibleApps, selectedApps]);
+  const effectiveApps = selectedApps.length > 0 ? selectedApps : filterApps;
+  // 勾满等于不过滤；至少留一个，取消最后一个不生效
+  const toggleApp = (app: AppType) => {
+    const next = filterApps.filter((a) =>
+      a === app ? !effectiveApps.includes(a) : effectiveApps.includes(a),
+    );
+    if (next.length === 0) return;
+    changeApps(next.length === filterApps.length ? [] : next);
+  };
 
-  // 范围栏：决定下面所有数据的四个条件放一组、左对齐；时间排第一，图表和指标都跟着它
-  const filterRow = (
-    <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 px-6 py-2">
+  // 范围控件：时间排第一，图表和指标都跟着它；主页和请求日志页都放页头右侧
+  const rangeControls = (
+    <>
       <UsageDateRangePicker
         selection={range}
         triggerLabel={rangeLabel}
         onApply={applyRange}
       />
-      <span aria-hidden="true" className="mx-1 h-4 w-px bg-border" />
-      <div
-        ref={appFilterIndicator.ref}
-        role="group"
-        aria-label={t("usage.appFilter.label")}
-        className="relative flex h-8 shrink-0 items-center gap-0.5 rounded-[8px] border border-border-strong bg-surface p-[2px]"
-      >
-        <SegmentThumb
-          rect={appFilterIndicator.rect}
-          animate={appFilterIndicator.animate}
-          // 和旁边的按钮同一套（卡片底 + 描边），选中项是按钮里凹下去的一块；
-          // 不用共用的 bg-subtle 底槽：暗色下它比页面亮、比按钮暗，成了第三种亮度
-          className="rounded-[5px] bg-subtle shadow-none"
-        />
-        <button
-          type="button"
-          aria-pressed={appType === "all"}
-          className={chipClass(appType === "all")}
-          onClick={() => changeAppType("all")}
-        >
-          {t("usage.appFilter.all")}
-        </button>
-        {/* 应用只露图标，名字放悬停提示和 aria-label */}
-        {filterApps.map((app) => (
-          <HoverTip key={app} content={APP_DISPLAY_NAME[app]}>
-            <button
-              type="button"
-              aria-pressed={appType === app}
-              aria-label={APP_DISPLAY_NAME[app]}
-              className={cn(
-                chipClass(appType === app),
-                "w-[30px] justify-center px-0",
-              )}
-              onClick={() => changeAppType(app)}
-            >
-              <AppGlyph
-                app={app}
-                size={16}
-                badgeClassName={appType === app ? "bg-subtle" : "bg-surface"}
-              />
-            </button>
-          </HoverTip>
-        ))}
-      </div>
-      {/* 供应商 / 模型是上下级：级联菜单，悬停供应商展开它名下的模型；
-          点供应商本身＝只按供应商筛（全部模型） */}
-      <DropdownMenu open={scopeMenuOpen} onOpenChange={setScopeMenuOpen}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            variant="neutral"
-            size="regular"
-            className="min-w-0 max-w-[260px] shrink gap-1.5 pe-2 ps-2.5"
-            title={scopeTitle}
-          >
-            <ListTree
-              aria-hidden="true"
-              className="h-4 w-4 shrink-0 text-fg-3"
-            />
-            <span className="min-w-0 truncate">{scopeLabel}</span>
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-fg-2" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="start"
-          aria-label={t("usage.providerFilter.title")}
-          className={cn(menuContentClass, "max-h-[360px] overflow-y-auto")}
-        >
-          {[{ name: undefined, count: providerTotal }, ...providerOptions].map(
-            (option) => {
-              const label =
-                option.name == null
-                  ? null
-                  : getUsageProviderLabel(option.name, t);
-              const active = providerName === option.name;
-              return (
-                <DropdownMenuSub key={option.name ?? ""}>
-                  <DropdownMenuSubTrigger
-                    className={menuItemClass}
-                    title={label ? usageProviderTitle(label) : undefined}
-                    onClick={() => pickScope(option.name, undefined)}
-                  >
-                    <MenuCheck checked={active} />
-                    <span className="min-w-0 truncate">
-                      {label ? label.label : t("usage.providerFilter.all")}
-                    </span>
-                    <MenuMeta>{fmtInt(option.count, locale)}</MenuMeta>
-                    <ChevronRight
-                      aria-hidden="true"
-                      className="-me-0.5 h-3.5 w-3.5 shrink-0 text-fg-3"
-                    />
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuPortal>
-                    <DropdownMenuSubContent
-                      // 子菜单默认顶边对齐触发项；减去自身 1px 边框 + 4px 内边距，第一项才和触发项同一行
-                      alignOffset={-5}
-                      aria-label={t("usage.modelFilter.title")}
-                      className={cn(
-                        menuContentClass,
-                        "max-h-[360px] overflow-y-auto",
-                      )}
-                    >
-                      <ScopeModelItems
-                        range={range}
-                        appType={appType}
-                        providerName={option.name}
-                        providerCount={option.count}
-                        active={active}
-                        selectedModel={active ? model : undefined}
-                        locale={locale}
-                        onPick={(next) => pickScope(option.name, next)}
-                      />
-                    </DropdownMenuSubContent>
-                  </DropdownMenuPortal>
-                </DropdownMenuSub>
-              );
-            },
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+      <AppMultiSelect
+        name={t("usage.appFilter.label")}
+        appIds={filterApps}
+        states={
+          Object.fromEntries(
+            filterApps.map((app) => [
+              app,
+              effectiveApps.includes(app) ? "on" : "off",
+            ]),
+          ) as Record<AppType, AppSelectState>
+        }
+        allLabel={t("usage.appFilter.all")}
+        noneLabel={null}
+        itemTitle={(app) => APP_DISPLAY_NAME[app]}
+        onToggle={toggleApp}
+        onSetAll={() => changeApps([])}
+      />
+    </>
   );
 
+  // 供应商 / 模型筛选来自下面表格的行：选中后在这里留一个可清除的标签
+  const scopeChips = (providerName || model) && (
+    <div className="flex shrink-0 flex-wrap items-center gap-2">
+      {providerName && (
+        <ScopeChip
+          label={getUsageProviderLabel(providerName, t).label}
+          title={usageProviderTitle(getUsageProviderLabel(providerName, t))}
+          clearLabel={t("usage.scopeChip.clear")}
+          onClear={() => setProviderName(undefined)}
+        />
+      )}
+      {model && (
+        <ScopeChip
+          mono
+          label={model}
+          title={model}
+          clearLabel={t("usage.scopeChip.clear")}
+          onClear={() => setModel(undefined)}
+        />
+      )}
+    </div>
+  );
   // ── 明细面板 ─────────────────────────────────────────────────────────
-  const scopedAppType = appType === "all" ? undefined : appType;
+  const scopedAppType = selectedApps.length > 0 ? appType : undefined;
 
   // 页签上的计数：和各表格同样的查询参数，react-query 会合并成一次请求。
   // 三个页签都查（只查当前页签时，没点过的页签一直没有数字）；换筛选时沿用上一份
@@ -723,16 +553,8 @@ export function UsageDashboard({
     pageSize: logPageSize,
     options: refetch,
   });
-  const providerCount = useProviderStats(
-    range,
-    { appType, providerName, model },
-    refetch,
-  );
-  const modelCount = useModelStats(
-    range,
-    { appType, providerName, model },
-    refetch,
-  );
+  const providerCount = useProviderStats(range, { appType, model }, refetch);
+  const modelCount = useModelStats(range, { appType, providerName }, refetch);
   const tabCount: Record<UsageTab, number | undefined> = {
     providers: providerCount.data?.length,
     models: modelCount.data?.length,
@@ -825,25 +647,20 @@ export function UsageDashboard({
     </Button>
   );
 
-  // 点统计行：带着这一行的筛选进请求日志
-  const openLogsForProvider = (name: string) => {
-    setProviderName(name);
-    setModel(undefined);
-    setLogsOpen(true);
-  };
-  const openLogsForModel = (name: string) => {
-    setModel(name);
-    setLogsOpen(true);
-  };
+  // 点统计行：按这一行筛选整页，再点一次取消
+  const toggleProvider = (name: string) =>
+    setProviderName((cur) => (cur === name ? undefined : name));
+  const toggleModel = (name: string) =>
+    setModel((cur) => (cur === name ? undefined : name));
 
   const detailPanel = (
     <section
       aria-label={t("usage.tabs.label")}
-      className="flex shrink-0 flex-col overflow-hidden rounded-panel border border-border bg-surface"
+      className="-mx-4 flex shrink-0 flex-col"
     >
       <PageTabs<UsageTab>
         aria-label={t("usage.tabs.label")}
-        className="h-11 pe-2 ps-4"
+        className="mx-4 h-11 pe-2"
         items={TABS.map((id) => ({
           value: id,
           label: (
@@ -872,10 +689,10 @@ export function UsageDashboard({
           <ProviderStatsTable
             range={range}
             appType={appType}
-            providerName={providerName}
             model={model}
+            selectedProvider={providerName}
             refreshIntervalMs={0}
-            onSelectProvider={openLogsForProvider}
+            onSelectProvider={toggleProvider}
           />
         )}
         {tab === "models" && (
@@ -883,9 +700,9 @@ export function UsageDashboard({
             range={range}
             appType={appType}
             providerName={providerName}
-            model={model}
+            selectedModel={model}
             refreshIntervalMs={0}
-            onSelectModel={openLogsForModel}
+            onSelectModel={toggleModel}
           />
         )}
       </div>
@@ -897,11 +714,12 @@ export function UsageDashboard({
     <FullScreenPanel
       isOpen={logsOpen}
       title={t("usage.requestLogs")}
+      actions={rangeControls}
       onClose={() => setLogsOpen(false)}
       contentClassName="space-y-0 px-0 py-0"
     >
-      {filterRow}
-      <section className="mx-6 mb-6 mt-1 overflow-hidden rounded-panel border border-border bg-surface">
+      {scopeChips && <div className="px-6 pb-2 pt-1">{scopeChips}</div>}
+      <section className="mx-2 mb-6 mt-1">
         <div className="flex h-11 items-center justify-between pe-2 ps-4">
           <span className="text-body font-medium tabular-nums text-fg-1">
             {logCount.data?.total != null
@@ -929,9 +747,9 @@ export function UsageDashboard({
     </FullScreenPanel>
   );
 
-  // 概览面板：指标条和图表是同一块面，点指标换图表画的指标
+  // 概览：指标条和图表连在一起，点指标换图表画的指标；不画面板，-mx-4 让内部 16px 内边距的文字和页面左缘对齐
   const overviewPanel = (
-    <section className="shrink-0 overflow-hidden rounded-panel border border-border bg-surface">
+    <section className="-mx-4 shrink-0">
       <UsageHero
         range={range}
         appType={scopedAppType}
@@ -1000,8 +818,10 @@ export function UsageDashboard({
   ) : (
     <div
       id="main-content"
-      className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto scroll-stable px-6 pb-6 pt-1"
+      className="flex min-h-0 flex-1 flex-col gap-10 overflow-y-auto scroll-stable px-6 pb-8 pt-4"
     >
+      {/* 两组：总览（指标条 + 图表，指标条选图表画什么）和拆解（表，点行筛选整页）。
+          只靠间距分组：组间 40px，不再画分隔线 */}
       {overviewPanel}
       {detailPanel}
     </div>
@@ -1012,9 +832,14 @@ export function UsageDashboard({
       <AppPageHeader
         icon={<ChartColumn className="h-5 w-5" strokeWidth={1.5} />}
         title={t("nav.usage")}
-        actions={headerActions}
+        actions={
+          <>
+            {rangeControls}
+            {syncControls}
+          </>
+        }
       />
-      {filterRow}
+      {scopeChips && <div className="shrink-0 px-6 pb-2">{scopeChips}</div>}
       {body}
       {logsPage}
 

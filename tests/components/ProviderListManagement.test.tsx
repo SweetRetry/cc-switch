@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
@@ -18,10 +19,17 @@ vi.mock("@/components/providers/ProviderDetail", () => ({
   ProviderDetail: ({
     provider,
     onEdit,
+    control,
   }: {
     provider: Provider;
     onEdit: (provider: Provider) => void;
-  }) => <button onClick={() => onEdit(provider)}>Edit {provider.name}</button>,
+    control: ReactNode;
+  }) => (
+    <>
+      <button onClick={() => onEdit(provider)}>Edit {provider.name}</button>
+      {control}
+    </>
+  ),
 }));
 
 describe("Provider list management", () => {
@@ -66,7 +74,7 @@ describe("Provider list management", () => {
     },
   );
 
-  it("switches Claude providers from the row radio without leaving the list", () => {
+  it("switches Claude providers from the row switch button without leaving the list", () => {
     const alpha: Provider = { id: "alpha", name: "Alpha", settingsConfig: {} };
     const beta: Provider = { id: "beta", name: "Beta", settingsConfig: {} };
     const onSwitch = vi.fn();
@@ -87,12 +95,12 @@ describe("Provider list management", () => {
         />
       </QueryClientProvider>,
     );
-    const radios = screen.getAllByRole("radio");
-    expect(radios.map((radio) => radio.getAttribute("aria-checked"))).toEqual([
-      "true",
-      "false",
-    ]);
-    fireEvent.click(radios[1]);
+    // 使用中的行没有切换按钮，只有另一行有
+    const useButtons = screen.getAllByRole("button", {
+      name: "providerDetail.useProvider",
+    });
+    expect(useButtons).toHaveLength(1);
+    fireEvent.click(useButtons[0]);
     expect(onSwitch).toHaveBeenCalledWith(beta);
     // 点行内容（编辑等）不会切换
     fireEvent.click(screen.getByRole("button", { name: "Edit Alpha" }));

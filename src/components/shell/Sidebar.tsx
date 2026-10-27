@@ -1,10 +1,12 @@
 import type { ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  ArrowUp,
   BookOpen,
   ChartColumn,
   Database,
   LayoutGrid,
+  Loader2,
   Server,
   Settings,
 } from "lucide-react";
@@ -14,6 +16,10 @@ import { orderAppIds } from "@/config/appConfig";
 import type { GlobalPage, View } from "@/lib/navigation";
 import { isAppPage } from "@/lib/navigation";
 import { SkillsIcon } from "@/components/BrandIcons";
+import { getVersion } from "@tauri-apps/api/app";
+import { useQuery } from "@tanstack/react-query";
+import { useAppUpdate } from "@/hooks/useAppUpdate";
+import { Button } from "@/components/ui/button";
 import { useUpdate } from "@/contexts/UpdateContext";
 import { useMoneyFormat } from "@/hooks/useMoneyFormat";
 import { useSettingsQuery } from "@/lib/query";
@@ -28,7 +34,7 @@ import {
 } from "@/components/usage/format";
 import { useSidebarStatus } from "@/hooks/useSidebarStatus";
 import { HoverTip } from "@/components/ui/hover-tip";
-import { DRAG_REGION_ATTR, DRAG_REGION_STYLE, isMac } from "@/lib/platform";
+import { DRAG_REGION_ATTR, DRAG_REGION_STYLE } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import ccswitchLogo from "@/assets/icons/logo.svg";
 import { APP_DISPLAY_NAME, AppGlyph } from "./AppGlyph";
@@ -68,54 +74,60 @@ export function Sidebar(props: SidebarProps) {
   );
 }
 
+/** 顶条只留给 macOS 红绿灯和拖动窗口；品牌在侧栏底部（SidebarBrand） */
 function SidebarTopBar() {
-  // macOS 顶条只放红绿灯；下面一行贴近红绿灯放 logo + 名字
-  if (isMac()) {
-    return (
-      <>
-        <div
-          className="h-11 shrink-0"
-          {...DRAG_REGION_ATTR}
-          style={DRAG_REGION_STYLE as React.CSSProperties}
-        />
-        {/* 品牌区与导航通过侧栏底色和留白分开 */}
-        <div
-          className="-mt-[18px] mb-2 flex h-9 shrink-0 items-center gap-2 pe-2 ps-5"
-          {...DRAG_REGION_ATTR}
-          style={DRAG_REGION_STYLE as React.CSSProperties}
-        >
-          <img
-            src={ccswitchLogo}
-            alt=""
-            draggable={false}
-            className="pointer-events-none h-6 w-6 shrink-0"
-          />
-          <span className="pointer-events-none me-auto min-w-0 truncate text-strong font-semibold text-fg-1">
-            CC Switch
-          </span>
-        </div>
-      </>
-    );
-  }
-
   return (
     <div
-      className="flex h-11 shrink-0 items-center gap-0.5 px-2"
+      className="h-8 shrink-0"
       {...DRAG_REGION_ATTR}
       style={DRAG_REGION_STYLE as React.CSSProperties}
-    >
-      {/* 图片不接收指针事件，拖它也是在拖窗口 */}
-      <span className="pointer-events-none me-auto flex min-w-0 items-center gap-2 ps-1.5">
-        <img
-          src={ccswitchLogo}
-          alt=""
-          draggable={false}
-          className="h-[22px] w-[22px] shrink-0"
-        />
-        <span className="truncate text-strong font-semibold text-fg-1">
-          CC Switch
-        </span>
+    />
+  );
+}
+
+/**
+ * 品牌放在最底下：logo、名字、版本号，灰字退到背景里，不和导航项抢眼。
+ * 有新版本时右侧的版本号换成「↑ vX」按钮，点一下就更新（设置页只留手动检查）。
+ */
+function SidebarBrand() {
+  const { t } = useTranslation();
+  const { data: version } = useQuery({
+    queryKey: ["app-version"],
+    queryFn: () => getVersion().catch(() => null),
+    staleTime: Infinity,
+  });
+  const update = useAppUpdate();
+  return (
+    <div className="mx-3 mt-1 flex h-10 items-center gap-3 px-2 text-caption text-fg-3">
+      <span
+        aria-hidden="true"
+        className="flex h-[22px] w-[22px] shrink-0 items-center justify-center"
+      >
+        <img src={ccswitchLogo} alt="" draggable={false} className="h-5 w-5" />
       </span>
+      <span className="min-w-0 flex-1 truncate text-fg-2">CC Switch</span>
+      {update.hasUpdate ? (
+        <Button
+          type="button"
+          variant="solid"
+          size="compact"
+          className="h-6 shrink-0 gap-1 px-2 text-caption"
+          title={t("settings.updateTo", { version: update.availableVersion })}
+          disabled={update.isDownloading}
+          onClick={() => void update.run()}
+        >
+          {update.isDownloading ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <ArrowUp className="h-3 w-3" />
+          )}
+          {update.isDownloading
+            ? t("settings.updating")
+            : `v${update.availableVersion}`}
+        </Button>
+      ) : (
+        version && <span className="shrink-0 tabular-nums">v{version}</span>
+      )}
     </div>
   );
 }
@@ -275,6 +287,7 @@ function MainDirectory({
           dotTone="success"
           onClick={() => onSelectPage("settings")}
         />
+        <SidebarBrand />
       </div>
     </>
   );
@@ -350,9 +363,13 @@ function NavItem({
   ]
     .filter(Boolean)
     .join(" · ");
+  // 图标位统一 22px 见方（AppGlyph 也是 22）：应用项、配置项、品牌的文字才从同一条竖线起
   const glyph = (
-    <span aria-hidden="true" className="relative flex shrink-0 text-fg-2">
-      <Icon className="h-5 w-5" />
+    <span
+      aria-hidden="true"
+      className="relative flex h-[22px] w-[22px] shrink-0 items-center justify-center text-fg-2"
+    >
+      <Icon className="h-[22px] w-[22px]" />
       {dot && (
         <span
           className={cn(
@@ -381,7 +398,7 @@ function NavItem({
         aria-label={trailingLabel ? accessibleName : undefined}
         aria-current={selected ? "page" : undefined}
         className={cn(
-          "flex h-9 shrink-0 items-center gap-3 rounded-control px-2 text-start transition-colors hover:bg-subtle",
+          "flex h-10 shrink-0 items-center gap-3 rounded-control px-2 text-start transition-colors hover:bg-subtle",
           "mx-3",
           selected && "bg-selected font-medium hover:bg-selected",
         )}

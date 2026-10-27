@@ -19,9 +19,10 @@ interface ModelStatsTableProps {
   range: UsageRangeSelection;
   appType?: string;
   providerName?: string;
-  model?: string;
+  /** 当前选中的模型：本表不按它过滤（其他模型要留着能切换），只高亮 */
+  selectedModel?: string;
   refreshIntervalMs: number;
-  /** 点一行：去看这个模型的请求日志 */
+  /** 点一行：按这个模型筛选，再点取消 */
   onSelectModel?: (model: string) => void;
 }
 
@@ -29,7 +30,7 @@ export function ModelStatsTable({
   range,
   appType,
   providerName,
-  model,
+  selectedModel,
   refreshIntervalMs,
   onSelectModel,
 }: ModelStatsTableProps) {
@@ -38,7 +39,7 @@ export function ModelStatsTable({
   const locale = getLocaleFromLanguage(getResolvedLang(i18n));
   const { data: stats, isLoading } = useModelStats(
     range,
-    { appType, providerName, model },
+    { appType, providerName },
     {
       refetchInterval: refreshIntervalMs > 0 ? refreshIntervalMs : false,
     },
@@ -50,7 +51,7 @@ export function ModelStatsTable({
   );
   const pagination = useClientPagination(
     rows,
-    JSON.stringify([range, appType, providerName, model]),
+    JSON.stringify([range, appType, providerName]),
   );
 
   if (isLoading) {
@@ -100,7 +101,11 @@ export function ModelStatsTable({
                 <tr
                   key={stat.model}
                   className={
-                    onSelectModel ? usageTable.rowInteractive : usageTable.row
+                    !onSelectModel
+                      ? usageTable.row
+                      : stat.model === selectedModel
+                        ? usageTable.rowSelected
+                        : usageTable.rowInteractive
                   }
                   onClick={
                     onSelectModel ? () => onSelectModel(stat.model) : undefined

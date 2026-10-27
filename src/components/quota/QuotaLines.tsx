@@ -115,6 +115,36 @@ export function ResetSlot({
   );
 }
 
+/** 单档额度行前的 28px 细条，颜色和旁边数值的色调一致（绿 / 橙 / 红）；没有比例的行（余额、失败、重置次数）留同宽空位，同列几行的文字才对得齐 */
+const METER_FILL: Record<QuotaTone, string> = {
+  ...TONE_FILL,
+  normal: "bg-success",
+  muted: "bg-fg-3",
+};
+
+function hasRatio(line: QuotaLine): boolean {
+  return (
+    !line.caption &&
+    !line.breakdown &&
+    line.left >= 0 &&
+    (Number.isFinite(line.left) || line.bar !== undefined)
+  );
+}
+
+function RowMeter({ line }: { line: QuotaLine }) {
+  return (
+    <span
+      aria-hidden
+      className="me-1.5 inline-block h-1 w-7 shrink-0 overflow-hidden rounded-full bg-chart-grid"
+    >
+      <span
+        className={cn("block h-full rounded-full", METER_FILL[line.tone])}
+        style={{ width: `${barPercent(line)}%` }}
+      />
+    </span>
+  );
+}
+
 /** 点一下重查后图标至少转这么久：请求常常不到一秒，太短了看不出来查过 */
 export const MIN_REFRESH_SPIN_MS = 600;
 /** 查完后 ✓ / ✗ 停留多久 */
@@ -223,10 +253,6 @@ export function QuotaLines({
     lines.some((line) => line.key === FAILED_LINE_KEY),
   );
   const spinning = refresh.phase === "spinning";
-  // 点过之后，鼠标移出 / 焦点离开之前不再露 ↻：否则 ✓ 一消失，还停在上面的鼠标又把 ↻ 叫出来
-  const [quiet, setQuiet] = useState(false);
-  // 拆开布局时刷新区不止一块，悬停改用状态记（见下）
-  const [hovered, setHovered] = useState(false);
   const ResultIcon = refresh.phase === "failed" ? X : Check;
   // 短的在上、长的在下：右对齐的几行从上到下越来越宽，右缘整齐，也让「重置剩余 1 次」这类短行不挤在长行下面
   const rows = cardRows(lines, max)
@@ -253,11 +279,29 @@ export function QuotaLines({
   const resetSlot = (row: QuotaLine[]) =>
     showReset ? <ResetSlot countdown={rowCountdown(row, now)} /> : null;
 
-  const rowNodes = rows.map((row) => (
+  // 二级：有比例的单档行（细条 + 数值）是一级；倒计时和没有比例的行（重置次数、余额）
+  // 并成下面一行灰字，不和一级挤在同一行
+  const primaryRows = rows.filter(
+    (row) => row.length === 1 && hasRatio(row[0]),
+  );
+  const twoLevel =
+    primaryRows.length > 0 && !rows.some((row) => row.some((l) => l.breakdown));
+  const earliestReset = rowCountdown(rows.flat(), now);
+  const secondaryText = [
+    earliestReset ? t("subscription.resetsIn", { time: earliestReset }) : null,
+    ...rows
+      .filter((row) => !primaryRows.includes(row))
+      .map((row) => row.map((line) => line.short ?? line.text).join(" · ")),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const rowNodes = (twoLevel ? primaryRows : rows).map((row) => (
     <span
       key={row.map((line) => line.key).join("+")}
       className="flex max-w-full items-center justify-end"
     >
+      {row.length === 1 && hasRatio(row[0]) && <RowMeter line={row[0]} />}
       {row.length === 1 ? (
         <span className="min-w-0 truncate text-fg-2">
           <TonedText text={row[0].text} line={row[0]} />
@@ -272,15 +316,22 @@ export function QuotaLines({
           ))}
         </span>
       )}
-      {resetSlot(row)}
+      {!twoLevel && resetSlot(row)}
     </span>
   ));
+  if (twoLevel && secondaryText) {
+    rowNodes.push(
+      <span key="secondary" className="max-w-full truncate text-fg-3">
+        {secondaryText}
+      </span>,
+    );
+  }
 
   const className = cn(
     "flex shrink-0 flex-col items-end text-caption leading-[18px] tabular-nums whitespace-nowrap",
     // 文字仍是 136 宽，倒计时那格（52 + 间距）另加；整列下拉的 ⌄ 那格（14）也另加
-    showReset ? "w-[194px]" : "w-[136px]",
-    breakdown && (showReset ? "w-[208px]" : "w-[150px]"),
+    twoLevel ? "w-[190px]" : showReset ? "w-[214px]" : "w-[160px]",
+    breakdown && (showReset ? "w-[224px]" : "w-[170px]"),
     loading && !spinning && "opacity-60",
   );
 
@@ -292,8 +343,6 @@ export function QuotaLines({
     );
   }
 
-  // 用 aria-disabled 不用 disabled：禁用的按钮在 Chromium 里可能收不到 mouseleave，
-  // 转圈时把鼠标移走，quiet 就解不开了
   const busy = loading || spinning;
   const refreshProps = {
     "aria-busy": busy,
@@ -301,15 +350,8 @@ export function QuotaLines({
     onClick: (event: MouseEvent) => {
       event.stopPropagation();
       if (busy) return;
-      setQuiet(true);
       refresh.start(onRefresh());
     },
-    onMouseEnter: () => setHovered(true),
-    onMouseLeave: () => {
-      setHovered(false);
-      setQuiet(false);
-    },
-    onBlur: () => setQuiet(false),
   };
   const split = rows.some((row) => row.some((line) => line.breakdown));
   const icon =
@@ -329,15 +371,7 @@ export function QuotaLines({
         data-testid="quota-refresh-icon"
         className={cn(
           "h-[11px] w-[11px] shrink-0 text-fg-3 group-hover:text-fg-2",
-          spinning
-            ? "motion-safe:animate-spin"
-            : quiet
-              ? "hidden"
-              : split
-                ? hovered
-                  ? "block"
-                  : "hidden group-focus-visible:block"
-                : "hidden group-hover:block group-focus-visible:block",
+          spinning && "motion-safe:animate-spin",
         )}
         strokeWidth={1.75}
       />
@@ -396,9 +430,6 @@ interface RefreshProps {
   "aria-busy": boolean;
   "aria-disabled": boolean;
   onClick: (event: MouseEvent) => void;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
-  onBlur: () => void;
 }
 
 /**
@@ -424,11 +455,7 @@ function DropdownQuotaColumn({
 }) {
   const { t } = useTranslation();
   return (
-    <div
-      className={cn(className, "flex-row items-start justify-end")}
-      onMouseEnter={refreshProps.onMouseEnter}
-      onMouseLeave={refreshProps.onMouseLeave}
-    >
+    <div className={cn(className, "flex-row items-start justify-end")}>
       <span className="relative flex min-w-0">
         {/* 绝对定位贴在下拉左边、不占宽度：↻ 出现 / 消失时文字不被挤动 */}
         <button
@@ -437,9 +464,6 @@ function DropdownQuotaColumn({
           aria-label={t("quota.clickToRefresh")}
           className="group absolute end-full top-0 me-1 flex h-[18px] items-center rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           {...refreshProps}
-          // 悬停交给整列：移出这个小按钮、还在列上时 ↻ 不能消失
-          onMouseEnter={undefined}
-          onMouseLeave={undefined}
         >
           {icon}
         </button>
@@ -597,8 +621,6 @@ function SplitQuotaColumn({
                   title={title}
                   className="min-w-0 cursor-pointer truncate"
                   onClick={refreshProps.onClick}
-                  onMouseEnter={refreshProps.onMouseEnter}
-                  onMouseLeave={refreshProps.onMouseLeave}
                 >
                   {text}
                 </span>

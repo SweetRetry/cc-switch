@@ -1,9 +1,14 @@
-import { useId, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { useUsageSummaryByApp } from "@/lib/query/usage";
 import { HelpTip } from "@/components/ui/help-tip";
 import { HoverTip } from "@/components/ui/hover-tip";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import {
   fmtInt,
@@ -96,6 +101,7 @@ function MetricCell({
   help,
   value,
   title,
+  detail,
   selected,
   onSelect,
 }: {
@@ -103,11 +109,29 @@ function MetricCell({
   help?: { title: string; body: string };
   value: string;
   title?: string;
+  /** 二级展示：悬停 / 聚焦这一格时弹出，移进卡片不关 */
+  detail?: ReactNode;
   selected: boolean;
   onSelect: () => void;
 }) {
-  return (
-    <div className="group relative min-w-0 px-4 pb-3.5 pt-2.5">
+  const [open, setOpen] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const toggle = (next: boolean, delay: number) => {
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setOpen(next), delay);
+  };
+  const hover = detail
+    ? {
+        onPointerEnter: () => toggle(true, 200),
+        onPointerLeave: () => toggle(false, 150),
+        onFocus: () => toggle(true, 0),
+        onBlur: () => toggle(false, 0),
+      }
+    : {};
+
+  const cell = (
+    <div className="group relative min-w-0 pb-3.5 pe-4 pt-2.5" {...hover}>
       <button
         type="button"
         aria-pressed={selected}
@@ -132,6 +156,15 @@ function MetricCell({
           >
             {label}
           </span>
+          {detail && (
+            <ChevronDown
+              aria-hidden="true"
+              className={cn(
+                "h-3.5 w-3.5 shrink-0 text-fg-3 transition-transform duration-200 motion-reduce:transition-none",
+                open && "rotate-180 text-fg-1",
+              )}
+            />
+          )}
           {help && (
             // flex 包一层：行内 span 会让「?」按基线排、比文字低约 1px
             <span className="pointer-events-auto flex">
@@ -159,42 +192,56 @@ function MetricCell({
       </div>
     </div>
   );
+
+  if (!detail) return cell;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverAnchor asChild>{cell}</PopoverAnchor>
+      <PopoverContent
+        side="bottom"
+        align="start"
+        sideOffset={2}
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => event.preventDefault()}
+        onPointerEnter={() => toggle(true, 0)}
+        onPointerLeave={() => toggle(false, 150)}
+        className="w-72 border-border bg-surface p-1.5 shadow-v7-md"
+      >
+        {detail}
+      </PopoverContent>
+    </Popover>
+  );
 }
 
-/**
- * Tokens 的一个组成部分：展开行里的一格，和上面的指标格同列、同内边距；
- * 标签在上、数值在下，「?」跟在标签后面。数值不截断。
- * 不加底色：灰底已经表示「选中」，这一行只靠更小的字号和灰字表示是二级指标。
- */
-function SubMetric({
+/** Tokens 构成里的一行：名字在左，完整数值居右，占比在最右 */
+function BreakdownRow({
   label,
   value,
-  title,
+  share,
   muted,
   help,
 }: {
   label: string;
   value: string;
-  title?: string;
+  share?: string;
   muted?: boolean;
   help?: { title: string; body: string };
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5 px-4 py-2.5">
-      <span className="flex h-[18px] items-center gap-0.5 whitespace-nowrap text-caption text-fg-3">
+    <div className="grid grid-cols-[1fr_auto_3rem] items-center gap-x-3 px-2 py-1 text-caption">
+      <span className="flex items-center gap-0.5 whitespace-nowrap text-fg-2">
         {label}
         {help && <HelpTip title={help.title}>{help.body}</HelpTip>}
       </span>
-      <HoverTip content={title} side="right">
-        <span
-          className={cn(
-            "self-start whitespace-nowrap text-section tabular-nums",
-            muted ? "font-medium text-fg-3" : "text-fg-2",
-          )}
-        >
-          {value}
-        </span>
-      </HoverTip>
+      <span
+        className={cn(
+          "tabular-nums",
+          muted ? "font-medium text-fg-3" : "text-fg-1",
+        )}
+      >
+        {value}
+      </span>
+      <span className="text-right tabular-nums text-fg-3">{share ?? ""}</span>
     </div>
   );
 }
@@ -202,7 +249,7 @@ function SubMetric({
 /**
  * 指标条（概览面板顶部）：总成本、总请求数、真实消耗 Tokens、缓存命中率 4 格等宽，
  * 点一格切换下方图表的指标。Tokens 的 4 个组成部分（新增输入、输出、缓存写入、缓存命中）
- * 是可选的展示项：默认收起，点分隔线正中的箭头展开成第二行，和上面 4 列对齐。
+ * 悬停 Tokens 格时在 popover 里二级展示。
  */
 export function UsageHero({
   range,
@@ -217,8 +264,6 @@ export function UsageHero({
   const { t, i18n } = useTranslation();
   const { money, moneyTitle } = useMoneyFormat();
   const locale = getLocaleFromLanguage(getResolvedLang(i18n));
-  const [moreOpen, setMoreOpen] = useState(false);
-  const moreId = useId();
 
   const { data, isLoading } = useUsageSummaryByApp(
     range,
@@ -264,10 +309,61 @@ export function UsageHero({
         ? t("usage.cacheWritePartial")
         : undefined;
 
+  const share = (value: number) =>
+    realTotal > 0 ? `${((value / realTotal) * 100).toFixed(1)}%` : undefined;
+  const breakdown = (
+    <>
+      <div className="px-2 pb-1.5 pt-1">
+        <div className="text-caption text-fg-3">{t("usage.realTotal")}</div>
+        <div className="text-section font-semibold tabular-nums text-fg-1">
+          {placeholder ?? fmtInt(realTotal, locale)}
+        </div>
+      </div>
+      <div className="border-t border-border pt-1">
+        <BreakdownRow
+          label={t("usage.freshInput")}
+          value={placeholder ?? fmtInt(input, locale)}
+          share={share(input)}
+        />
+        <BreakdownRow
+          label={t("usage.outputTokens")}
+          value={placeholder ?? fmtInt(output, locale)}
+          share={share(output)}
+        />
+        <BreakdownRow
+          label={t("usage.logColumns.cacheWrite")}
+          value={
+            cacheWriteState === "na"
+              ? "N/A"
+              : (placeholder ?? fmtInt(cacheWrite, locale))
+          }
+          share={cacheWriteState === "na" ? undefined : share(cacheWrite)}
+          muted={cacheWriteState === "na"}
+          help={
+            cacheWriteHelp
+              ? {
+                  title: t("usage.logColumns.cacheWrite"),
+                  body: cacheWriteHelp,
+                }
+              : undefined
+          }
+        />
+        <BreakdownRow
+          label={t("usage.cacheReadTokens")}
+          value={placeholder ?? fmtInt(cacheRead, locale)}
+          share={share(cacheRead)}
+        />
+      </div>
+      <p className="mt-1 border-t border-border px-2 pb-0.5 pt-1.5 text-[11px] leading-snug text-fg-3">
+        {t("usage.metrics.realTotalHelp")}
+      </p>
+    </>
+  );
+
   return (
     <section
       aria-label={t("usage.metrics.label")}
-      className="relative z-10 border-b border-border"
+      className="relative z-10 mx-4 border-b border-border"
     >
       <div className={cn("grid", columns)}>
         <MetricCell
@@ -287,12 +383,8 @@ export function UsageHero({
         />
         <MetricCell
           label={t("usage.realTotal")}
-          help={{
-            title: t("usage.metrics.realTotalHelpTitle"),
-            body: t("usage.metrics.realTotalHelp"),
-          }}
           value={placeholder ?? tokens(realTotal)}
-          title={exact(fmtInt(realTotal, locale))}
+          detail={breakdown}
           selected={metric === "tokens"}
           onSelect={() => onMetricChange("tokens")}
         />
@@ -309,79 +401,6 @@ export function UsageHero({
           onSelect={() => onMetricChange("hitRate")}
         />
       </div>
-
-      {/* 展开 / 收起：0fr ↔ 1fr 过渡高度；收起时整行 inert，里面的「?」不进 Tab 顺序 */}
-      <div
-        id={moreId}
-        className={cn(
-          "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
-          moreOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-        )}
-        {...(moreOpen ? {} : { inert: "" })}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div className={cn("grid border-t border-border", columns)}>
-            <SubMetric
-              label={t("usage.freshInput")}
-              value={placeholder ?? tokens(input)}
-              title={exact(fmtInt(input, locale))}
-            />
-            <SubMetric
-              label={t("usage.outputTokens")}
-              value={placeholder ?? tokens(output)}
-              title={exact(fmtInt(output, locale))}
-            />
-            <SubMetric
-              label={t("usage.logColumns.cacheWrite")}
-              value={
-                cacheWriteState === "na"
-                  ? "N/A"
-                  : (placeholder ?? tokens(cacheWrite))
-              }
-              title={
-                cacheWriteState === "na"
-                  ? undefined
-                  : exact(fmtInt(cacheWrite, locale))
-              }
-              muted={cacheWriteState === "na"}
-              help={
-                cacheWriteHelp
-                  ? {
-                      title: t("usage.logColumns.cacheWrite"),
-                      body: cacheWriteHelp,
-                    }
-                  : undefined
-              }
-            />
-            <SubMetric
-              label={t("usage.cacheReadTokens")}
-              value={placeholder ?? tokens(cacheRead)}
-              title={exact(fmtInt(cacheRead, locale))}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* 展开按钮压在面板分隔线正中（24 见方的圆，上下各占 12）：上面的指标格底部留 14、下面的图表顶部留 20，都盖得住它；展开时子指标行不另留。
-          只有箭头，名字放 aria-label 和悬停提示 */}
-      <HoverTip content={t("usage.metrics.more")}>
-        <button
-          type="button"
-          aria-label={t("usage.metrics.more")}
-          aria-expanded={moreOpen}
-          aria-controls={moreId}
-          onClick={() => setMoreOpen((open) => !open)}
-          className="absolute bottom-0 left-1/2 inline-flex h-6 w-6 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface text-fg-2 transition-colors hover:bg-subtle hover:text-fg-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <ChevronDown
-            aria-hidden="true"
-            className={cn(
-              "h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none",
-              moreOpen && "rotate-180",
-            )}
-          />
-        </button>
-      </HoverTip>
     </section>
   );
 }

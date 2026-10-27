@@ -68,7 +68,7 @@ export function TablePagination({
   if (totalPages <= 1 && !resizable) return null;
 
   return (
-    <div className="flex h-11 items-center gap-2 border-t border-border bg-subtle px-4 text-caption text-fg-3">
+    <div className="flex h-11 items-center gap-2 px-4 text-caption text-fg-3">
       <span className="tabular-nums">{t("usage.totalRecords", { total })}</span>
       {resizable && (
         <Select

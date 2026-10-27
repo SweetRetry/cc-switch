@@ -48,6 +48,7 @@ export function ProviderIconBox({
         name={name}
         color={color}
         size={tile ? 32 : GLYPH_SIZE}
+        fallbackSize={32}
         className={cn(iconClassName, tile && "object-cover")}
         fallbackClassName={fallbackClassName}
       />
