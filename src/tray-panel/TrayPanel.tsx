@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  Loader2,
   Power,
   Settings,
 } from "lucide-react";
@@ -51,6 +52,11 @@ const SUB_MAX_HEIGHT = 540;
 const HOVER_OPEN_MS = 50;
 /** 正朝子面板移动时隔这么久再看一次：鼠标停下了或偏离了就切换 */
 const AIM_RECHECK_MS = 120;
+/**
+ * 冷开（还没有上次的内容）时最多等数据这么久：平时几十毫秒就到，首帧就是完整内容；
+ * 库被长事务占着（启动期的会话用量导入）时等满就不再等，先出头部和底栏，「退出」不能等它。
+ */
+const COLD_DATA_WAIT_MS = 100;
 /** 鼠标停在主面板里不是应用行的项上（`hovered` 的取值） */
 const OTHER_ITEM = "";
 
@@ -505,6 +511,8 @@ export function TrayPanel() {
   placementRef.current = placement;
   const openAppRef = useRef(openApp);
   openAppRef.current = openApp;
+  /** 已经开始处理的最新一次弹出（`seq`） */
+  const shownSeq = useRef(0);
 
   useEffect(() => {
     const update = () => setPixelRatio(window.devicePixelRatio || 1);
@@ -537,17 +545,42 @@ export function TrayPanel() {
     }
   }, []);
 
-  // 每次弹出：收起子面板、清空搜索、先取数据再排版，显示出来就是新内容。
+  // 每次弹出：收起子面板，数据另取，热开不让排版等它。取数要读库，启动期的会话用量导入
+  // 可能占着库好几秒，等它就是点了没反应。热开先按上次的内容排版显示，数据到了再更新；
+  // 冷开最多等 `COLD_DATA_WAIT_MS`。
   // 设置（币种）也重新读：面板窗口只隐藏不销毁，主窗口改了设置这边收不到。
   const begin = useCallback(
     async (next: PanelPlacement) => {
+      // 窗口刚建好时挂载取回的方位可能晚于、也旧于后来的弹出事件：过期的不用，
+      // 否则按旧 seq 回报的尺寸会被后端丢掉，Windows 上面板就不显示了。
+      if (next.seq <= shownSeq.current) return;
+      shownSeq.current = next.seq;
       syncLanguage();
       setOpenApp(null);
 
-      await Promise.all([
-        load(),
-        queryClient.invalidateQueries({ queryKey: ["settings"] }),
-      ]);
+      const cold = !lastState.current;
+      const loading = load();
+      void queryClient.invalidateQueries({ queryKey: ["settings"] });
+      // 反馈行（切换后的「重启生效」）收起即算看过：沿用上次内容时先去掉。
+      // 缓存键跟着换，收起之后才记下的（还没看过）等数据回来照样显示。
+      if (lastState.current) {
+        const previous = JSON.parse(lastState.current) as TrayPanelState;
+        if (previous.feedback) {
+          const cleared = { ...previous, feedback: null };
+          lastState.current = JSON.stringify(cleared);
+          setState(cleared);
+        }
+      }
+      if (cold) {
+        await Promise.race([
+          loading,
+          new Promise((resolve) =>
+            window.setTimeout(resolve, COLD_DATA_WAIT_MS),
+          ),
+        ]);
+        // 等的时候又弹出了一次：按最新那次排版
+        if (shownSeq.current !== next.seq) return;
+      }
       lastLayout.current = "";
       setShownCount((count) => count + 1);
       setPixelRatio(window.devicePixelRatio || 1);
@@ -895,8 +928,8 @@ export function TrayPanel() {
     return Math.max(0, Math.min(SUB_MAX_HEIGHT / coordinateScale, room));
   }, [placement, coordinateScale]);
 
-  if (!state || !placement) return null;
-  const { texts } = state;
+  if (!placement) return null;
+  const { texts } = placement;
 
   return (
     <div
@@ -954,7 +987,13 @@ export function TrayPanel() {
 
         <div className="tp-scroll min-h-0 flex-1" onScroll={() => relayout()}>
           <div className="flex flex-col gap-0.5 px-1.5 pb-1.5">
-            {state.problems.map((problem) => (
+            {/* 数据没到：列表区先转圈；头部和底部的「打开主窗口 / 退出」照常可用 */}
+            {!state && (
+              <div className="flex justify-center py-6">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            {state?.problems.map((problem) => (
               <button
                 key={problem.id}
                 type="button"
@@ -970,7 +1009,7 @@ export function TrayPanel() {
                 <span>{problem.text}</span>
               </button>
             ))}
-            {state.feedback && (
+            {state?.feedback && (
               <div className="px-2.5 py-1 text-[11.5px] text-muted-foreground">
                 {state.feedback}
               </div>

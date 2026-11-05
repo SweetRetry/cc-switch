@@ -1,3 +1,4 @@
+use super::run_db_task;
 use indexmap::IndexMap;
 use tauri::{Emitter, Manager, State};
 
@@ -22,18 +23,27 @@ const COPILOT_UNIT_PREMIUM: &str = "requests";
 
 /// 获取所有供应商
 #[tauri::command]
-pub fn get_providers(
+pub async fn get_providers(
     state: State<'_, AppState>,
     app: String,
 ) -> Result<IndexMap<String, Provider>, String> {
-    let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
-    ProviderService::list(state.inner(), app_type).map_err(|e| e.to_string())
+    run_db_task(&state, move |state| {
+        let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
+        ProviderService::list(state, app_type).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn get_current_provider(state: State<'_, AppState>, app: String) -> Result<String, String> {
-    let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
-    ProviderService::current(state.inner(), app_type).map_err(|e| e.to_string())
+pub async fn get_current_provider(
+    state: State<'_, AppState>,
+    app: String,
+) -> Result<String, String> {
+    run_db_task(&state, move |state| {
+        let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
+        ProviderService::current(state, app_type).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -122,27 +132,33 @@ pub async fn get_provider_editor_view(
 }
 
 #[tauri::command]
-pub fn delete_provider(
+pub async fn delete_provider(
     state: State<'_, AppState>,
     app: String,
     id: String,
 ) -> Result<bool, String> {
-    let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
-    ProviderService::delete(state.inner(), app_type, &id)
-        .map(|_| true)
-        .map_err(|e| e.to_string())
+    run_db_task(&state, move |state| {
+        let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
+        ProviderService::delete(state, app_type, &id)
+            .map(|_| true)
+            .map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn remove_provider_from_live_config(
+pub async fn remove_provider_from_live_config(
     state: tauri::State<'_, AppState>,
     app: String,
     id: String,
 ) -> Result<bool, String> {
-    let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
-    ProviderService::remove_from_live_config(state.inner(), app_type, &id)
-        .map(|_| true)
-        .map_err(|e| e.to_string())
+    run_db_task(&state, move |state| {
+        let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
+        ProviderService::remove_from_live_config(state, app_type, &id)
+            .map(|_| true)
+            .map_err(|e| e.to_string())
+    })
+    .await
 }
 
 fn switch_provider_internal(
@@ -220,17 +236,26 @@ pub fn import_default_config_test_hook(
 }
 
 #[tauri::command]
-pub fn import_default_config(state: State<'_, AppState>, app: String) -> Result<bool, String> {
-    let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
-    import_default_config_internal(&state, app_type).map_err(Into::into)
+pub async fn import_default_config(
+    state: State<'_, AppState>,
+    app: String,
+) -> Result<bool, String> {
+    run_db_task(&state, move |state| {
+        let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
+        import_default_config_internal(state, app_type).map_err(Into::into)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn ensure_codex_official_provider(state: State<'_, AppState>) -> Result<bool, String> {
-    state
-        .db
-        .ensure_official_seed_by_id(crate::database::CODEX_OFFICIAL_PROVIDER_ID, AppType::Codex)
-        .map_err(|e| e.to_string())
+pub async fn ensure_codex_official_provider(state: State<'_, AppState>) -> Result<bool, String> {
+    run_db_task(&state, move |state| {
+        state
+            .db
+            .ensure_official_seed_by_id(crate::database::CODEX_OFFICIAL_PROVIDER_ID, AppType::Codex)
+            .map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[allow(non_snake_case)]
@@ -604,50 +629,62 @@ pub async fn test_api_endpoints(
 }
 
 #[tauri::command]
-pub fn get_custom_endpoints(
+pub async fn get_custom_endpoints(
     state: State<'_, AppState>,
     app: String,
     #[allow(non_snake_case)] providerId: String,
 ) -> Result<Vec<crate::settings::CustomEndpoint>, String> {
-    let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
-    ProviderService::get_custom_endpoints(state.inner(), app_type, &providerId)
-        .map_err(|e| e.to_string())
+    run_db_task(&state, move |state| {
+        let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
+        ProviderService::get_custom_endpoints(state, app_type, &providerId)
+            .map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn add_custom_endpoint(
+pub async fn add_custom_endpoint(
     state: State<'_, AppState>,
     app: String,
     #[allow(non_snake_case)] providerId: String,
     url: String,
 ) -> Result<(), String> {
-    let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
-    ProviderService::add_custom_endpoint(state.inner(), app_type, &providerId, url)
-        .map_err(|e| e.to_string())
+    run_db_task(&state, move |state| {
+        let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
+        ProviderService::add_custom_endpoint(state, app_type, &providerId, url)
+            .map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn remove_custom_endpoint(
+pub async fn remove_custom_endpoint(
     state: State<'_, AppState>,
     app: String,
     #[allow(non_snake_case)] providerId: String,
     url: String,
 ) -> Result<(), String> {
-    let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
-    ProviderService::remove_custom_endpoint(state.inner(), app_type, &providerId, url)
-        .map_err(|e| e.to_string())
+    run_db_task(&state, move |state| {
+        let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
+        ProviderService::remove_custom_endpoint(state, app_type, &providerId, url)
+            .map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn update_endpoint_last_used(
+pub async fn update_endpoint_last_used(
     state: State<'_, AppState>,
     app: String,
     #[allow(non_snake_case)] providerId: String,
     url: String,
 ) -> Result<(), String> {
-    let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
-    ProviderService::update_endpoint_last_used(state.inner(), app_type, &providerId, url)
-        .map_err(|e| e.to_string())
+    run_db_task(&state, move |state| {
+        let app_type = AppType::from_str(&app).map_err(|e| e.to_string())?;
+        ProviderService::update_endpoint_last_used(state, app_type, &providerId, url)
+            .map_err(|e| e.to_string())
+    })
+    .await
 }
 
 /// Save provider order serially and refresh the tray after committing it.
@@ -668,9 +705,14 @@ pub async fn update_providers_sort_order(
 }
 
 #[tauri::command]
-pub fn import_opencode_providers_from_live(state: State<'_, AppState>) -> Result<usize, String> {
-    crate::services::provider::import_opencode_providers_from_live(state.inner())
-        .map_err(|e| e.to_string())
+pub async fn import_opencode_providers_from_live(
+    state: State<'_, AppState>,
+) -> Result<usize, String> {
+    run_db_task(&state, move |state| {
+        crate::services::provider::import_opencode_providers_from_live(state)
+            .map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
