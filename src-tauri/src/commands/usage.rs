@@ -183,58 +183,61 @@ pub async fn get_request_detail(
 
 /// 获取模型定价列表
 #[tauri::command]
-pub fn get_model_pricing(state: State<'_, AppState>) -> Result<Vec<ModelPricingInfo>, AppError> {
-    log::info!("获取模型定价列表");
-    state.db.ensure_model_pricing_seeded()?;
-    crate::services::model_pricing::sync_local_model_pricing(&state.db)?;
+pub async fn get_model_pricing(
+    state: State<'_, AppState>,
+) -> Result<Vec<ModelPricingInfo>, AppError> {
+    run_db_query(&state, move |db| {
+        log::info!("获取模型定价列表");
+        db.ensure_model_pricing_seeded()?;
+        crate::services::model_pricing::sync_local_model_pricing(db)?;
+        let conn = crate::database::lock_conn!(db.conn);
 
-    let db = state.db.clone();
-    let conn = crate::database::lock_conn!(db.conn);
+        // 检查表是否存在
+        let table_exists: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='model_pricing'",
+                [],
+                |row| row.get::<_, i64>(0).map(|count| count > 0),
+            )
+            .unwrap_or(false);
 
-    // 检查表是否存在
-    let table_exists: bool = conn
-        .query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='model_pricing'",
-            [],
-            |row| row.get::<_, i64>(0).map(|count| count > 0),
-        )
-        .unwrap_or(false);
+        if !table_exists {
+            log::error!("model_pricing 表不存在,可能需要重启应用以触发数据库迁移");
+            return Ok(Vec::new());
+        }
 
-    if !table_exists {
-        log::error!("model_pricing 表不存在,可能需要重启应用以触发数据库迁移");
-        return Ok(Vec::new());
-    }
-
-    let mut stmt = conn.prepare(
-        "SELECT model_id, display_name, input_cost_per_million, output_cost_per_million,
+        let mut stmt = conn.prepare(
+            "SELECT model_id, display_name, input_cost_per_million, output_cost_per_million,
                 cache_read_cost_per_million, cache_creation_cost_per_million
          FROM model_pricing
          ORDER BY display_name",
-    )?;
+        )?;
 
-    let rows = stmt.query_map([], |row| {
-        Ok(ModelPricingInfo {
-            model_id: row.get(0)?,
-            display_name: row.get(1)?,
-            input_cost_per_million: row.get(2)?,
-            output_cost_per_million: row.get(3)?,
-            cache_read_cost_per_million: row.get(4)?,
-            cache_creation_cost_per_million: row.get(5)?,
-        })
-    })?;
+        let rows = stmt.query_map([], |row| {
+            Ok(ModelPricingInfo {
+                model_id: row.get(0)?,
+                display_name: row.get(1)?,
+                input_cost_per_million: row.get(2)?,
+                output_cost_per_million: row.get(3)?,
+                cache_read_cost_per_million: row.get(4)?,
+                cache_creation_cost_per_million: row.get(5)?,
+            })
+        })?;
 
-    let mut pricing = Vec::new();
-    for row in rows {
-        pricing.push(row?);
-    }
+        let mut pricing = Vec::new();
+        for row in rows {
+            pricing.push(row?);
+        }
 
-    log::info!("成功获取 {} 条模型定价数据", pricing.len());
-    Ok(pricing)
+        log::info!("成功获取 {} 条模型定价数据", pricing.len());
+        Ok(pricing)
+    })
+    .await
 }
 
 /// 更新模型定价
 #[tauri::command]
-pub fn update_model_pricing(
+pub async fn update_model_pricing(
     state: State<'_, AppState>,
     model_id: String,
     display_name: String,
@@ -243,69 +246,93 @@ pub fn update_model_pricing(
     cache_read_cost: String,
     cache_creation_cost: String,
 ) -> Result<(), AppError> {
-    crate::services::model_pricing::update_model_pricing(
-        &state.db,
-        ModelPricingInfo {
-            model_id,
-            display_name,
-            input_cost_per_million: input_cost,
-            output_cost_per_million: output_cost,
-            cache_read_cost_per_million: cache_read_cost,
-            cache_creation_cost_per_million: cache_creation_cost,
-        },
-    )?;
-    Ok(())
+    run_db_query(&state, move |db| {
+        crate::services::model_pricing::update_model_pricing(
+            db,
+            ModelPricingInfo {
+                model_id,
+                display_name,
+                input_cost_per_million: input_cost,
+                output_cost_per_million: output_cost,
+                cache_read_cost_per_million: cache_read_cost,
+                cache_creation_cost_per_million: cache_creation_cost,
+            },
+        )?;
+        Ok(())
+    })
+    .await
 }
 
 /// 批量更新模型定价（models.dev 自动同步仅触发一次历史成本回填）
 #[tauri::command]
-pub fn update_model_pricing_batch(
+pub async fn update_model_pricing_batch(
     state: State<'_, AppState>,
     entries: Vec<ModelPricingInfo>,
 ) -> Result<usize, AppError> {
-    crate::services::model_pricing::update_model_pricing_batch(&state.db, entries)
+    run_db_query(&state, move |db| {
+        crate::services::model_pricing::update_model_pricing_batch(db, entries)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn get_models_dev_sync_config(
+pub async fn get_models_dev_sync_config(
     state: State<'_, AppState>,
 ) -> Result<ModelsDevSyncState, AppError> {
-    crate::services::model_pricing::get_models_dev_sync_state(&state.db)
+    run_db_query(&state, move |db| {
+        crate::services::model_pricing::get_models_dev_sync_state(db)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn save_models_dev_sync_config(
+pub async fn save_models_dev_sync_config(
     state: State<'_, AppState>,
     config: ModelsDevSyncConfig,
 ) -> Result<(), AppError> {
-    crate::services::model_pricing::save_models_dev_sync_config(&state.db, config)
+    run_db_query(&state, move |db| {
+        crate::services::model_pricing::save_models_dev_sync_config(db, config)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn record_models_dev_sync_result(
+pub async fn record_models_dev_sync_result(
     state: State<'_, AppState>,
     synced_at: Option<i64>,
     error: Option<String>,
 ) -> Result<(), AppError> {
-    crate::services::model_pricing::record_models_dev_sync_result(&state.db, synced_at, error)
+    run_db_query(&state, move |db| {
+        crate::services::model_pricing::record_models_dev_sync_result(db, synced_at, error)
+    })
+    .await
 }
 
 /// 检查 Provider 使用限额
 #[tauri::command]
-pub fn check_provider_limits(
+pub async fn check_provider_limits(
     state: State<'_, AppState>,
     provider_id: String,
     app_type: String,
 ) -> Result<crate::services::usage_stats::ProviderLimitStatus, AppError> {
-    state.db.check_provider_limits(&provider_id, &app_type)
+    run_db_query(&state, move |db| {
+        db.check_provider_limits(&provider_id, &app_type)
+    })
+    .await
 }
 
 /// 删除模型定价
 #[tauri::command]
-pub fn delete_model_pricing(state: State<'_, AppState>, model_id: String) -> Result<(), AppError> {
-    crate::services::model_pricing::delete_model_pricing(&state.db, &model_id)?;
-    log::info!("已删除模型定价: {model_id}");
-    Ok(())
+pub async fn delete_model_pricing(
+    state: State<'_, AppState>,
+    model_id: String,
+) -> Result<(), AppError> {
+    run_db_query(&state, move |db| {
+        crate::services::model_pricing::delete_model_pricing(db, &model_id)?;
+        log::info!("已删除模型定价: {model_id}");
+        Ok(())
+    })
+    .await
 }
 
 /// 手动触发会话日志同步
@@ -362,10 +389,13 @@ pub async fn rebuild_codex_usage(
 
 /// 获取数据来源分布
 #[tauri::command]
-pub fn get_usage_data_sources(
+pub async fn get_usage_data_sources(
     state: State<'_, AppState>,
 ) -> Result<Vec<crate::services::session_usage::DataSourceSummary>, AppError> {
-    crate::services::session_usage::get_data_source_breakdown(&state.db)
+    run_db_query(&state, move |db| {
+        crate::services::session_usage::get_data_source_breakdown(db)
+    })
+    .await
 }
 
 #[cfg(test)]

@@ -4,6 +4,7 @@
 //! - 支持 Claude Code、Codex、OpenCode、Pi 和 Antigravity 开关
 //! - SSOT 存储在 ~/.cc-switch/skills/
 
+use super::run_db_task;
 use crate::app_config::{AppType, InstalledSkill, UnmanagedSkill};
 use crate::services::skill::{
     ImportSkillSelection, SkillAppSyncOutcome, SkillBackupEntry, SkillService,
@@ -27,8 +28,13 @@ fn parse_app_type(app: &str) -> Result<AppType, String> {
 
 /// 获取所有已安装的 Skills
 #[tauri::command]
-pub fn get_installed_skills(app_state: State<'_, AppState>) -> Result<Vec<InstalledSkill>, String> {
-    SkillService::get_all_installed(&app_state.db).map_err(|e| e.to_string())
+pub async fn get_installed_skills(
+    app_state: State<'_, AppState>,
+) -> Result<Vec<InstalledSkill>, String> {
+    run_db_task(&app_state, move |state| {
+        SkillService::get_all_installed(&state.db).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -44,52 +50,67 @@ pub fn delete_skill_backup(backup_id: String) -> Result<bool, String> {
 
 /// 卸载 Skill（新版统一卸载）
 #[tauri::command]
-pub fn uninstall_skill_unified(
+pub async fn uninstall_skill_unified(
     id: String,
     app_state: State<'_, AppState>,
 ) -> Result<SkillUninstallResult, String> {
-    SkillService::uninstall(&app_state.db, &id).map_err(|e| e.to_string())
+    run_db_task(&app_state, move |state| {
+        SkillService::uninstall(&state.db, &id).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn restore_skill_backup(
+pub async fn restore_skill_backup(
     backup_id: String,
     current_app: String,
     app_state: State<'_, AppState>,
 ) -> Result<InstalledSkill, String> {
-    let app_type = parse_app_type(&current_app)?;
-    SkillService::restore_from_backup(&app_state.db, &backup_id, &app_type)
-        .map_err(|e| e.to_string())
+    run_db_task(&app_state, move |state| {
+        let app_type = parse_app_type(&current_app)?;
+        SkillService::restore_from_backup(&state.db, &backup_id, &app_type)
+            .map_err(|e| e.to_string())
+    })
+    .await
 }
 
 /// 切换 Skill 的应用启用状态
 #[tauri::command]
-pub fn toggle_skill_app(
+pub async fn toggle_skill_app(
     id: String,
     app: String,
     enabled: bool,
     app_state: State<'_, AppState>,
 ) -> Result<bool, String> {
-    let app_type = parse_app_type(&app)?;
-    SkillService::toggle_app(&app_state.db, &id, &app_type, enabled).map_err(|e| e.to_string())?;
-    Ok(true)
+    run_db_task(&app_state, move |state| {
+        let app_type = parse_app_type(&app)?;
+        SkillService::toggle_app(&state.db, &id, &app_type, enabled).map_err(|e| e.to_string())?;
+        Ok(true)
+    })
+    .await
 }
 
 /// 扫描未管理的 Skills
 #[tauri::command]
-pub fn scan_unmanaged_skills(
+pub async fn scan_unmanaged_skills(
     app_state: State<'_, AppState>,
 ) -> Result<Vec<UnmanagedSkill>, String> {
-    SkillService::scan_unmanaged(&app_state.db).map_err(|e| e.to_string())
+    run_db_task(&app_state, move |state| {
+        SkillService::scan_unmanaged(&state.db).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 /// 从应用目录导入 Skills
 #[tauri::command]
-pub fn import_skills_from_apps(
+pub async fn import_skills_from_apps(
     imports: Vec<ImportSkillSelection>,
     app_state: State<'_, AppState>,
 ) -> Result<Vec<InstalledSkill>, String> {
-    SkillService::import_from_apps(&app_state.db, imports).map_err(|e| e.to_string())
+    run_db_task(&app_state, move |state| {
+        SkillService::import_from_apps(&state.db, imports).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 /// 检查 Skills 更新，并逐仓库报告没读到的仓库
