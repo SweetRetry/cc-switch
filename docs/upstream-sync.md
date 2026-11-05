@@ -35,30 +35,19 @@ Fork point: `42ef63471f0ed879913f8de0d0c7e3e580293193` (upstream v4.0.20-50，20
 | `c70d61de` | Linux AppImage 不再打包 libwayland-client | port.sh | #1 |
 | `91a76cfd` `98777515` | 等数据库锁的同步命令移出 UI 线程 | 手工移植 | #2 |
 | `f8f487b1` | 托盘面板不等数据先显示 | 手工移植 | #2 |
+| `ef7b77de` | smol-toml 升级到 1.9.1（CVE-2026-85730） | 重新生成 lockfile | #3 |
+| `ed494fbc` | OpenCode V2 连通性检查读 `settings.baseURL` | 手工解决冲突 | #3 |
+| `51fce968` | Kimi 预设默认模型改为 kimi-k3.1-pro | 只取 Kimi 部分 | #3 |
+| `3817c2b2` | 供应商表单的配置编辑器互相覆盖 | 手工移植 | #3 |
 
 ## 待跟进
 
-都需要手工移植。
+看用户群决定，都需要手工移植。
 
-| upstream | 内容 | 备注 |
+| upstream | 内容 | 什么情况下跟 |
 | --- | --- | --- |
-| `3817c2b2` | 供应商表单的配置编辑器互相覆盖 | |
-| `51fce968` | Kimi 预设默认模型从 K2 换成 K3.1 Pro | 只取预设部分。K2 已不对新用户开放 |
-| `ef7b77de` | smol-toml 升级到 1.9.1 | 修 CVE-2026-85730 |
-| `1cc2c732` | Pi MCP 同步规则 | |
-| `69b41cdb` | 导入 Pi 官方 subagent 用量 | |
-| `ed494fbc` | OpenCode V2 连通性检查读 `settings.baseURL` | |
-| `5c14e917` | models.dev 经后端代理感知客户端获取 | |
-| `869c0b27` | 非当前供应商的余额也刷新 | |
-| `e78f641c` | 拿不到版本号的 CLI 显示为不可运行 | |
-| `153db16e` | Windows 关闭 WebView2 自动填充 | |
-| `e55d8a21` | Windows 第三方托盘宿主的点击 | |
-| `c1fb9eec` | Linux 托盘图标存到 cache 目录 | |
-| `832fbe65` | Codex OAuth keep-alive 测试的不稳定 | 测试修复。本地全量 `cargo test` 会偶发失败 |
-| `50a51b86` | 推迟维护任务，隐藏窗口暂停刷新 | 优化 |
-| `fc9b17cb` | 批量读 endpoint，跳过未变化的保存 | 优化 |
-| `ca58c031` | 次级页面和编辑器懒加载 | 优化 |
-| `cc4ce038` | 轻量模式释放缓存 | 优化。只取 `lightweight.rs` |
+| `1cc2c732` | Pi MCP 同步规则。没装 Pi 时不再创建 `~/.pi/agent/mcp.json`，SSE 服务器不再被导入启用 | Pi 是重点支持的应用 |
+| `153db16e` | Windows 关闭 WebView2 自动填充，避免表单值被改掉 | 有 Windows 用户 |
 
 ## 不跟进（有判断的）
 
@@ -75,6 +64,15 @@ Fork point: `42ef63471f0ed879913f8de0d0c7e3e580293193` (upstream v4.0.20-50，20
 | `67cce7ad` `0133facc` | 依赖账号中心的绑定流程 |
 | `a62203bb` `7f82b85b` | 视觉细节 |
 | `2186b305` | 只是一句提示文案 |
+| `69b41cdb` | 只影响用 Pi 官方 subagent 扩展的人，少算一部分用量 |
+| `869c0b27` | 非当前供应商的余额旧一点，只是显示 |
+| `e78f641c` | 坏掉的 CLI 在应用页显示不一致，罕见且只是显示 |
+| `5c14e917` | 只在只能走代理的网络里有用。我们已删全局代理设置，后端和 WebView 都走系统代理 |
+| `e55d8a21` | 只影响 MyDockFinder 这类第三方托盘宿主 |
+| `c1fb9eec` | Linux 托盘图标路径，upstream 未说明原因，没有相关问题报告 |
+| `832fbe65` | 只修一个不稳定的测试，上 CI 时再拿 |
+| `50a51b86` `fc9b17cb` `ca58c031` `cc4ce038` | 性能优化，没测量过也没有卡顿反馈；主要卡顿已在 #2 解决 |
+| `51fce968` 其余部分 | Grok 默认模型升到 4.7，旧版仍可用 |
 | 预设新增与域名迁移 | 产品迭代，按需再看 |
 
 ## 已知测试问题
